@@ -89,6 +89,18 @@ export default function Header({ onMenuClick }: HeaderProps) {
           <Button color="primary" component={Link} href="/features">
             Features
           </Button>
+          <Button color="primary" component={Link} href="/rag-dashboard">
+            RAG Dashboard
+          </Button>
+          <Button color="primary" component={Link} href="/scanner">
+            Scanner
+          </Button>
+          <Button color="primary" component={Link} href="/results">
+            Results
+          </Button>
+          <Button color="primary" component={Link} href="/retrieve">
+            Retrieve
+          </Button>
           {isAuthenticated ? (
             <Typography variant="body2" sx={{ ml: 2 }}>
               {user?.name}
