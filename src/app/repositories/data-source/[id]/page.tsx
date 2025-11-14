@@ -11,6 +11,7 @@ import {
   Paper,
   List,
   ListItem,
+  ListItemButton,
   ListItemText,
   ListItemSecondaryAction,
   CircularProgress,
@@ -45,6 +46,7 @@ export default function ConnectorDetailPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [scanning, setScanning] = useState(false)
+  const [selectedPathId, setSelectedPathId] = useState<string | null>(null)
   const [scanResults, setScanResults] = useState<{ totalFiles: number; totalFolders: number; data: FileStructure; source?: string } | null>(null)
   const [scanData, setScanData] = useState<FileStructure | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -147,13 +149,51 @@ export default function ConnectorDetailPage() {
       const updatedPaths = await getConnectorPaths(configId)
       setPaths(updatedPaths)
       // Clear scan data if the deleted path was the one being displayed
-      if (scanData) {
+      if (selectedPathId === pathId) {
         setScanData(null)
         setScanResults(null)
+        setSelectedPathId(null)
       }
     } catch (error: any) {
       console.error('Failed to delete path:', error)
       alert(`Failed to delete path: ${error.message || 'Unknown error'}`)
+    }
+  }
+
+  const handlePathClick = async (path: ConnectorPath) => {
+    setSelectedPathId(path.id)
+    setScanning(true)
+    setError(null)
+    setSuccess(false)
+    setScanData(null)
+    setScanResults(null)
+
+    try {
+      const response = await fetch('/api/local/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ directoryPath: path.path }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to scan directory' }))
+        throw new Error(errorData.error || 'Failed to scan directory')
+      }
+
+      const scanDataResponse = await response.json()
+      setScanData(scanDataResponse.data)
+      setScanResults({
+        totalFiles: scanDataResponse.totalFiles || 0,
+        totalFolders: scanDataResponse.totalFolders || 0,
+        data: scanDataResponse.data,
+        source: scanDataResponse.metadata?.source || 'local',
+      })
+      setSuccess(true)
+    } catch (scanErr: any) {
+      console.error('Scan error:', scanErr)
+      setError(`Failed to scan directory: ${scanErr.message}`)
+    } finally {
+      setScanning(false)
     }
   }
 
@@ -251,13 +291,9 @@ export default function ConnectorDetailPage() {
             <List>
               {paths.map((path, index) => (
                 <React.Fragment key={path.id}>
-                  <ListItem>
-                    <ListItemText
-                      primary={path.name}
-                      secondary={path.path}
-                      primaryTypographyProps={{ fontWeight: 500 }}
-                    />
-                    <ListItemSecondaryAction>
+                  <ListItem
+                    disablePadding
+                    secondaryAction={
                       <IconButton
                         edge="end"
                         aria-label="delete"
@@ -266,10 +302,26 @@ export default function ConnectorDetailPage() {
                           handleDeletePath(path.id)
                         }}
                         color="error"
+                        sx={{ mr: 1 }}
                       >
                         <DeleteIcon />
                       </IconButton>
-                    </ListItemSecondaryAction>
+                    }
+                  >
+                    <ListItemButton
+                      onClick={() => handlePathClick(path)}
+                      selected={selectedPathId === path.id}
+                      disabled={scanning}
+                    >
+                      <ListItemText
+                        primary={path.name}
+                        secondary={path.path}
+                        primaryTypographyProps={{ fontWeight: 500 }}
+                      />
+                      {scanning && selectedPathId === path.id && (
+                        <CircularProgress size={20} sx={{ ml: 2 }} />
+                      )}
+                    </ListItemButton>
                   </ListItem>
                   {index < paths.length - 1 && <Divider />}
                 </React.Fragment>
