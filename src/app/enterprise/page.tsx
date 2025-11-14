@@ -97,10 +97,10 @@ export default function EnterprisePage() {
         maxWidth={false}
         PaperProps={{
           sx: {
-            width: '80vw',
-            maxWidth: '1600px',
-            height: '80vh',
-            maxHeight: '1200px',
+            width: '40vw',
+            maxWidth: '800px',
+            height: '40vh',
+            maxHeight: '600px',
             m: 2,
           },
         }}
