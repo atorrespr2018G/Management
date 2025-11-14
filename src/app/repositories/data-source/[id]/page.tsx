@@ -20,6 +20,8 @@ import {
   Chip,
   Card,
   CardContent,
+  Tabs,
+  Tab,
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import AddIcon from '@mui/icons-material/Add'
@@ -49,6 +51,8 @@ export default function ConnectorDetailPage() {
   const [selectedPathId, setSelectedPathId] = useState<string | null>(null)
   const [scanResults, setScanResults] = useState<{ totalFiles: number; totalFolders: number; data: FileStructure; source?: string } | null>(null)
   const [scanData, setScanData] = useState<FileStructure | null>(null)
+  const [allPathResults, setAllPathResults] = useState<Map<string, { path: ConnectorPath; data: FileStructure; results: { totalFiles: number; totalFolders: number; source?: string } }>>(new Map())
+  const [currentTab, setCurrentTab] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
@@ -100,6 +104,9 @@ export default function ConnectorDetailPage() {
       // Reload paths to ensure we have the latest data
       const updatedPaths = await getConnectorPaths(configId)
       setPaths(updatedPaths)
+      
+      // Find the newly added path
+      const newPathEntry = updatedPaths.find(p => p.path === pathToScan)
 
       // Then scan the directory
       setScanning(true)
@@ -116,13 +123,32 @@ export default function ConnectorDetailPage() {
         }
 
         const scanDataResponse = await response.json()
-        setScanData(scanDataResponse.data)
-        setScanResults({
+        const results = {
           totalFiles: scanDataResponse.totalFiles || 0,
           totalFolders: scanDataResponse.totalFolders || 0,
           data: scanDataResponse.data,
           source: scanDataResponse.metadata?.source || 'local',
-        })
+        }
+        setScanData(scanDataResponse.data)
+        setScanResults(results)
+        
+        // Store results for the newly added path
+        if (newPathEntry) {
+          setAllPathResults(prev => {
+            const updated = new Map(prev)
+            updated.set(newPathEntry.id, {
+              path: newPathEntry,
+              data: scanDataResponse.data,
+              results: {
+                totalFiles: results.totalFiles,
+                totalFolders: results.totalFolders,
+                source: results.source,
+              }
+            })
+            return updated
+          })
+        }
+        
         setSuccess(true)
       } catch (scanErr: any) {
         console.error('Scan error:', scanErr)
@@ -154,6 +180,12 @@ export default function ConnectorDetailPage() {
         setScanResults(null)
         setSelectedPathId(null)
       }
+      // Remove from allPathResults
+      setAllPathResults(prev => {
+        const updated = new Map(prev)
+        updated.delete(pathId)
+        return updated
+      })
     } catch (error: any) {
       console.error('Failed to delete path:', error)
       alert(`Failed to delete path: ${error.message || 'Unknown error'}`)
@@ -181,13 +213,30 @@ export default function ConnectorDetailPage() {
       }
 
       const scanDataResponse = await response.json()
-      setScanData(scanDataResponse.data)
-      setScanResults({
+      const results = {
         totalFiles: scanDataResponse.totalFiles || 0,
         totalFolders: scanDataResponse.totalFolders || 0,
         data: scanDataResponse.data,
         source: scanDataResponse.metadata?.source || 'local',
+      }
+      setScanData(scanDataResponse.data)
+      setScanResults(results)
+      
+      // Store results for this path in allPathResults
+      setAllPathResults(prev => {
+        const updated = new Map(prev)
+        updated.set(path.id, {
+          path,
+          data: scanDataResponse.data,
+          results: {
+            totalFiles: results.totalFiles,
+            totalFolders: results.totalFolders,
+            source: results.source,
+          }
+        })
+        return updated
       })
+      
       setSuccess(true)
     } catch (scanErr: any) {
       console.error('Scan error:', scanErr)
@@ -275,74 +324,141 @@ export default function ConnectorDetailPage() {
           )}
         </Paper>
 
-        {/* Paths List */}
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-            Configured Paths ({paths.length})
-          </Typography>
-          {paths.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <FolderIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-              <Typography variant="body1" color="text.secondary">
-                No paths configured yet. Add a path above to get started.
-              </Typography>
-            </Box>
-          ) : (
-            <List>
-              {paths.map((path, index) => (
-                <React.Fragment key={path.id}>
-                  <ListItem
-                    disablePadding
-                    secondaryAction={
-                      <IconButton
-                        edge="end"
-                        aria-label="delete"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDeletePath(path.id)
-                        }}
-                        color="error"
-                        sx={{ mr: 1 }}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    }
-                  >
-                    <ListItemButton
-                      onClick={() => handlePathClick(path)}
-                      selected={selectedPathId === path.id}
-                      disabled={scanning}
-                    >
-                      <ListItemText
-                        primary={path.name}
-                        secondary={path.path}
-                        primaryTypographyProps={{ fontWeight: 500 }}
-                      />
-                      {scanning && selectedPathId === path.id && (
-                        <CircularProgress size={20} sx={{ ml: 2 }} />
-                      )}
-                    </ListItemButton>
-                  </ListItem>
-                  {index < paths.length - 1 && <Divider />}
-                </React.Fragment>
-              ))}
-            </List>
-          )}
+        {/* Tabs Section */}
+        <Paper sx={{ mb: 3 }}>
+          <Tabs value={currentTab} onChange={(e, newValue) => setCurrentTab(newValue)}>
+            <Tab label={`Paths (${paths.length})`} />
+            <Tab label={`All Results (${allPathResults.size})`} />
+          </Tabs>
         </Paper>
 
-        {/* Scan Results Section - Using RAG component */}
-        {scanData && scanResults && (
-          <Box sx={{ mt: 4 }}>
-            <ScanResultsDisplay
-              scanResults={{
-                data: scanData,
-                totalFiles: scanResults.totalFiles,
-                totalFolders: scanResults.totalFolders,
-                source: scanResults.source || 'local',
-                metadata: { source: scanResults.source || 'local' },
-              }}
-              showActionButtons={false}
-            />
+        {/* Tab Content */}
+        {currentTab === 0 && (
+          <>
+            {/* Paths List */}
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                Configured Paths ({paths.length})
+              </Typography>
+              {paths.length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 4 }}>
+                  <FolderIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                  <Typography variant="body1" color="text.secondary">
+                    No paths configured yet. Add a path above to get started.
+                  </Typography>
+                </Box>
+              ) : (
+                <List>
+                  {paths.map((path, index) => (
+                    <React.Fragment key={path.id}>
+                      <ListItem
+                        disablePadding
+                        secondaryAction={
+                          <IconButton
+                            edge="end"
+                            aria-label="delete"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeletePath(path.id)
+                            }}
+                            color="error"
+                            sx={{ mr: 1 }}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        }
+                      >
+                        <ListItemButton
+                          onClick={() => handlePathClick(path)}
+                          selected={selectedPathId === path.id}
+                          disabled={scanning}
+                        >
+                          <ListItemText
+                            primary={path.name}
+                            secondary={path.path}
+                            primaryTypographyProps={{ fontWeight: 500 }}
+                          />
+                          {scanning && selectedPathId === path.id && (
+                            <CircularProgress size={20} sx={{ ml: 2 }} />
+                          )}
+                        </ListItemButton>
+                      </ListItem>
+                      {index < paths.length - 1 && <Divider />}
+                    </React.Fragment>
+                  ))}
+                </List>
+              )}
+            </Paper>
+
+            {/* Scan Results Section for Selected Path - Using RAG component */}
+            {scanData && scanResults && (
+              <Box sx={{ mt: 4 }}>
+                <ScanResultsDisplay
+                  scanResults={{
+                    data: scanData,
+                    totalFiles: scanResults.totalFiles,
+                    totalFolders: scanResults.totalFolders,
+                    source: scanResults.source || 'local',
+                    metadata: { source: scanResults.source || 'local' },
+                  }}
+                  showActionButtons={false}
+                />
+              </Box>
+            )}
+          </>
+        )}
+
+        {currentTab === 1 && (
+          <Box>
+            {allPathResults.size === 0 ? (
+              <Paper sx={{ p: 4, textAlign: 'center' }}>
+                <FolderIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                  No scan results yet
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Click on a path in the "Paths" tab to scan and view results
+                </Typography>
+              </Paper>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {Array.from(allPathResults.values()).map((pathResult, index) => (
+                  <Box key={pathResult.path.id}>
+                    <Paper sx={{ p: 2, mb: 2, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+                      <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                        {pathResult.path.name}
+                      </Typography>
+                      <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                        {pathResult.path.path}
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
+                        <Chip 
+                          label={`Files: ${pathResult.results.totalFiles}`} 
+                          size="small" 
+                          sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
+                        />
+                        <Chip 
+                          label={`Folders: ${pathResult.results.totalFolders}`} 
+                          size="small" 
+                          sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
+                        />
+                      </Box>
+                    </Paper>
+                    <ScanResultsDisplay
+                      scanResults={{
+                        data: pathResult.data,
+                        totalFiles: pathResult.results.totalFiles,
+                        totalFolders: pathResult.results.totalFolders,
+                        source: pathResult.results.source || 'local',
+                        metadata: { source: pathResult.results.source || 'local' },
+                      }}
+                      showActionButtons={false}
+                    />
+                    {index < allPathResults.size - 1 && <Divider sx={{ my: 4 }} />}
+                  </Box>
+                ))}
+              </Box>
+            )}
           </Box>
         )}
       </Box>
