@@ -95,3 +95,34 @@ export interface HealthCheck {
   error?: string;
 }
 
+export interface ConnectorConfig {
+  id: string;
+  connector_type: string;
+  name: string;
+  directory_path: string;
+  machine_id?: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConnectorConfigRequest {
+  connector_type: string;
+  name: string;
+  directory_path: string;
+  machine_id?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface ConnectorPath {
+  id: string;
+  path: string;
+  name: string;
+  created_at: string;
+}
+
+export interface ConnectorPathRequest {
+  path: string;
+  name?: string;
+}
+

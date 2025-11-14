@@ -14,6 +14,10 @@ import type {
   RelationshipStats,
   SemanticRelationshipOptions,
   UploadOptions,
+  ConnectorConfig,
+  ConnectorConfigRequest,
+  ConnectorPath,
+  ConnectorPathRequest,
 } from '@/types/neo4j';
 
 // Helper function to make API calls
@@ -246,5 +250,53 @@ export const searchRelationships = async (options: {
   }
   
   return apiCall(`/api/graph/search-relationships?${params.toString()}`);
+};
+
+// Connector Configuration
+export const createConnectorConfig = async (
+  config: ConnectorConfigRequest
+): Promise<ConnectorConfig> => {
+  return apiCall<ConnectorConfig>('/api/connectors', {
+    method: 'POST',
+    body: JSON.stringify(config),
+  });
+};
+
+export const getConnectorConfigs = async (
+  connectorType?: string
+): Promise<ConnectorConfig[]> => {
+  const params = connectorType ? `?connector_type=${connectorType}` : '';
+  return apiCall<ConnectorConfig[]>(`/api/connectors${params}`);
+};
+
+export const deleteConnectorConfig = async (configId: string): Promise<any> => {
+  return apiCall(`/api/connectors/${configId}`, {
+    method: 'DELETE',
+  });
+};
+
+export const getConnectorConfig = async (configId: string): Promise<ConnectorConfig> => {
+  return apiCall<ConnectorConfig>(`/api/connectors/${configId}`);
+};
+
+// Connector Paths
+export const getConnectorPaths = async (configId: string): Promise<ConnectorPath[]> => {
+  return apiCall<ConnectorPath[]>(`/api/connectors/${configId}/paths`);
+};
+
+export const addConnectorPath = async (
+  configId: string,
+  path: ConnectorPathRequest
+): Promise<ConnectorPath> => {
+  return apiCall<ConnectorPath>(`/api/connectors/${configId}/paths`, {
+    method: 'POST',
+    body: JSON.stringify(path),
+  });
+};
+
+export const deleteConnectorPath = async (configId: string, pathId: string): Promise<any> => {
+  return apiCall(`/api/connectors/${configId}/paths/${pathId}`, {
+    method: 'DELETE',
+  });
 };
 

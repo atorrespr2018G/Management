@@ -14,8 +14,13 @@ import {
   DialogActions,
   Button,
   IconButton,
+  TextField,
+  Alert,
+  CircularProgress,
 } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
+import { createConnectorConfig } from '@/services/neo4jApi'
+import { useMachineId } from '@/hooks/useMachineId'
 import {
   Cloud as CloudIcon,
   Storage as StorageIcon,
@@ -53,16 +58,74 @@ const connectors: Connector[] = [
 export default function ConnectorsPage() {
   const [selectedConnector, setSelectedConnector] = useState<Connector | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [directoryPath, setDirectoryPath] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+  const { machineId } = useMachineId()
 
   const handleCardClick = (connector: Connector) => {
     setSelectedConnector(connector)
     setDialogOpen(true)
+    setDirectoryPath('')
+    setError(null)
+    setSuccess(false)
   }
 
   const handleClose = () => {
     setDialogOpen(false)
     setSelectedConnector(null)
+    setDirectoryPath('')
+    setError(null)
+    setSuccess(false)
   }
+
+  const handleSave = async () => {
+    if (!selectedConnector) return
+
+    // For File System / Local Directory, require directory path
+    if (selectedConnector.name === 'File System / Local Directory') {
+      if (!directoryPath.trim()) {
+        setError('Directory path is required')
+        return
+      }
+      if (!machineId) {
+        setError('Machine ID not found. Please refresh the page.')
+        return
+      }
+
+      setSaving(true)
+      setError(null)
+      setSuccess(false)
+
+      try {
+        // Extract name from directory path (use the last folder name or the full path)
+        const pathParts = directoryPath.trim().split(/[/\\]/).filter(Boolean)
+        const configName = pathParts.length > 0 ? pathParts[pathParts.length - 1] : directoryPath.trim()
+
+        await createConnectorConfig({
+          connector_type: 'file_system',
+          name: configName,
+          directory_path: directoryPath.trim(),
+          machine_id: machineId,
+          metadata: {},
+        })
+        setSuccess(true)
+        setTimeout(() => {
+          handleClose()
+        }, 1500)
+      } catch (err: any) {
+        setError(err.message || 'Failed to save connector configuration')
+      } finally {
+        setSaving(false)
+      }
+    } else {
+      // For other connectors, just close (placeholder for future implementation)
+      handleClose()
+    }
+  }
+
+  const isFileSystem = selectedConnector?.name === 'File System / Local Directory'
 
   return (
     <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', m: 0, p: 0 }}>
@@ -106,10 +169,10 @@ export default function ConnectorsPage() {
         maxWidth={false}
         PaperProps={{
           sx: {
-            width: '80vw',
-            maxWidth: '1600px',
-            height: '80vh',
-            maxHeight: '1200px',
+            width: '40vw',
+            maxWidth: '800px',
+            height: '40vh',
+            maxHeight: '600px',
             m: 2,
           },
         }}
@@ -124,14 +187,45 @@ export default function ConnectorsPage() {
           </IconButton>
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body1">
-            Configure your {selectedConnector?.name} connector settings here.
-          </Typography>
+          {isFileSystem ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+              <TextField
+                fullWidth
+                label="Directory Path"
+                value={directoryPath}
+                onChange={(e) => setDirectoryPath(e.target.value)}
+                placeholder="e.g., C:\\Users\\Documents or D:\\Projects"
+                required
+                helperText="Enter the full path to the directory you want to configure"
+              />
+              {error && (
+                <Alert severity="error" onClose={() => setError(null)}>
+                  {error}
+                </Alert>
+              )}
+              {success && (
+                <Alert severity="success">
+                  Connector configuration saved successfully! This directory will now appear in Data Source.
+                </Alert>
+              )}
+            </Box>
+          ) : (
+            <Typography variant="body1">
+              Configure your {selectedConnector?.name} connector settings here.
+            </Typography>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClose}>Cancel</Button>
-          <Button variant="contained" onClick={handleClose}>
-            Save
+          <Button onClick={handleClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSave}
+            disabled={saving || (isFileSystem && !directoryPath.trim())}
+            startIcon={saving ? <CircularProgress size={20} /> : null}
+          >
+            {saving ? 'Saving...' : 'Save'}
           </Button>
         </DialogActions>
       </Dialog>
