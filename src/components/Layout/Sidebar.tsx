@@ -113,9 +113,9 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
     {
       title: 'Repositories',
       items: [
-        { text: 'Connectors', href: '/repositories/connectors', subItems: [] },
-        { text: 'Data Source', href: '/repositories/data-source', subItems: [] },
-        { text: 'Enterprise', href: '/repositories/enterprise', subItems: [] },
+        { text: 'Connectors', icon: <StorageIcon />, href: '/repositories/connectors', subItems: [] },
+        { text: 'Data Source', icon: <WorkIcon />, href: '/repositories/data-source', subItems: [] },
+        { text: 'Enterprise', icon: <BusinessIcon />, href: '/repositories/enterprise', subItems: [] },
       ],
       defaultOpen: true,
     },
@@ -126,6 +126,15 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
         { text: 'Templates', icon: <CodeIcon />, href: '/templates' },
         { text: 'Fine-tuning', icon: <TuneIcon />, href: '/fine-tuning' },
         { text: 'Content Understanding', icon: <DescriptionIcon />, href: '/content-understanding', badge: 'PREVIEW' },
+      ],
+      defaultOpen: true,
+    },
+    {
+      title: 'Setup',
+      items: [
+        { text: 'Connectors', icon: <StorageIcon />, href: '/connectors' },
+        { text: 'Data Source', icon: <WorkIcon />, href: '/data-source' },
+        { text: 'Enterprise', icon: <BusinessIcon />, href: '/enterprise' },
       ],
       defaultOpen: true,
     },
@@ -144,15 +153,6 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
         { text: 'Guardrails + controls', icon: <SecurityIcon />, href: '/guardrails' },
         { text: 'Risks + alerts', icon: <NotificationsActiveIcon />, href: '/risks', badge: 'PREVIEW' },
         { text: 'Governance', icon: <AccountBalanceIcon />, href: '/governance', badge: 'PREVIEW' },
-      ],
-      defaultOpen: true,
-    },
-    {
-      title: 'Setup',
-      items: [
-        { text: 'Connectors', icon: <StorageIcon />, href: '/connectors' },
-        { text: 'Data Source', icon: <WorkIcon />, href: '/data-source' },
-        { text: 'Enterprise', icon: <BusinessIcon />, href: '/enterprise' },
       ],
       defaultOpen: true,
     },
@@ -213,6 +213,7 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
                 sx={{
                   py: 0.5,
                   px: 1,
+                  pl: 6,
                   minHeight: 32,
                   '&:hover': {
                     bgcolor: 'action.hover',
@@ -225,16 +226,17 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
                     fontWeight: 600,
                     color: 'text.secondary',
                     textTransform: 'uppercase',
-                    fontSize: '0.65rem',
+                    fontSize: '0.975rem',
                     letterSpacing: '0.5px',
+                    pl: 2,
                   }}
                 >
                   {section.title}
                 </Typography>
                 {openSections[section.title] ? (
-                  <ExpandLess sx={{ ml: 'auto', fontSize: 16 }} />
+                  <ExpandLess sx={{ ml: 'auto', fontSize: 32 }} />
                 ) : (
-                  <ExpandMore sx={{ ml: 'auto', fontSize: 16 }} />
+                  <ExpandMore sx={{ ml: 'auto', fontSize: 32 }} />
                 )}
               </ListItemButton>
             )}
@@ -264,6 +266,7 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
                             sx={{
                               py: 0.5,
                               px: isOpen ? 1 : 0.5,
+                              pl: isOpen ? 6 : 0.5,
                               justifyContent: isOpen ? 'flex-start' : 'center',
                               borderRadius: 1,
                               mb: 0.25,
@@ -291,9 +294,10 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
                               <ListItemText
                                 primary={item.text}
                                 primaryTypographyProps={{
-                                  fontSize: '0.875rem',
+                                  fontSize: '1.3125rem',
                                   fontWeight: selected ? 600 : 400,
                                 }}
+                                sx={{ pl: 2 }}
                               />
                             )}
                             {isOpen && item.badge && (
@@ -334,6 +338,7 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
                             sx={{
                               py: 0.5,
                               px: isOpen ? 1 : 0.5,
+                              pl: isOpen ? 6 : 0.5,
                               justifyContent: isOpen ? 'flex-start' : 'center',
                               '&.Mui-selected': {
                                 bgcolor: 'action.selected',
@@ -361,9 +366,10 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
                             <ListItemText
                               primary={item.text}
                               primaryTypographyProps={{
-                                fontSize: '0.875rem',
+                                fontSize: '1.3125rem',
                                 fontWeight: selected ? 600 : 400,
                               }}
+                              sx={{ pl: 2 }}
                             />
                           )}
                             {isOpen && item.badge && (
@@ -400,6 +406,7 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
                                         sx={{
                                           py: 0.5,
                                           px: isOpen ? 1 : 0.5,
+                                          pl: isOpen ? 6 : 0.5,
                                           '&.Mui-selected': {
                                             bgcolor: 'action.selected',
                                             '&:hover': {
@@ -415,9 +422,10 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
                                           <ListItemText
                                             primary={subItem.text}
                                             primaryTypographyProps={{
-                                              fontSize: '0.875rem',
+                                              fontSize: '1.3125rem',
                                               fontWeight: subSelected ? 600 : 400,
                                             }}
+                                            sx={{ pl: 2 }}
                                           />
                                         )}
                                       </ListItemButton>
@@ -428,7 +436,7 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
                                 <ListItem disablePadding sx={{ pl: isOpen ? 4 : 2 }}>
                                   <Box sx={{ py: 0.5, px: isOpen ? 1 : 0.5 }}>
                                     {isOpen && (
-                                      <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.secondary', fontWeight: 500 }}>
+                                      <Typography variant="body2" sx={{ fontSize: '1.3125rem', color: 'text.secondary', fontWeight: 500 }}>
                                       404
                                       </Typography>
                                     )}
@@ -454,6 +462,7 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
             sx={{
               py: 0.5,
               px: isOpen ? 1 : 0.5,
+              pl: isOpen ? 2 : 0.5,
               justifyContent: isOpen ? 'flex-start' : 'center',
               '&:hover': {
                 bgcolor: 'action.hover',
@@ -467,8 +476,9 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
               <ListItemText
                 primary="More"
                 primaryTypographyProps={{
-                  fontSize: '0.875rem',
+                  fontSize: '1.3125rem',
                 }}
+                sx={{ pl: 2 }}
               />
             )}
           </ListItemButton>

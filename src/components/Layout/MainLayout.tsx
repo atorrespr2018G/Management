@@ -26,7 +26,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <Header onMenuClick={handleDrawerToggle} />
+      <Header onMenuClick={handleDrawerToggle} sidebarOpen={desktopOpen} />
       <Box sx={{ display: 'flex', flex: 1 }}>
         {/* Mobile Drawer */}
         <Drawer
@@ -38,7 +38,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
           }}
           sx={{
             display: { xs: 'block', md: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 240 },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 320 },
           }}
         >
           <Sidebar onClose={handleDrawerToggle} />
@@ -50,7 +50,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
             display: { xs: 'none', md: 'block' },
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
-              width: desktopOpen ? 240 : 64,
+              width: desktopOpen ? 320 : 64,
               position: 'relative',
               height: '100%',
               borderTopRightRadius: 3,
@@ -70,7 +70,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
             flexGrow: 1,
             p: 2,
             m: 0,
-            width: { md: desktopOpen ? `calc(100% - 240px)` : `calc(100% - 64px)` },
+            width: { md: desktopOpen ? `calc(100% - 320px)` : `calc(100% - 64px)` },
             transition: 'width 0.3s ease',
             bgcolor: 'background.paper',
           }}
@@ -78,7 +78,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
           {children}
         </Box>
       </Box>
-      <Footer />
+      <Footer sidebarOpen={desktopOpen} />
     </Box>
   )
 }

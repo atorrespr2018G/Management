@@ -4,7 +4,11 @@ import React from 'react'
 import { Box, Container, Typography, Grid, Link as MuiLink } from '@mui/material'
 import Link from 'next/link'
 
-export default function Footer() {
+interface FooterProps {
+  sidebarOpen?: boolean
+}
+
+export default function Footer({ sidebarOpen = false }: FooterProps) {
   return (
     <Box
       component="footer"
@@ -14,6 +18,9 @@ export default function Footer() {
         borderColor: 'divider',
         py: 4,
         mt: 'auto',
+        ml: { md: sidebarOpen ? '320px' : '64px' },
+        width: { md: sidebarOpen ? 'calc(100% - 320px)' : 'calc(100% - 64px)' },
+        transition: 'margin-left 0.3s ease, width 0.3s ease',
       }}
     >
       <Container maxWidth="lg">
