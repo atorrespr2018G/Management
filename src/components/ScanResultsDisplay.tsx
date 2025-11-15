@@ -684,8 +684,14 @@ export default function ScanResultsDisplay({
         </Grid>
       </Grid>
 
-      {/* Create Semantic Relationships Section */}
-      {neo4jDirectoryStructure && (
+      {/* Create Semantic Relationships Section - Only show after documents are uploaded */}
+      {neo4jDirectoryStructure && (() => {
+        // Check if any files have been uploaded (have RAG status complete or partial)
+        const hasUploadedDocuments = Object.values(ragStatuses).some(
+          status => status === 'complete' || status === 'partial'
+        )
+        return hasUploadedDocuments
+      })() && (
         <Card sx={{ mt: 3 }}>
           <CardContent>
             <Typography variant="h6" sx={{ mb: 3 }}>
