@@ -55,12 +55,81 @@ export default function ConnectorDetailPage() {
   const [currentTab, setCurrentTab] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [scanningAll, setScanningAll] = useState(false)
 
   useEffect(() => {
     if (configId) {
       loadData()
     }
   }, [configId])
+
+  // Auto-scan all paths when switching to "All Results" tab
+  useEffect(() => {
+    if (currentTab === 1 && paths.length > 0) {
+      const unscannedPaths = paths.filter(path => !allPathResults.has(path.id))
+      if (unscannedPaths.length > 0) {
+        scanAllPaths()
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTab])
+
+  const scanAllPaths = async () => {
+    // Find paths that haven't been scanned yet
+    const unscannedPaths = paths.filter(path => !allPathResults.has(path.id))
+    
+    if (unscannedPaths.length === 0) {
+      return // All paths already scanned
+    }
+
+    setScanningAll(true)
+    setError(null)
+
+    // Scan all unscanned paths
+    for (const path of unscannedPaths) {
+      try {
+        const response = await fetch('/api/local/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ directoryPath: path.path }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Failed to scan directory' }))
+          console.error(`Failed to scan ${path.path}:`, errorData.error || 'Failed to scan directory')
+          continue // Continue with next path even if this one fails
+        }
+
+        const scanDataResponse = await response.json()
+        const results = {
+          totalFiles: scanDataResponse.totalFiles || 0,
+          totalFolders: scanDataResponse.totalFolders || 0,
+          data: scanDataResponse.data,
+          source: scanDataResponse.metadata?.source || 'local',
+        }
+        
+        // Store results for this path
+        setAllPathResults(prev => {
+          const updated = new Map(prev)
+          updated.set(path.id, {
+            path,
+            data: scanDataResponse.data,
+            results: {
+              totalFiles: results.totalFiles,
+              totalFolders: results.totalFolders,
+              source: results.source,
+            }
+          })
+          return updated
+        })
+      } catch (scanErr: any) {
+        console.error(`Error scanning ${path.path}:`, scanErr)
+        // Continue with next path even if this one fails
+      }
+    }
+
+    setScanningAll(false)
+  }
 
   const loadData = async () => {
     try {
@@ -410,14 +479,32 @@ export default function ConnectorDetailPage() {
 
         {currentTab === 1 && (
           <Box>
-            {allPathResults.size === 0 ? (
+            {scanningAll && (
+              <Paper sx={{ p: 4, textAlign: 'center', mb: 3 }}>
+                <CircularProgress sx={{ mb: 2 }} />
+                <Typography variant="body1" color="text.secondary">
+                  Scanning all paths...
+                </Typography>
+              </Paper>
+            )}
+            {!scanningAll && allPathResults.size === 0 && paths.length === 0 ? (
+              <Paper sx={{ p: 4, textAlign: 'center' }}>
+                <FolderIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                  No paths configured
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Add a path above to get started
+                </Typography>
+              </Paper>
+            ) : !scanningAll && allPathResults.size === 0 ? (
               <Paper sx={{ p: 4, textAlign: 'center' }}>
                 <FolderIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
                 <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
                   No scan results yet
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Click on a path in the "Paths" tab to scan and view results
+                  Scanning paths...
                 </Typography>
               </Paper>
             ) : (

@@ -677,9 +677,9 @@ export default function ScanResultsDisplay({
     // Get RAG status badge
     const getRagStatusBadge = () => {
       if (ragStatus === 'complete') {
-        return <Chip label="RAG" size="small" color="success" />
+        return <Chip label="Semantic" size="small" color="success" />
       } else if (ragStatus === 'partial') {
-        return <Chip label="RAG Partial" size="small" color="warning" />
+        return <Chip label="Semantic Partial" size="small" color="warning" />
       } else {
         return null
       }
@@ -1037,13 +1037,11 @@ export default function ScanResultsDisplay({
         </Grid>
       </Grid>
 
-      {/* Create Semantic Relationships Section - Only show after documents are uploaded */}
+      {/* Create Semantic Relationships Section - Only show when Graph badges are selected */}
       {neo4jDirectoryStructure && (() => {
-        // Check if any files have been uploaded (have RAG status complete or partial)
-        const hasUploadedDocuments = Object.values(ragStatuses).some(
-          status => status === 'complete' || status === 'partial'
-        )
-        return hasUploadedDocuments
+        // Check if any files are selected for graph creation
+        const hasSelectedGraph = Object.values(selectedForGraph).some(selected => selected === true)
+        return hasSelectedGraph
       })() && (
         <Card sx={{ mt: 3 }}>
           <CardContent>
