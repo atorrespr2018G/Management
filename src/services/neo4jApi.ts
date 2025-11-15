@@ -300,3 +300,36 @@ export const deleteConnectorPath = async (configId: string, pathId: string): Pro
   });
 };
 
+// Delete file chunks and relationships
+export const deleteFileChunks = async (filePath: string, machineId: string): Promise<any> => {
+  const encodedPath = encodeURIComponent(filePath);
+  const params = new URLSearchParams({ machine_id: machineId });
+  return apiCall(`/api/graph/files/${encodedPath}/chunks?${params.toString()}`, {
+    method: 'DELETE',
+  });
+};
+
+export const deleteDirectoryChunks = async (directoryPath: string, machineId: string): Promise<any> => {
+  const encodedPath = encodeURIComponent(directoryPath);
+  const params = new URLSearchParams({ machine_id: machineId });
+  return apiCall(`/api/graph/directories/${encodedPath}/chunks?${params.toString()}`, {
+    method: 'DELETE',
+  });
+};
+
+export const deleteFileRelationships = async (filePath: string, machineId: string): Promise<any> => {
+  const encodedPath = encodeURIComponent(filePath);
+  const params = new URLSearchParams({ machine_id: machineId });
+  return apiCall(`/api/graph/files/${encodedPath}/relationships?${params.toString()}`, {
+    method: 'DELETE',
+  });
+};
+
+export const deleteDirectoryRelationships = async (directoryPath: string, machineId: string): Promise<any> => {
+  const encodedPath = encodeURIComponent(directoryPath);
+  const params = new URLSearchParams({ machine_id: machineId });
+  return apiCall(`/api/graph/directories/${encodedPath}/relationships?${params.toString()}`, {
+    method: 'DELETE',
+  });
+};
+

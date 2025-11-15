@@ -26,6 +26,8 @@ import FileIcon from '@mui/icons-material/InsertDriveFile'
 import DatabaseIcon from '@mui/icons-material/Storage'
 import UploadIcon from '@mui/icons-material/Upload'
 import NetworkIcon from '@mui/icons-material/AccountTree'
+import DeleteIcon from '@mui/icons-material/Delete'
+import LinkOffIcon from '@mui/icons-material/LinkOff'
 import { formatBytes } from '@/utils/formatters'
 import {
   storeInNeo4j,
@@ -35,6 +37,10 @@ import {
   uploadFilesBatch,
   getFileRagStatus,
   createSemanticRelationships,
+  deleteFileChunks,
+  deleteDirectoryChunks,
+  deleteFileRelationships,
+  deleteDirectoryRelationships,
 } from '@/services/neo4jApi'
 import { useMachineId } from '@/hooks/useMachineId'
 import type { FileStructure } from '@/types/neo4j'
@@ -69,6 +75,8 @@ export default function ScanResultsDisplay({
   const [neo4jDirectoryStructure, setNeo4jDirectoryStructure] = useState<FileStructure | null>(null)
   const [isLoadingNeo4jStructure, setIsLoadingNeo4jStructure] = useState(false)
   const [selectedForRag, setSelectedForRag] = useState<Record<string, boolean>>({})
+  const [selectedForDelete, setSelectedForDelete] = useState<Record<string, boolean>>({})
+  const [selectedForDeleteRelationships, setSelectedForDeleteRelationships] = useState<Record<string, boolean>>({})
   const [ragStatuses, setRagStatuses] = useState<Record<string, 'complete' | 'partial' | 'none'>>({})
   const [uploadStatus, setUploadStatus] = useState<Record<string, string>>({})
   const [uploadProgress, setUploadProgress] = useState({ done: 0, total: 0, totalChunks: 0 })
@@ -80,6 +88,9 @@ export default function ScanResultsDisplay({
   })
   const [isCreatingRelationships, setIsCreatingRelationships] = useState(false)
   const [relationshipStatus, setRelationshipStatus] = useState<Record<string, string>>({})
+  const [isDeletingChunks, setIsDeletingChunks] = useState<Record<string, boolean>>({})
+  const [isDeletingRelationships, setIsDeletingRelationships] = useState<Record<string, boolean>>({})
+  const [deleteStatus, setDeleteStatus] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (scanResults?.data && machineId) {
@@ -391,6 +402,150 @@ export default function ScanResultsDisplay({
     }
   }
 
+  // Get all selected file paths for deletion
+  const getSelectedFilesForDelete = (directoryNode: FileStructure): string[] => {
+    const files: string[] = []
+    const traverse = (node: FileStructure) => {
+      if (node.type === 'file') {
+        const stableId = buildStableId(machineId || '', node)
+        if (selectedForDelete[stableId]) {
+          files.push(node.fullPath || node.id)
+        }
+      }
+      if (node.children) {
+        node.children.forEach(child => traverse(child))
+      }
+    }
+    traverse(directoryNode)
+    return files
+  }
+
+  // Get all selected file paths for relationship deletion
+  const getSelectedFilesForDeleteRelationships = (directoryNode: FileStructure): string[] => {
+    const files: string[] = []
+    const traverse = (node: FileStructure) => {
+      if (node.type === 'file') {
+        const stableId = buildStableId(machineId || '', node)
+        if (selectedForDeleteRelationships[stableId]) {
+          files.push(node.fullPath || node.id)
+        }
+      }
+      if (node.children) {
+        node.children.forEach(child => traverse(child))
+      }
+    }
+    traverse(directoryNode)
+    return files
+  }
+
+  const handleDeleteSelectedChunks = async (directoryNode: FileStructure) => {
+    if (!machineId) {
+      setDeleteStatus(prev => ({ ...prev, [directoryNode.fullPath || directoryNode.id]: 'Error: Machine ID not found' }))
+      return
+    }
+
+    const selectedFiles = getSelectedFilesForDelete(directoryNode)
+    if (selectedFiles.length === 0) {
+      alert('Please select at least one file to delete')
+      return
+    }
+
+    if (!confirm(`Are you sure you want to delete chunks for ${selectedFiles.length} selected file(s)? This will also remove all relationships.`)) {
+      return
+    }
+
+    const directoryPath = directoryNode.fullPath || directoryNode.id
+    try {
+      setIsDeletingChunks(prev => ({ ...prev, [directoryPath]: true }))
+      setDeleteStatus(prev => ({ ...prev, [directoryPath]: 'Deleting...' }))
+
+      let totalChunks = 0
+      let totalRelationships = 0
+      const errors: string[] = []
+
+      for (const filePath of selectedFiles) {
+        try {
+          const result = await deleteFileChunks(filePath, machineId)
+          totalChunks += result.deleted_chunks || 0
+          totalRelationships += result.deleted_relationships || 0
+        } catch (e: any) {
+          errors.push(`${filePath}: ${e.response?.data?.detail || e.message}`)
+        }
+      }
+
+      setDeleteStatus(prev => ({
+        ...prev,
+        [directoryPath]: `Deleted ${totalChunks} chunks and ${totalRelationships} relationships from ${selectedFiles.length} file(s)${errors.length > 0 ? `. ${errors.length} error(s)` : ''}`,
+      }))
+
+      // Clear selections
+      setSelectedForDelete({})
+      
+      // Refresh Neo4j structure and RAG statuses
+      await fetchNeo4jStructure()
+    } catch (e: any) {
+      setDeleteStatus(prev => ({
+        ...prev,
+        [directoryPath]: `Error: ${e.response?.data?.detail || e.message}`,
+      }))
+    } finally {
+      setIsDeletingChunks(prev => ({ ...prev, [directoryPath]: false }))
+    }
+  }
+
+  const handleDeleteSelectedRelationships = async (directoryNode: FileStructure) => {
+    if (!machineId) {
+      setDeleteStatus(prev => ({ ...prev, [directoryNode.fullPath || directoryNode.id]: 'Error: Machine ID not found' }))
+      return
+    }
+
+    const selectedFiles = getSelectedFilesForDeleteRelationships(directoryNode)
+    if (selectedFiles.length === 0) {
+      alert('Please select at least one file to remove relationships from')
+      return
+    }
+
+    if (!confirm(`Are you sure you want to delete relationships for ${selectedFiles.length} selected file(s)?`)) {
+      return
+    }
+
+    const directoryPath = directoryNode.fullPath || directoryNode.id
+    try {
+      setIsDeletingRelationships(prev => ({ ...prev, [directoryPath]: true }))
+      setDeleteStatus(prev => ({ ...prev, [directoryPath]: 'Deleting relationships...' }))
+
+      let totalRelationships = 0
+      const errors: string[] = []
+
+      for (const filePath of selectedFiles) {
+        try {
+          const result = await deleteFileRelationships(filePath, machineId)
+          totalRelationships += result.deleted_relationships || 0
+        } catch (e: any) {
+          errors.push(`${filePath}: ${e.response?.data?.detail || e.message}`)
+        }
+      }
+
+      setDeleteStatus(prev => ({
+        ...prev,
+        [directoryPath]: `Deleted ${totalRelationships} relationships from ${selectedFiles.length} file(s)${errors.length > 0 ? `. ${errors.length} error(s)` : ''}`,
+      }))
+
+      // Clear selections
+      setSelectedForDeleteRelationships({})
+      
+      // Refresh Neo4j structure
+      await fetchNeo4jStructure()
+    } catch (e: any) {
+      setDeleteStatus(prev => ({
+        ...prev,
+        [directoryPath]: `Error: ${e.response?.data?.detail || e.message}`,
+      }))
+    } finally {
+      setIsDeletingRelationships(prev => ({ ...prev, [directoryPath]: false }))
+    }
+  }
+
   const renderDirectoryTree = (node: FileStructure, level: number = 0): React.ReactNode => {
     const isDirectory = node.type === 'directory'
     const Icon = isDirectory ? FolderOpenIcon : FileIcon
@@ -460,7 +615,7 @@ export default function ScanResultsDisplay({
             )}
           </Box>
           {isDirectory ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
               <FormControlLabel
                 control={
                   <Checkbox
@@ -488,14 +643,42 @@ export default function ScanResultsDisplay({
                   ? `Uploading… ${uploadProgress.done}/${uploadProgress.total}`
                   : 'Upload Documents'}
               </Button>
-              {uploadStatus[node.fullPath || node.id] && (
-                <Typography variant="caption" color="text.secondary">
-                  {uploadStatus[node.fullPath || node.id]}
+              <Button
+                variant="outlined"
+                size="small"
+                color="error"
+                onClick={() => handleDeleteSelectedChunks(node)}
+                disabled={
+                  getSelectedFilesForDelete(node).length === 0 ||
+                  isDeletingChunks[node.fullPath || node.id] ||
+                  isDeletingRelationships[node.fullPath || node.id]
+                }
+                startIcon={isDeletingChunks[node.fullPath || node.id] ? <CircularProgress size={16} /> : <DeleteIcon />}
+              >
+                {isDeletingChunks[node.fullPath || node.id] ? 'Deleting...' : `Delete File (${getSelectedFilesForDelete(node).length})`}
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                color="warning"
+                onClick={() => handleDeleteSelectedRelationships(node)}
+                disabled={
+                  getSelectedFilesForDeleteRelationships(node).length === 0 ||
+                  isDeletingChunks[node.fullPath || node.id] ||
+                  isDeletingRelationships[node.fullPath || node.id]
+                }
+                startIcon={isDeletingRelationships[node.fullPath || node.id] ? <CircularProgress size={16} /> : <LinkOffIcon />}
+              >
+                {isDeletingRelationships[node.fullPath || node.id] ? 'Removing...' : `Delete Relationships (${getSelectedFilesForDeleteRelationships(node).length})`}
+              </Button>
+              {(uploadStatus[node.fullPath || node.id] || deleteStatus[node.fullPath || node.id]) && (
+                <Typography variant="caption" color="text.secondary" sx={{ width: '100%' }}>
+                  {uploadStatus[node.fullPath || node.id] || deleteStatus[node.fullPath || node.id]}
                 </Typography>
               )}
             </Box>
           ) : (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
               {ragStatus === 'none' ? (
                 <FormControlLabel
                   control={
@@ -509,7 +692,41 @@ export default function ScanResultsDisplay({
                   sx={{ m: 0 }}
                 />
               ) : (
-                getRagStatusBadge()
+                <>
+                  {getRagStatusBadge()}
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={selectedForDelete[stableId] || false}
+                        onChange={(e) => {
+                          setSelectedForDelete(prev => ({
+                            ...prev,
+                            [stableId]: e.target.checked
+                          }))
+                        }}
+                        size="small"
+                      />
+                    }
+                    label="Delete File"
+                    sx={{ m: 0 }}
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={selectedForDeleteRelationships[stableId] || false}
+                        onChange={(e) => {
+                          setSelectedForDeleteRelationships(prev => ({
+                            ...prev,
+                            [stableId]: e.target.checked
+                          }))
+                        }}
+                        size="small"
+                      />
+                    }
+                    label="Delete Relationships"
+                    sx={{ m: 0 }}
+                  />
+                </>
               )}
             </Box>
           )}
