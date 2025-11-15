@@ -162,6 +162,9 @@ export const createSemanticRelationships = async (
   if (options.same_directory_only !== undefined) {
     params.append('same_directory_only', options.same_directory_only.toString());
   }
+  if (options.scope_file_id !== undefined) {
+    params.append('scope_file_id', options.scope_file_id);
+  }
   
   return apiCall(`/api/graph/create-semantic-relationships?${params.toString()}`, {
     method: 'POST',
@@ -195,6 +198,17 @@ export const getFileRagStatus = async (
     file_path: filePath,
   });
   return apiCall(`/api/graph/file-rag-status?${params.toString()}`);
+};
+
+export const getFileRelationshipStatus = async (
+  machineId: string,
+  filePath: string
+): Promise<{ has_relationships: boolean; relationship_count: number; file_path: string; file_id: string }> => {
+  const params = new URLSearchParams({
+    machine_id: machineId,
+    file_path: filePath,
+  });
+  return apiCall(`/api/graph/file-relationship-status?${params.toString()}`);
 };
 
 export const getRelationshipStats = async (
