@@ -133,7 +133,7 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
       title: 'Setup',
       items: [
         { text: 'Connectors', icon: <StorageIcon />, href: '/connectors' },
-        { text: 'Data Source', icon: <WorkIcon />, href: '/data-source' },
+        { text: 'Structured', icon: <WorkIcon />, href: '/data-source' },
         { text: 'Enterprise', icon: <BusinessIcon />, href: '/enterprise' },
       ],
       defaultOpen: true,

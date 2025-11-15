@@ -395,18 +395,27 @@ export default function ScanResultsDisplay({
     const isDirectory = node.type === 'directory'
     const Icon = isDirectory ? FolderOpenIcon : FileIcon
 
+    // Sort children: directories first, then files, both alphabetically
+    const sortedChildren = node.children ? [...node.children].sort((a, b) => {
+      // Directories come before files
+      if (a.type === 'directory' && b.type === 'file') return -1
+      if (a.type === 'file' && b.type === 'directory') return 1
+      // Within same type, sort alphabetically by name
+      return a.name.localeCompare(b.name)
+    }) : []
+
     return (
-      <Box key={node.id} sx={{ ml: level * 2, mb: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Box key={node.id} sx={{ ml: level * 2, mb: 0.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 32 }}>
           <Icon sx={{ fontSize: 16, color: isDirectory ? 'primary.main' : 'text.secondary' }} />
-          <Typography variant="body2">{node.name}</Typography>
+          <Typography variant="body2" sx={{ lineHeight: 1.5 }}>{node.name}</Typography>
           {node.size && (
             <Chip label={formatBytes(node.size)} size="small" variant="outlined" />
           )}
         </Box>
-        {node.children && node.children.length > 0 && (
+        {sortedChildren.length > 0 && (
           <Box sx={{ ml: 2, borderLeft: '1px solid', borderColor: 'divider', pl: 1 }}>
-            {node.children.map((child) => renderDirectoryTree(child, level + 1))}
+            {sortedChildren.map((child) => renderDirectoryTree(child, level + 1))}
           </Box>
         )}
       </Box>
@@ -431,12 +440,21 @@ export default function ScanResultsDisplay({
       }
     }
 
+    // Sort children: directories first, then files, both alphabetically (same as scanned tree)
+    const sortedChildren = node.children ? [...node.children].sort((a, b) => {
+      // Directories come before files
+      if (a.type === 'directory' && b.type === 'file') return -1
+      if (a.type === 'file' && b.type === 'directory') return 1
+      // Within same type, sort alphabetically by name
+      return a.name.localeCompare(b.name)
+    }) : []
+
     return (
-      <Box key={node.id} sx={{ ml: level * 2, mb: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+      <Box key={node.id} sx={{ ml: level * 2, mb: 0.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, minHeight: 32 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Icon sx={{ fontSize: 16, color: isDirectory ? 'primary.main' : 'text.secondary' }} />
-            <Typography variant="body2">{node.name}</Typography>
+            <Typography variant="body2" sx={{ lineHeight: 1.5 }}>{node.name}</Typography>
             {node.size && (
               <Chip label={formatBytes(node.size)} size="small" variant="outlined" />
             )}
@@ -496,9 +514,9 @@ export default function ScanResultsDisplay({
             </Box>
           )}
         </Box>
-        {node.children && node.children.length > 0 && (
+        {sortedChildren.length > 0 && (
           <Box sx={{ ml: 2, borderLeft: '1px solid', borderColor: 'divider', pl: 1 }}>
-            {node.children.map((child) => renderNeo4jNodeWithUpload(child, level + 1))}
+            {sortedChildren.map((child) => renderNeo4jNodeWithUpload(child, level + 1))}
           </Box>
         )}
       </Box>
@@ -615,7 +633,9 @@ export default function ScanResultsDisplay({
                 </Alert>
               )}
               <Paper variant="outlined" sx={{ p: 2, flex: 1, minHeight: 400, maxHeight: 400, overflow: 'auto', bgcolor: 'grey.50', display: 'flex', flexDirection: 'column' }}>
-                {renderDirectoryTree(scanResults.data)}
+                <Box sx={{ pt: 0 }}>
+                  {renderDirectoryTree(scanResults.data)}
+                </Box>
               </Paper>
             </CardContent>
           </Card>
@@ -644,8 +664,7 @@ export default function ScanResultsDisplay({
                 </Paper>
               ) : neo4jDirectoryStructure ? (
                 <Paper variant="outlined" sx={{ p: 2, flex: 1, minHeight: 400, maxHeight: 400, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>Neo4j Directory Structure</Typography>
-                  <Box sx={{ flex: 1, overflow: 'auto' }}>
+                  <Box sx={{ pt: 0 }}>
                     {renderNeo4jNodeWithUpload(neo4jDirectoryStructure)}
                   </Box>
                 </Paper>
