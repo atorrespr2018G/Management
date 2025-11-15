@@ -51,10 +51,12 @@ export default function MainLayout({ children }: MainLayoutProps) {
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
               width: desktopOpen ? 320 : 64,
-              position: 'relative',
-              height: '100%',
+              position: 'fixed',
+              height: '100vh',
+              top: 0,
+              left: 0,
               borderTopRightRadius: 3,
-              overflow: 'visible',
+              overflow: 'hidden',
               borderRight: 'none',
               bgcolor: 'grey.100',
               transition: 'width 0.3s ease',
@@ -71,7 +73,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
             p: 2,
             m: 0,
             width: { md: desktopOpen ? `calc(100% - 320px)` : `calc(100% - 64px)` },
-            transition: 'width 0.3s ease',
+            ml: { md: desktopOpen ? '320px' : '64px' },
+            transition: 'width 0.3s ease, margin-left 0.3s ease',
             bgcolor: 'background.paper',
           }}
         >

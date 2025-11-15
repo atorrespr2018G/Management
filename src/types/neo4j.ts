@@ -82,6 +82,7 @@ export interface SemanticRelationshipOptions {
   top_k?: number;
   same_document_only?: boolean;
   same_directory_only?: boolean;
+  scope_file_id?: string;
 }
 
 export interface UploadOptions {
