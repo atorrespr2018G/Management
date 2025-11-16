@@ -162,6 +162,9 @@ export const createSemanticRelationships = async (
   if (options.same_directory_only !== undefined) {
     params.append('same_directory_only', options.same_directory_only.toString());
   }
+  if (options.scope_file_id !== undefined) {
+    params.append('scope_file_id', options.scope_file_id);
+  }
   
   return apiCall(`/api/graph/create-semantic-relationships?${params.toString()}`, {
     method: 'POST',
@@ -195,6 +198,17 @@ export const getFileRagStatus = async (
     file_path: filePath,
   });
   return apiCall(`/api/graph/file-rag-status?${params.toString()}`);
+};
+
+export const getFileRelationshipStatus = async (
+  machineId: string,
+  filePath: string
+): Promise<{ has_relationships: boolean; relationship_count: number; file_path: string; file_id: string }> => {
+  const params = new URLSearchParams({
+    machine_id: machineId,
+    file_path: filePath,
+  });
+  return apiCall(`/api/graph/file-relationship-status?${params.toString()}`);
 };
 
 export const getRelationshipStats = async (
@@ -296,6 +310,39 @@ export const addConnectorPath = async (
 
 export const deleteConnectorPath = async (configId: string, pathId: string): Promise<any> => {
   return apiCall(`/api/connectors/${configId}/paths/${pathId}`, {
+    method: 'DELETE',
+  });
+};
+
+// Delete file chunks and relationships
+export const deleteFileChunks = async (filePath: string, machineId: string): Promise<any> => {
+  const encodedPath = encodeURIComponent(filePath);
+  const params = new URLSearchParams({ machine_id: machineId });
+  return apiCall(`/api/graph/files/${encodedPath}/chunks?${params.toString()}`, {
+    method: 'DELETE',
+  });
+};
+
+export const deleteDirectoryChunks = async (directoryPath: string, machineId: string): Promise<any> => {
+  const encodedPath = encodeURIComponent(directoryPath);
+  const params = new URLSearchParams({ machine_id: machineId });
+  return apiCall(`/api/graph/directories/${encodedPath}/chunks?${params.toString()}`, {
+    method: 'DELETE',
+  });
+};
+
+export const deleteFileRelationships = async (filePath: string, machineId: string): Promise<any> => {
+  const encodedPath = encodeURIComponent(filePath);
+  const params = new URLSearchParams({ machine_id: machineId });
+  return apiCall(`/api/graph/files/${encodedPath}/relationships?${params.toString()}`, {
+    method: 'DELETE',
+  });
+};
+
+export const deleteDirectoryRelationships = async (directoryPath: string, machineId: string): Promise<any> => {
+  const encodedPath = encodeURIComponent(directoryPath);
+  const params = new URLSearchParams({ machine_id: machineId });
+  return apiCall(`/api/graph/directories/${encodedPath}/relationships?${params.toString()}`, {
     method: 'DELETE',
   });
 };
