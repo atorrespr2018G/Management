@@ -668,7 +668,7 @@ export default function ScanResultsDisplay({
       if (selectedFilesForDelete.length > 0) {
         for (const filePath of selectedFilesForDelete) {
           try {
-            const result = await deleteFileChunks(filePath, machineId)
+            const result = await deleteFileChunks(machineId, filePath)
             totalChunks += result.deleted_chunks || 0
             totalRelationships += result.deleted_relationships || 0
           } catch (e: any) {
@@ -685,7 +685,7 @@ export default function ScanResultsDisplay({
             continue
           }
           try {
-            const result = await deleteFileRelationships(filePath, machineId)
+            const result = await deleteFileRelationships(machineId, filePath)
             totalRelationships += result.deleted_relationships || 0
           } catch (e: any) {
             errors.push(`${filePath} (graph): ${e.response?.data?.detail || e.message}`)
