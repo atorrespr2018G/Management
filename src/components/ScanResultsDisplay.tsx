@@ -38,9 +38,9 @@ import {
   getFileRagStatus,
   getFileRelationshipStatus,
   createSemanticRelationships,
+  deleteFileRelationships,
   deleteFileChunks,
   deleteDirectoryChunks,
-  deleteFileRelationships,
   deleteDirectoryRelationships,
 } from '@/services/neo4jApi'
 import { useMachineId } from '@/hooks/useMachineId'
@@ -83,6 +83,7 @@ export default function ScanResultsDisplay({
   const [relationshipStatuses, setRelationshipStatuses] = useState<Record<string, boolean>>({})
   const [uploadStatus, setUploadStatus] = useState<Record<string, string>>({})
   const [uploadProgress, setUploadProgress] = useState({ done: 0, total: 0, totalChunks: 0 })
+  const [changedFiles, setChangedFiles] = useState<Record<string, { reason: 'metadata' | 'content' | 'new' }>>({})
   const [relationshipSettings, setRelationshipSettings] = useState({
     similarity_threshold: 0.7,
     top_k: 10,
@@ -113,10 +114,69 @@ export default function ScanResultsDisplay({
       if (result.found && result.structure) {
         setNeo4jDirectoryStructure(result.structure)
 
+        // Detect changed files by comparing scanned files with Neo4j files (Hybrid approach)
+        const detectChangedFiles = (scannedNode: FileStructure, neo4jNode: FileStructure | null, changedMap: Record<string, { reason: 'metadata' | 'content' | 'new' }>) => {
+          if (scannedNode.type === 'file') {
+            const fileKey = buildStableId(machineId, scannedNode)
+            
+            if (!neo4jNode) {
+              // File is new (exists in scan but not in Neo4j)
+              changedMap[fileKey] = { reason: 'new' }
+            } else {
+              // File exists in both - check for changes using hybrid approach
+              const scannedSize = scannedNode.size
+              const scannedModifiedTime = scannedNode.modifiedTime
+              const scannedHash = scannedNode.hash
+              
+              const neo4jSize = neo4jNode.size
+              const neo4jModifiedTime = neo4jNode.modifiedTime
+              const neo4jHash = neo4jNode.hash
+              
+              // Quick check: size or modifiedTime changed
+              if (scannedSize !== neo4jSize || scannedModifiedTime !== neo4jModifiedTime) {
+                changedMap[fileKey] = { reason: 'metadata' }
+              } 
+              // Deep check: if metadata matches, check hash
+              else if (scannedHash && neo4jHash && scannedHash !== neo4jHash) {
+                changedMap[fileKey] = { reason: 'content' }
+              }
+            }
+          }
+          
+          // Recursively check children
+          if (scannedNode.children && Array.isArray(scannedNode.children)) {
+            scannedNode.children.forEach((scannedChild) => {
+              const neo4jChild = neo4jNode?.children?.find(
+                (n) => n.fullPath === scannedChild.fullPath
+              ) || null
+              detectChangedFiles(scannedChild, neo4jChild, changedMap)
+            })
+          }
+        }
+
+        const changedMap: Record<string, { reason: 'metadata' | 'content' | 'new' }> = {}
+        
+        // Compare scanned structure with Neo4j structure
+        const compareStructures = (scanned: FileStructure, neo4j: FileStructure | null) => {
+          detectChangedFiles(scanned, neo4j, changedMap)
+          if (scanned.children && Array.isArray(scanned.children)) {
+            scanned.children.forEach((scannedChild) => {
+              const neo4jChild = neo4j?.children?.find(
+                (n) => n.fullPath === scannedChild.fullPath
+              ) || null
+              compareStructures(scannedChild, neo4jChild)
+            })
+          }
+        }
+        
+        compareStructures(scanResults.data, result.structure)
+        setChangedFiles(changedMap)
+
         // Fetch RAG statuses and relationship statuses for all files
         const fetchRagStatuses = async (node: FileStructure) => {
           if (node.type === 'file') {
-            const fileKey = buildStableId(machineId, node)
+            // Use the EXACT same format as the badge: buildStableId(machineId || '', node)
+            const fileKey = buildStableId(machineId || '', node)
             try {
               const status = await getFileRagStatus(machineId, node.fullPath || node.id)
               setRagStatuses(prev => ({ ...prev, [fileKey]: status.status }))
@@ -396,25 +456,26 @@ export default function ScanResultsDisplay({
       return
     }
 
-    // Build flat list of all selected FILES (expand folders to their file descendants)
-    const getSelectedFiles = (node: FileStructure): string[] => {
-      const files: string[] = []
+    // Get selected files with their stable IDs for change detection
+    const getSelectedFilesWithIds = (node: FileStructure): Array<{ filePath: string; stableId: string }> => {
+      const files: Array<{ filePath: string; stableId: string }> = []
       const stableId = buildStableId(machineId, node)
 
       if (node.type === 'file' && selectedForRag[stableId]) {
-        files.push(node.fullPath || node.id)
+        files.push({ filePath: node.fullPath || node.id, stableId })
       }
 
       if (node.children) {
         node.children.forEach(child => {
-          files.push(...getSelectedFiles(child))
+          files.push(...getSelectedFilesWithIds(child))
         })
       }
 
       return files
     }
 
-    const selectedFiles = getSelectedFiles(directoryNode)
+    const selectedFilesWithIds = getSelectedFilesWithIds(directoryNode)
+    const selectedFiles = selectedFilesWithIds.map(f => f.filePath)
 
     if (selectedFiles.length === 0) {
       setUploadStatus(prev => ({ ...prev, [directoryNode.fullPath || directoryNode.id]: 'No files selected' }))
@@ -423,6 +484,25 @@ export default function ScanResultsDisplay({
 
     // Initialize progress
     setUploadProgress({ done: 0, total: selectedFiles.length, totalChunks: 0 })
+    
+    // Check for changed files and delete relationships before upload
+    const changedFilesToClean = selectedFilesWithIds.filter(f => changedFiles[f.stableId])
+    
+    if (changedFilesToClean.length > 0) {
+      setUploadStatus(prev => ({ ...prev, [directoryNode.fullPath || directoryNode.id]: `Cleaning up ${changedFilesToClean.length} changed file(s)...` }))
+      
+      // Delete relationships for changed files (chunks will be auto-deleted during upload)
+      for (const fileInfo of changedFilesToClean) {
+        try {
+          await deleteFileRelationships(machineId, fileInfo.filePath)
+          console.log(`Deleted relationships for changed file: ${fileInfo.filePath}`)
+        } catch (error) {
+          console.warn(`Failed to delete relationships for ${fileInfo.filePath}:`, error)
+          // Continue even if deletion fails - chunks will be deleted during upload anyway
+        }
+      }
+    }
+
     setUploadStatus(prev => ({ ...prev, [directoryNode.fullPath || directoryNode.id]: 'Uploading...' }))
 
     // Process files in batches (batch size: 7)
@@ -474,7 +554,8 @@ export default function ScanResultsDisplay({
           statusMessage = 'No chunks created. Make sure files are stored in Neo4j first (click "Store in Neo4j" button) and file paths are correct.'
         }
       } else {
-        statusMessage = `Uploaded: ${totalChunks} chunks from ${processed} files`
+        const changedCount = changedFilesToClean.length > 0 ? ` (${changedFilesToClean.length} changed file(s) cleaned)` : ''
+        statusMessage = `Uploaded: ${totalChunks} chunks from ${processed} files${changedCount}`
         if (allErrors.length > 0) {
           statusMessage += `. ${allErrors.length} error(s): ${allErrors.slice(0, 2).join('; ')}${allErrors.length > 2 ? '...' : ''}`
         }
@@ -487,6 +568,17 @@ export default function ScanResultsDisplay({
 
       // Clear selections after successful upload
       setSelectedForRag({})
+      
+      // Clear changed files status for successfully uploaded files
+      setChangedFiles(prev => {
+        const updated = { ...prev }
+        selectedFilesWithIds.forEach(fileInfo => {
+          if (updated[fileInfo.stableId]) {
+            delete updated[fileInfo.stableId]
+          }
+        })
+        return updated
+      })
     } catch (e: any) {
       setUploadStatus(prev => ({ ...prev, [directoryNode.fullPath || directoryNode.id]: `Error: ${e.response?.data?.detail || e.message}` }))
       setUploadProgress({ done: 0, total: 0, totalChunks: 0 })
@@ -576,7 +668,7 @@ export default function ScanResultsDisplay({
       if (selectedFilesForDelete.length > 0) {
         for (const filePath of selectedFilesForDelete) {
           try {
-            const result = await deleteFileChunks(filePath, machineId)
+            const result = await deleteFileChunks(machineId, filePath)
             totalChunks += result.deleted_chunks || 0
             totalRelationships += result.deleted_relationships || 0
           } catch (e: any) {
@@ -593,7 +685,7 @@ export default function ScanResultsDisplay({
             continue
           }
           try {
-            const result = await deleteFileRelationships(filePath, machineId)
+            const result = await deleteFileRelationships(machineId, filePath)
             totalRelationships += result.deleted_relationships || 0
           } catch (e: any) {
             errors.push(`${filePath} (graph): ${e.response?.data?.detail || e.message}`)
@@ -638,6 +730,8 @@ export default function ScanResultsDisplay({
   const renderDirectoryTree = (node: FileStructure, level: number = 0): React.ReactNode => {
     const isDirectory = node.type === 'directory'
     const Icon = isDirectory ? FolderOpenIcon : FileIcon
+    const stableId = buildStableId(machineId || '', node)
+    const fileChanged = changedFiles[stableId]
 
     // Sort children: directories first, then files, both alphabetically
     const sortedChildren = node.children ? [...node.children].sort((a, b) => {
@@ -652,7 +746,25 @@ export default function ScanResultsDisplay({
       <Box key={node.id} sx={{ ml: level * 2, mb: 0.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 32 }}>
           <Icon sx={{ fontSize: 16, color: isDirectory ? 'primary.main' : 'text.secondary' }} />
-          <Typography variant="body2" sx={{ lineHeight: 1.5 }}>{node.name}</Typography>
+          <Typography 
+            variant="body2"
+            sx={{
+              ...(fileChanged && {
+                color: fileChanged.reason === 'new' ? 'success.main' : 'warning.main',
+                fontWeight: 'bold',
+              })
+            }}
+          >
+            {node.name}
+          </Typography>
+          {fileChanged && (
+            <Chip 
+              label={fileChanged.reason === 'new' ? 'New' : fileChanged.reason === 'metadata' ? 'Changed (Metadata)' : 'Changed (Content)'}
+              size="small"
+              color={fileChanged.reason === 'new' ? 'success' : 'warning'}
+              sx={{ fontSize: '0.65rem', height: '20px' }}
+            />
+          )}
           {node.size && (
             <Chip label={formatBytes(node.size)} size="small" variant="outlined" />
           )}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
+import { createHash } from 'crypto'
 
 export async function POST(request: NextRequest) {
   try {
@@ -65,6 +66,17 @@ async function scanDirectory(dirPath: string, rootPath: string): Promise<any> {
 
   if (stats.isFile()) {
     const relativePath = path.relative(rootPath, dirPath)
+    
+    // Calculate file hash (SHA256) for content identification
+    let fileHash: string | undefined
+    try {
+      const fileBuffer = await fs.readFile(dirPath)
+      fileHash = createHash('sha256').update(fileBuffer).digest('hex')
+    } catch (error) {
+      console.warn(`⚠️ Could not calculate hash for ${dirPath}:`, error)
+      // Continue without hash if file read fails (e.g., permission denied)
+    }
+    
     return {
       id: uuidv4(),
       type: 'file',
@@ -75,6 +87,7 @@ async function scanDirectory(dirPath: string, rootPath: string): Promise<any> {
       extension: path.extname(dirPath) || 'no extension',
       modifiedTime: stats.mtime.toISOString(),
       createdAt: stats.birthtime.toISOString(),
+      hash: fileHash, // SHA256 hash of file content
       children: [],
       source: 'local',
     }
