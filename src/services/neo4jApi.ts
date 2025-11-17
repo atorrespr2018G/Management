@@ -315,15 +315,17 @@ export const deleteConnectorPath = async (configId: string, pathId: string): Pro
 };
 
 // Delete file chunks and relationships
-export const deleteFileChunks = async (filePath: string, machineId: string): Promise<any> => {
-  const encodedPath = encodeURIComponent(filePath);
-  const params = new URLSearchParams({ machine_id: machineId });
-  return apiCall(`/api/graph/files/${encodedPath}/chunks?${params.toString()}`, {
+export const deleteFileChunks = async (machineId: string, filePath: string): Promise<any> => {
+  const params = new URLSearchParams({
+    machine_id: machineId,
+    file_path: filePath,
+  });
+  return apiCall(`/api/graph/delete-file-chunks?${params.toString()}`, {
     method: 'DELETE',
   });
 };
 
-export const deleteDirectoryChunks = async (directoryPath: string, machineId: string): Promise<any> => {
+export const deleteDirectoryChunks = async (machineId: string, directoryPath: string): Promise<any> => {
   const encodedPath = encodeURIComponent(directoryPath);
   const params = new URLSearchParams({ machine_id: machineId });
   return apiCall(`/api/graph/directories/${encodedPath}/chunks?${params.toString()}`, {
@@ -331,15 +333,17 @@ export const deleteDirectoryChunks = async (directoryPath: string, machineId: st
   });
 };
 
-export const deleteFileRelationships = async (filePath: string, machineId: string): Promise<any> => {
-  const encodedPath = encodeURIComponent(filePath);
-  const params = new URLSearchParams({ machine_id: machineId });
-  return apiCall(`/api/graph/files/${encodedPath}/relationships?${params.toString()}`, {
+export const deleteFileRelationships = async (machineId: string, filePath: string): Promise<any> => {
+  const params = new URLSearchParams({
+    machine_id: machineId,
+    file_path: filePath,
+  });
+  return apiCall(`/api/graph/delete-file-relationships?${params.toString()}`, {
     method: 'DELETE',
   });
 };
 
-export const deleteDirectoryRelationships = async (directoryPath: string, machineId: string): Promise<any> => {
+export const deleteDirectoryRelationships = async (machineId: string, directoryPath: string): Promise<any> => {
   const encodedPath = encodeURIComponent(directoryPath);
   const params = new URLSearchParams({ machine_id: machineId });
   return apiCall(`/api/graph/directories/${encodedPath}/relationships?${params.toString()}`, {

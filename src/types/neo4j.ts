@@ -15,6 +15,8 @@ export interface FileNode {
   children?: FileNode[];
   extension?: string;
   modified?: string;
+  hash?: string; // SHA256 hash of file content for change detection
+  modifiedTime?: string; // ISO string of modification time
 }
 
 export interface FileStructure {
@@ -25,6 +27,11 @@ export interface FileStructure {
   fullPath?: string;
   relativePath?: string;
   children?: FileStructure[];
+  hash?: string; // SHA256 hash of file content for change detection
+  modifiedTime?: string; // ISO string of modification time
+  extension?: string;
+  createdAt?: string;
+  source?: string;
 }
 
 export interface GraphStats {
