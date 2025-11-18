@@ -84,7 +84,12 @@ export default function ScanResultsDisplay({
   const [uploadStatus, setUploadStatus] = useState<Record<string, string>>({})
   const [uploadProgress, setUploadProgress] = useState({ done: 0, total: 0, totalChunks: 0 })
   const [changedFiles, setChangedFiles] = useState<Record<string, { reason: 'metadata' | 'content' | 'new' }>>({})
-  const [relationshipSettings, setRelationshipSettings] = useState({
+  const [relationshipSettings, setRelationshipSettings] = useState<{
+    similarity_threshold: number
+    top_k: number | null
+    same_directory_only: boolean
+    same_document_only: boolean
+  }>({
     similarity_threshold: 0.7,
     top_k: 10,
     same_directory_only: false,
@@ -396,7 +401,7 @@ export default function ScanResultsDisplay({
         try {
           const res = await createSemanticRelationships(machineId, directoryPath, {
             similarity_threshold: relationshipSettings.similarity_threshold,
-            top_k: relationshipSettings.top_k || null,
+            top_k: relationshipSettings.top_k !== null ? relationshipSettings.top_k : undefined,
             same_directory_only: relationshipSettings.same_directory_only,
             same_document_only: relationshipSettings.same_document_only,
             scope_file_id: fileId,

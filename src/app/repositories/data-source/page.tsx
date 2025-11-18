@@ -12,6 +12,8 @@ import {
   IconButton,
   Chip,
   CircularProgress,
+  Alert,
+  Button,
 } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import FolderIcon from '@mui/icons-material/Folder'
@@ -22,22 +24,29 @@ export default function RepositoriesDataSourcePage() {
   const router = useRouter()
   const [configuredDirectories, setConfiguredDirectories] = useState<ConnectorConfig[]>([])
   const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    loadConfiguredDirectories()
-  }, [])
+  const [error, setError] = useState<string | null>(null)
 
   const loadConfiguredDirectories = async () => {
     try {
       setLoading(true)
+      setError(null)
       const configs = await getConnectorConfigs('file_system')
       setConfiguredDirectories(configs)
-    } catch (error) {
-      console.error('Failed to load configured directories:', error)
+    } catch (err: any) {
+      console.error('Failed to load configured directories:', err)
+      const errorMessage = err?.message || 'Failed to load data sources. Please check if the backend server is running.'
+      setError(errorMessage)
+      // Set empty array on error to prevent infinite loading state
+      setConfiguredDirectories([])
     } finally {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    loadConfiguredDirectories()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleCardClick = (config: ConnectorConfig) => {
     // Navigate to detail page instead of showing modal
@@ -64,6 +73,20 @@ export default function RepositoriesDataSourcePage() {
         <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>
           Data Source
         </Typography>
+
+        {error && (
+          <Alert 
+            severity="error" 
+            sx={{ mb: 2 }}
+            action={
+              <Button color="inherit" size="small" onClick={loadConfiguredDirectories}>
+                Retry
+              </Button>
+            }
+          >
+            {error}
+          </Alert>
+        )}
 
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
