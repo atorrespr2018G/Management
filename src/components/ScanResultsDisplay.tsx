@@ -70,6 +70,8 @@ import {
   setDeleteStatus,
   setRelationshipStatusForFile,
   toggleSelectedForGraph,
+  setChangedFiles,
+  removeChangedFiles
 } from '../store/slices/neoSlice';
 interface ScanResults {
   data: FileStructure
@@ -103,6 +105,7 @@ export default function ScanResultsDisplay({
     relationshipStatus,
     isDeletingChunks,
     isDeletingRelationships,
+    changedFiles,
     deleteStatus
   } = useSelector((state: any) => state.neo);
   const dispatch = useDispatch();
@@ -114,7 +117,7 @@ export default function ScanResultsDisplay({
   // const [isLoadingNeo4jStructure, setIsLoadingNeo4jStructure] = useState(false)
   // const [uploadStatus, setUploadStatus] = useState<Record<string, string>>({})
   // const [uploadProgress, setUploadProgress] = useState({ done: 0, total: 0, totalChunks: 0 })
-  const [changedFiles, setChangedFiles] = useState<Record<string, { reason: 'metadata' | 'content' | 'new' }>>({})
+  // const [changedFiles, setChangedFiles] = useState<Record<string, { reason: 'metadata' | 'content' | 'new' }>>({})
   // const [ragStatuses, setRagStatuses] = useState<Record<string, 'complete' | 'partial' | 'none'>>({})
 
   // const [selectedForRag, setSelectedForRag] = useState<Record<string, boolean>>({})
@@ -210,7 +213,7 @@ export default function ScanResultsDisplay({
         }
 
         compareStructures(scanResults.data, result.structure)
-        setChangedFiles(changedMap)
+        dispatch(setChangedFiles(changedMap))
 
         // Fetch RAG statuses and relationship statuses for all files
         const fetchRagStatuses = async (node: FileStructure) => {
@@ -664,15 +667,20 @@ export default function ScanResultsDisplay({
       dispatch(setSelectedForRag({}));
 
       // Clear changed files status for successfully uploaded files
-      setChangedFiles(prev => {
-        const updated = { ...prev }
-        selectedFilesWithIds.forEach(fileInfo => {
-          if (updated[fileInfo.stableId]) {
-            delete updated[fileInfo.stableId]
-          }
+      dispatch(
+        removeChangedFiles({
+          stableIds: selectedFilesWithIds.map(f => f.stableId),
         })
-        return updated
-      })
+      );
+      // setChangedFiles(prev => {
+      //   const updated = { ...prev }
+      //   selectedFilesWithIds.forEach(fileInfo => {
+      //     if (updated[fileInfo.stableId]) {
+      //       delete updated[fileInfo.stableId]
+      //     }
+      //   })
+      //   return updated
+      // })
     } catch (e: any) {
       dispatch(setUploadStatus({ directoryNode, status: `Error: ${e.response?.data?.detail || e.message}` }));
       dispatch(setUploadProgress({ done: 0, total: 0, totalChunks: 0 }));
@@ -845,7 +853,7 @@ export default function ScanResultsDisplay({
     const isDirectory = node.type === 'directory'
     const Icon = isDirectory ? FolderOpenIcon : FileIcon
     const stableId = buildStableId(machineId || '', node)
-    const fileChanged = changedFiles[stableId]
+    const fileChanged = changedFiles[stableId] || null
 
     // Sort children: directories first, then files, both alphabetically
     const sortedChildren = node.children ? [...node.children].sort((a, b) => {
