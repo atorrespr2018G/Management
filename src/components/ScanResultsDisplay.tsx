@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import {
   Box,
   Typography,
@@ -17,6 +18,7 @@ import {
   FormControlLabel,
   TextField,
   Divider,
+  Stack,
 } from '@mui/material'
 import DownloadIcon from '@mui/icons-material/Download'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
@@ -29,6 +31,11 @@ import NetworkIcon from '@mui/icons-material/AccountTree'
 import DeleteIcon from '@mui/icons-material/Delete'
 import LinkOffIcon from '@mui/icons-material/LinkOff'
 import { formatBytes } from '@/utils/formatters'
+import { useMachineId } from '@/hooks/useMachineId'
+import type { FileStructure } from '@/types/neo4j'
+import { buildStableId } from '@/utils/treeHelpers'
+import DirectoryNodeStructure from './DirectoryNodeStructure'
+import NeoDirectoryStructureCard from './NeoDirectoryStructureCard'
 import {
   storeInNeo4j,
   getNeo4jStats,
@@ -42,10 +49,28 @@ import {
   deleteFileChunks,
   deleteDirectoryChunks,
   deleteDirectoryRelationships,
-} from '@/services/neo4jApi'
-import { useMachineId } from '@/hooks/useMachineId'
-import type { FileStructure } from '@/types/neo4j'
 
+} from '@/services/neo4jApi'
+import {
+  setNeo4jDirectoryStructure,
+  setIsLoadingNeo4jStructure,
+  setSelectedForRag,
+  setRagStatuses,
+  setUploadStatus,
+  setUploadProgress,
+  setSelectedForGraph,
+  setSelectedForDelete,
+  setSelectedForDeleteRelationships,
+  setRelationshipStatuses,
+  setRelationshipSettings,
+  setIsCreatingRelationships,
+  setRelationshipStatus,
+  setIsDeletingChunks,
+  setIsDeletingRelationships,
+  setDeleteStatus,
+  setRelationshipStatusForFile,
+  toggleSelectedForGraph,
+} from '../store/slices/neoSlice';
 interface ScanResults {
   data: FileStructure
   totalFiles?: number
@@ -68,33 +93,46 @@ export default function ScanResultsDisplay({
   onScanAgain,
 }: ScanResultsDisplayProps) {
   const { machineId } = useMachineId()
-  
+  const { neo4jDirectoryStructure, isLoadingNeo4jStructure, selectedForRag, ragStatuses, uploadStatus, uploadProgress,
+    selectedForGraph,
+    selectedForDelete,
+    selectedForDeleteRelationships,
+    relationshipStatuses,
+    relationshipSettings,
+    isCreatingRelationships,
+    relationshipStatus,
+    isDeletingChunks,
+    isDeletingRelationships,
+    deleteStatus
+  } = useSelector((state: any) => state.neo);
+  const dispatch = useDispatch();
   const [copied, setCopied] = useState(false)
   const [neo4jStatus, setNeo4jStatus] = useState<any>(null)
   const [isStoring, setIsStoring] = useState(false)
   const [storeMessage, setStoreMessage] = useState('')
-  const [neo4jDirectoryStructure, setNeo4jDirectoryStructure] = useState<FileStructure | null>(null)
-  const [isLoadingNeo4jStructure, setIsLoadingNeo4jStructure] = useState(false)
-  const [selectedForRag, setSelectedForRag] = useState<Record<string, boolean>>({})
-  const [selectedForGraph, setSelectedForGraph] = useState<Record<string, boolean>>({})
-  const [selectedForDelete, setSelectedForDelete] = useState<Record<string, boolean>>({})
-  const [selectedForDeleteRelationships, setSelectedForDeleteRelationships] = useState<Record<string, boolean>>({})
-  const [ragStatuses, setRagStatuses] = useState<Record<string, 'complete' | 'partial' | 'none'>>({})
-  const [relationshipStatuses, setRelationshipStatuses] = useState<Record<string, boolean>>({})
-  const [uploadStatus, setUploadStatus] = useState<Record<string, string>>({})
-  const [uploadProgress, setUploadProgress] = useState({ done: 0, total: 0, totalChunks: 0 })
+  // const [neo4jDirectoryStructure, setNeo4jDirectoryStructure] = useState<FileStructure | null>(null)
+  // const [isLoadingNeo4jStructure, setIsLoadingNeo4jStructure] = useState(false)
+  // const [uploadStatus, setUploadStatus] = useState<Record<string, string>>({})
+  // const [uploadProgress, setUploadProgress] = useState({ done: 0, total: 0, totalChunks: 0 })
   const [changedFiles, setChangedFiles] = useState<Record<string, { reason: 'metadata' | 'content' | 'new' }>>({})
-  const [relationshipSettings, setRelationshipSettings] = useState({
-    similarity_threshold: 0.7,
-    top_k: 10,
-    same_directory_only: false,
-    same_document_only: false,
-  })
-  const [isCreatingRelationships, setIsCreatingRelationships] = useState(false)
-  const [relationshipStatus, setRelationshipStatus] = useState<Record<string, string>>({})
-  const [isDeletingChunks, setIsDeletingChunks] = useState<Record<string, boolean>>({})
-  const [isDeletingRelationships, setIsDeletingRelationships] = useState<Record<string, boolean>>({})
-  const [deleteStatus, setDeleteStatus] = useState<Record<string, string>>({})
+  // const [ragStatuses, setRagStatuses] = useState<Record<string, 'complete' | 'partial' | 'none'>>({})
+
+  // const [selectedForRag, setSelectedForRag] = useState<Record<string, boolean>>({})
+  // const [selectedForGraph, setSelectedForGraph] = useState<Record<string, boolean>>({})
+  // const [selectedForDelete, setSelectedForDelete] = useState<Record<string, boolean>>({})
+  // const [selectedForDeleteRelationships, setSelectedForDeleteRelationships] = useState<Record<string, boolean>>({})
+  // const [relationshipStatuses, setRelationshipStatuses] = useState<Record<string, boolean>>({})
+  // const [relationshipSettings, setRelationshipSettings] = useState({
+  //   similarity_threshold: 0.7,
+  //   top_k: 10,
+  //   same_directory_only: false,
+  //   same_document_only: false,
+  // })
+  // const [isCreatingRelationships, setIsCreatingRelationships] = useState(false)
+  // const [relationshipStatus, setRelationshipStatus] = useState<Record<string, string>>({})
+  // const [isDeletingChunks, setIsDeletingChunks] = useState<Record<string, boolean>>({})
+  // const [isDeletingRelationships, setIsDeletingRelationships] = useState<Record<string, boolean>>({})
+  // const [deleteStatus, setDeleteStatus] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (scanResults?.data && machineId) {
@@ -106,19 +144,21 @@ export default function ScanResultsDisplay({
     if (!scanResults?.data || !machineId) return
 
     try {
-      setIsLoadingNeo4jStructure(true)
+      dispatch(setIsLoadingNeo4jStructure(true));
       const rootFullPath = scanResults.data.fullPath || ''
+
       if (!rootFullPath) return
 
       const result = await getDirectoryFromNeo4j(machineId, rootFullPath)
+
       if (result.found && result.structure) {
-        setNeo4jDirectoryStructure(result.structure)
+        dispatch(setNeo4jDirectoryStructure(result.structure));
 
         // Detect changed files by comparing scanned files with Neo4j files (Hybrid approach)
         const detectChangedFiles = (scannedNode: FileStructure, neo4jNode: FileStructure | null, changedMap: Record<string, { reason: 'metadata' | 'content' | 'new' }>) => {
           if (scannedNode.type === 'file') {
             const fileKey = buildStableId(machineId, scannedNode)
-            
+
             if (!neo4jNode) {
               // File is new (exists in scan but not in Neo4j)
               changedMap[fileKey] = { reason: 'new' }
@@ -127,22 +167,22 @@ export default function ScanResultsDisplay({
               const scannedSize = scannedNode.size
               const scannedModifiedTime = scannedNode.modifiedTime
               const scannedHash = scannedNode.hash
-              
+
               const neo4jSize = neo4jNode.size
               const neo4jModifiedTime = neo4jNode.modifiedTime
               const neo4jHash = neo4jNode.hash
-              
+
               // Quick check: size or modifiedTime changed
               if (scannedSize !== neo4jSize || scannedModifiedTime !== neo4jModifiedTime) {
                 changedMap[fileKey] = { reason: 'metadata' }
-              } 
+              }
               // Deep check: if metadata matches, check hash
               else if (scannedHash && neo4jHash && scannedHash !== neo4jHash) {
                 changedMap[fileKey] = { reason: 'content' }
               }
             }
           }
-          
+
           // Recursively check children
           if (scannedNode.children && Array.isArray(scannedNode.children)) {
             scannedNode.children.forEach((scannedChild) => {
@@ -155,7 +195,7 @@ export default function ScanResultsDisplay({
         }
 
         const changedMap: Record<string, { reason: 'metadata' | 'content' | 'new' }> = {}
-        
+
         // Compare scanned structure with Neo4j structure
         const compareStructures = (scanned: FileStructure, neo4j: FileStructure | null) => {
           detectChangedFiles(scanned, neo4j, changedMap)
@@ -168,7 +208,7 @@ export default function ScanResultsDisplay({
             })
           }
         }
-        
+
         compareStructures(scanResults.data, result.structure)
         setChangedFiles(changedMap)
 
@@ -178,20 +218,30 @@ export default function ScanResultsDisplay({
             // Use the EXACT same format as the badge: buildStableId(machineId || '', node)
             const fileKey = buildStableId(machineId || '', node)
             try {
-              const status = await getFileRagStatus(machineId, node.fullPath || node.id)
-              setRagStatuses(prev => ({ ...prev, [fileKey]: status.status }))
+              const status = await getFileRagStatus(machineId, node.fullPath || node.id);
+              dispatch(setRagStatuses({ fileKey: fileKey, status: status.status }))
             } catch (error) {
-              console.error(`Error fetching RAG status for ${node.fullPath}:`, error)
-              setRagStatuses(prev => ({ ...prev, [fileKey]: 'none' }))
+              console.error(`Error fetching RAG status for ${node.fullPath}:`, error);
+              dispatch(setRagStatuses({ fileKey: 'none', status: 'none' }))
             }
-            
+
             // Fetch relationship status
             try {
               const relStatus = await getFileRelationshipStatus(machineId, node.fullPath || node.id)
-              setRelationshipStatuses(prev => ({ ...prev, [fileKey]: relStatus.has_relationships }))
+              dispatch(
+                setRelationshipStatusForFile({
+                  fileKey,
+                  hasRelationships: relStatus.has_relationships,
+                })
+              );
             } catch (error) {
               console.error(`Error fetching relationship status for ${node.fullPath}:`, error)
-              setRelationshipStatuses(prev => ({ ...prev, [fileKey]: false }))
+              dispatch(
+                setRelationshipStatusForFile({
+                  fileKey,
+                  hasRelationships: false
+                })
+              );
             }
           }
           if (node.children && Array.isArray(node.children)) {
@@ -202,9 +252,9 @@ export default function ScanResultsDisplay({
         }
 
         // Clear existing state
-        setRagStatuses({})
-        setRelationshipStatuses({})
-        setSelectedForRag({})
+        dispatch(setRagStatuses({}))
+        dispatch(setRelationshipStatuses({}))
+        dispatch(setSelectedForRag({}));
 
         // Fetch RAG statuses and relationship statuses for all files
         await fetchRagStatuses(result.structure)
@@ -212,7 +262,7 @@ export default function ScanResultsDisplay({
     } catch (error) {
       console.error('Error fetching Neo4j structure:', error)
     } finally {
-      setIsLoadingNeo4jStructure(false)
+      dispatch(setIsLoadingNeo4jStructure(false))
     }
   }
 
@@ -265,7 +315,7 @@ export default function ScanResultsDisplay({
       setStoreMessage('✅ Directory stored in Neo4j (metadata only).')
       const stats = await getNeo4jStats()
       setNeo4jStatus(stats)
-      
+
       // Refresh structure with RAG statuses
       await new Promise(resolve => setTimeout(resolve, 500))
       await fetchNeo4jStructure()
@@ -274,11 +324,6 @@ export default function ScanResultsDisplay({
     } finally {
       setIsStoring(false)
     }
-  }
-
-  // Helper to build stable ID for files and folders
-  const buildStableId = (machineId: string, node: FileStructure): string => {
-    return `${machineId}:${node.fullPath || node.id}`
   }
 
   // Get all descendant file IDs (recursive)
@@ -298,42 +343,55 @@ export default function ScanResultsDisplay({
   // Toggle selection for a node (recursive for folders)
   const toggleSelection = (node: FileStructure, machineId: string) => {
     const stableId = buildStableId(machineId, node)
-    const isSelected = selectedForRag[stableId] || false
-    const newSelected = !isSelected
+    const isSelectedForRag = selectedForRag[stableId] || false
+    const newSelected = !isSelectedForRag
 
-    setSelectedForRag(prev => {
-      const next = { ...prev }
+    dispatch(setSelectedForRag({ node, machineId, stableId, newSelected }));
+    // setSelectedForRag(prev => {
+    //   const next = { ...prev }
 
-      if (node.type === 'directory') {
-        // For folders, select/deselect all descendants
-        const descendantIds = getDescendantFileIds(node, machineId)
-        descendantIds.forEach(id => {
-          next[id] = newSelected
-        })
-        // Also select the folder itself
-        next[stableId] = newSelected
-      } else {
-        // For files, just toggle
-        next[stableId] = newSelected
-      }
+    //   if (node.type === 'directory') {
+    //     // For folders, select/deselect all descendants
+    //     const descendantIds = getDescendantFileIds(node, machineId)
+    //     descendantIds.forEach(id => {
+    //       next[id] = newSelected
+    //     })
+    //     // Also select the folder itself
+    //     next[stableId] = newSelected
+    //   } else {
+    //     // For files, just toggle
+    //     next[stableId] = newSelected
+    //   }
 
-      return next
-    })
+    //   return next
+    // })
   }
 
   // Refresh relationship statuses for files in a directory
   const refreshRelationshipStatuses = async (node: FileStructure) => {
     if (!machineId) return
-    
+
     const refreshForNode = async (fileNode: FileStructure) => {
       if (fileNode.type === 'file') {
         const fileKey = buildStableId(machineId, fileNode)
         try {
           const relStatus = await getFileRelationshipStatus(machineId, fileNode.fullPath || fileNode.id)
-          setRelationshipStatuses(prev => ({ ...prev, [fileKey]: relStatus.has_relationships }))
+          // setRelationshipStatuses(prev => ({ ...prev, [fileKey]: relStatus.has_relationships }))
+          dispatch(
+            setRelationshipStatusForFile({
+              fileKey,
+              hasRelationships: relStatus.has_relationships
+            })
+          );
         } catch (error) {
           console.error(`Error refreshing relationship status for ${fileNode.fullPath}:`, error)
-          setRelationshipStatuses(prev => ({ ...prev, [fileKey]: false }))
+          // setRelationshipStatuses(prev => ({ ...prev, [fileKey]: false }))
+          dispatch(
+            setRelationshipStatusForFile({
+              fileKey,
+              hasRelationships: false
+            })
+          );
         }
       }
       if (fileNode.children && Array.isArray(fileNode.children)) {
@@ -342,22 +400,22 @@ export default function ScanResultsDisplay({
         }
       }
     }
-    
+
     await refreshForNode(node)
   }
 
   // Get all selected file IDs and their stable IDs from a directory node
   const getSelectedFileIds = (node: FileStructure): { fileId: string; stableId: string }[] => {
     const selected: { fileId: string; stableId: string }[] = []
-    const traverse = (n: FileStructure) => {
-      if (n.type === 'file') {
-        const fileKey = buildStableId(machineId || '', n)
+    const traverse = (node: FileStructure) => {
+      if (node.type === 'file') {
+        const fileKey = buildStableId(machineId || '', node)
         if (selectedForGraph[fileKey]) {
-          selected.push({ fileId: n.id, stableId: fileKey })
+          selected.push({ fileId: node.id, stableId: fileKey })
         }
       }
-      if (n.children && Array.isArray(n.children)) {
-        n.children.forEach(child => traverse(child))
+      if (node.children && Array.isArray(node.children)) {
+        node.children.forEach(child => traverse(child))
       }
     }
     traverse(node)
@@ -366,27 +424,44 @@ export default function ScanResultsDisplay({
 
   const handleCreateSemanticRelationships = async (directoryNode: FileStructure) => {
     if (!machineId) {
-      setRelationshipStatus(prev => ({ ...prev, [directoryNode.fullPath || directoryNode.id]: 'Error: Machine ID not found' }))
+      // setRelationshipStatus(prev => ({ ...prev, [directoryNode.fullPath || directoryNode.id]: 'Error: Machine ID not found' }))
+      dispatch(
+        setRelationshipStatus({
+          ...relationshipStatus,
+          [directoryNode.fullPath || directoryNode.id]: 'Error: Machine ID not found',
+        })
+      );
       return
     }
 
     try {
-      setIsCreatingRelationships(true)
+      dispatch(setIsCreatingRelationships(true))
       const directoryPath = directoryNode.fullPath || directoryNode.id
-      
+
       // Get selected file IDs
       const selectedFiles = getSelectedFileIds(directoryNode)
-      
+
       if (selectedFiles.length === 0) {
-        setRelationshipStatus(prev => ({
-          ...prev,
-          [directoryPath]: 'No files selected. Click on Graph badges to select files.',
-        }))
+        // setRelationshipStatus(prev => ({
+        //   ...prev,
+        //   [directoryPath]: 'No files selected. Click on Graph badges to select files.',
+        // }))
+        dispatch(
+          setRelationshipStatus({
+            ...relationshipStatus,
+            [directoryPath]: 'No files selected. Click on Graph badges to select files.',
+          })
+        );
         return
       }
 
-      setRelationshipStatus(prev => ({ ...prev, [directoryPath]: `Creating relationships for ${selectedFiles.length} file(s)...` }))
-
+      // setRelationshipStatus(prev => ({ ...prev, [directoryPath]: `Creating relationships for ${selectedFiles.length} file(s)...` }))
+      dispatch(
+        setRelationshipStatus({
+          ...relationshipStatus,
+          [directoryPath]: `Creating relationships for ${selectedFiles.length} file(s)...`,
+        })
+      );
       let totalCreatedRelationships = 0
       let totalProcessedChunks = 0
       const errors: string[] = []
@@ -396,7 +471,7 @@ export default function ScanResultsDisplay({
         try {
           const res = await createSemanticRelationships(machineId, directoryPath, {
             similarity_threshold: relationshipSettings.similarity_threshold,
-            top_k: relationshipSettings.top_k || null,
+            top_k: relationshipSettings.top_k,
             same_directory_only: relationshipSettings.same_directory_only,
             same_document_only: relationshipSettings.same_document_only,
             scope_file_id: fileId,
@@ -410,29 +485,46 @@ export default function ScanResultsDisplay({
         }
       }
 
-      setRelationshipStatus(prev => ({
-        ...prev,
-        [directoryPath]: errors.length > 0
-          ? `Created ${totalCreatedRelationships} relationships from ${totalProcessedChunks} chunks. ${errors.length} error(s): ${errors.join('; ')}`
-          : `Created ${totalCreatedRelationships} relationships from ${totalProcessedChunks} chunks`,
-      }))
-      
+      // setRelationshipStatus(prev => ({
+      //   ...prev,
+      //   [directoryPath]: errors.length > 0
+      //     ? `Created ${totalCreatedRelationships} relationships from ${totalProcessedChunks} chunks. ${errors.length} error(s): ${errors.join('; ')}`
+      //     : `Created ${totalCreatedRelationships} relationships from ${totalProcessedChunks} chunks`,
+      // }))
+      dispatch(
+        setRelationshipStatus({
+          ...relationshipStatus,
+          [directoryPath]: errors.length > 0
+            ? `Created ${totalCreatedRelationships} relationships from ${totalProcessedChunks} chunks. ${errors.length} error(s): ${errors.join('; ')}`
+            : `Created ${totalCreatedRelationships} relationships from ${totalProcessedChunks} chunks`,
+        })
+      );
+
+
+
       // Clear selections after successful creation
+      console.log('selectedForGraph', selectedForGraph)
       const newSelection = { ...selectedForGraph }
       selectedFiles.forEach(({ stableId }) => {
         delete newSelection[stableId]
       })
-      setSelectedForGraph(newSelection)
-      
+      dispatch(setSelectedForGraph(newSelection))
+
       // Refresh relationship statuses for all files in the directory to update Graph badges
       await refreshRelationshipStatuses(directoryNode)
     } catch (e: any) {
-      setRelationshipStatus(prev => ({
-        ...prev,
-        [directoryNode.fullPath || directoryNode.id]: `Error: ${e.response?.data?.detail || e.message}`,
-      }))
+      // setRelationshipStatus(prev => ({
+      //   ...prev,
+      //   [directoryNode.fullPath || directoryNode.id]: `Error: ${e.response?.data?.detail || e.message}`,
+      // }))
+      dispatch(
+        setRelationshipStatus({
+          ...relationshipStatus,
+          [directoryNode.fullPath || directoryNode.id]: `Error: ${e.response?.data?.detail || e.message}`,
+        })
+      );
     } finally {
-      setIsCreatingRelationships(false)
+      dispatch(setIsCreatingRelationships(false))
     }
   }
 
@@ -452,7 +544,7 @@ export default function ScanResultsDisplay({
 
   const handleUploadDirectory = async (directoryNode: FileStructure) => {
     if (!machineId) {
-      setUploadStatus(prev => ({ ...prev, [directoryNode.fullPath || directoryNode.id]: 'Error: Machine ID not found' }))
+      dispatch(setUploadStatus({ directoryNode, status: 'Error: Machine ID not found' }));
       return
     }
 
@@ -478,19 +570,19 @@ export default function ScanResultsDisplay({
     const selectedFiles = selectedFilesWithIds.map(f => f.filePath)
 
     if (selectedFiles.length === 0) {
-      setUploadStatus(prev => ({ ...prev, [directoryNode.fullPath || directoryNode.id]: 'No files selected' }))
+      dispatch(setUploadStatus({ directoryNode, status: 'No files selected' }));
       return
     }
 
     // Initialize progress
-    setUploadProgress({ done: 0, total: selectedFiles.length, totalChunks: 0 })
-    
+    dispatch(setUploadProgress({ done: 0, total: selectedFiles.length, totalChunks: 0 }));
     // Check for changed files and delete relationships before upload
     const changedFilesToClean = selectedFilesWithIds.filter(f => changedFiles[f.stableId])
-    
+
     if (changedFilesToClean.length > 0) {
-      setUploadStatus(prev => ({ ...prev, [directoryNode.fullPath || directoryNode.id]: `Cleaning up ${changedFilesToClean.length} changed file(s)...` }))
-      
+      // setUploadStatus(prev => ({ ...prev, [directoryNode.fullPath || directoryNode.id]: `Cleaning up ${changedFilesToClean.length} changed file(s)...` }))
+      dispatch(setUploadStatus({ directoryNode, status: `Cleaning up ${changedFilesToClean.length} changed file(s)...` }));
+
       // Delete relationships for changed files (chunks will be auto-deleted during upload)
       for (const fileInfo of changedFilesToClean) {
         try {
@@ -503,7 +595,8 @@ export default function ScanResultsDisplay({
       }
     }
 
-    setUploadStatus(prev => ({ ...prev, [directoryNode.fullPath || directoryNode.id]: 'Uploading...' }))
+    // setUploadStatus(prev => ({ ...prev, [directoryNode.fullPath || directoryNode.id]: 'Uploading...' }))
+    dispatch(setUploadStatus({ directoryNode, status: 'Uploading...' }));
 
     // Process files in batches (batch size: 7)
     const BATCH_SIZE = 7
@@ -519,7 +612,7 @@ export default function ScanResultsDisplay({
           console.log(`Uploading batch ${i / BATCH_SIZE + 1}:`, batch)
           const result = await uploadFilesBatch(machineId, batch)
           console.log('Upload result:', result)
-          
+
           totalChunks += result.created_chunks || 0
           processed += result.processed_files || 0
 
@@ -533,11 +626,11 @@ export default function ScanResultsDisplay({
             })
           }
 
-          setUploadProgress({
+          dispatch(setUploadProgress({
             done: processed,
             total: selectedFiles.length,
             totalChunks: totalChunks
-          })
+          }));
         } catch (error) {
           console.error(`Error processing batch ${i / BATCH_SIZE + 1}:`, error)
           const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -560,15 +653,16 @@ export default function ScanResultsDisplay({
           statusMessage += `. ${allErrors.length} error(s): ${allErrors.slice(0, 2).join('; ')}${allErrors.length > 2 ? '...' : ''}`
         }
       }
-      setUploadStatus(prev => ({ ...prev, [directoryNode.fullPath || directoryNode.id]: statusMessage }))
-      setUploadProgress({ done: 0, total: 0, totalChunks: 0 })
+      // setUploadStatus(prev => ({ ...prev, [directoryNode.fullPath || directoryNode.id]: statusMessage }))
+      dispatch(setUploadStatus({ directoryNode, status: statusMessage }));
+      dispatch(setUploadProgress({ done: 0, total: selectedFiles.length, totalChunks: 0 }));
 
       // Refresh Neo4j structure to reflect which files now have RAG
       await fetchNeo4jStructure()
 
       // Clear selections after successful upload
-      setSelectedForRag({})
-      
+      dispatch(setSelectedForRag({}));
+
       // Clear changed files status for successfully uploaded files
       setChangedFiles(prev => {
         const updated = { ...prev }
@@ -580,8 +674,8 @@ export default function ScanResultsDisplay({
         return updated
       })
     } catch (e: any) {
-      setUploadStatus(prev => ({ ...prev, [directoryNode.fullPath || directoryNode.id]: `Error: ${e.response?.data?.detail || e.message}` }))
-      setUploadProgress({ done: 0, total: 0, totalChunks: 0 })
+      dispatch(setUploadStatus({ directoryNode, status: `Error: ${e.response?.data?.detail || e.message}` }));
+      dispatch(setUploadProgress({ done: 0, total: 0, totalChunks: 0 }));
     }
   }
 
@@ -623,13 +717,15 @@ export default function ScanResultsDisplay({
 
   const handleDeleteSelected = async (directoryNode: FileStructure) => {
     if (!machineId) {
-      setDeleteStatus(prev => ({ ...prev, [directoryNode.fullPath || directoryNode.id]: 'Error: Machine ID not found' }))
+      // setDeleteStatus(prev => ({ ...prev, [directoryNode.fullPath || directoryNode.id]: 'Error: Machine ID not found' }))
+      dispatch(setDeleteStatus({ ...deleteStatus, [directoryNode.fullPath || directoryNode.id]: 'Error: Machine ID not found' }));
+
       return
     }
 
     const selectedFilesForDelete = getSelectedFilesForDelete(directoryNode)
     const selectedFilesForGraph = getSelectedFilesForDeleteRelationships(directoryNode)
-    
+
     if (selectedFilesForDelete.length === 0 && selectedFilesForGraph.length === 0) {
       alert('Please select at least one file with "Delete File" or "Delete Graph" checkbox')
       return
@@ -643,22 +739,25 @@ export default function ScanResultsDisplay({
     if (selectedFilesForGraph.length > 0) {
       actions.push(`delete graph for ${selectedFilesForGraph.length} file(s)`)
     }
-    
+
     if (!confirm(`Are you sure you want to ${actions.join(' and ')}?`)) {
       return
     }
 
     const directoryPath = directoryNode.fullPath || directoryNode.id
     const isDeleting = selectedFilesForDelete.length > 0 || selectedFilesForGraph.length > 0
-    
+
     try {
       if (selectedFilesForDelete.length > 0) {
-        setIsDeletingChunks(prev => ({ ...prev, [directoryPath]: true }))
+        // setIsDeletingChunks(prev => ({ ...prev, [directoryPath]: true }))
+        dispatch(setIsDeletingChunks({ ...isDeletingChunks, [directoryPath]: true }));
       }
       if (selectedFilesForGraph.length > 0) {
-        setIsDeletingRelationships(prev => ({ ...prev, [directoryPath]: true }))
+        // setIsDeletingRelationships(prev => ({ ...prev, [directoryPath]: true }))
+        dispatch(setIsDeletingRelationships({ ...isDeletingRelationships, [directoryPath]: true }));
       }
-      setDeleteStatus(prev => ({ ...prev, [directoryPath]: 'Deleting...' }))
+      // setDeleteStatus(prev => ({ ...prev, [directoryPath]: 'Deleting...' }))
+      dispatch(setDeleteStatus({ ...deleteStatus, [directoryPath]: 'Deleting...' }));
 
       let totalChunks = 0
       let totalRelationships = 0
@@ -701,29 +800,44 @@ export default function ScanResultsDisplay({
       if (totalRelationships > 0) {
         statusParts.push(`${totalRelationships} graph relationships`)
       }
-      
+
       const totalFiles = new Set([...selectedFilesForDelete, ...selectedFilesForGraph]).size
-      setDeleteStatus(prev => ({
-        ...prev,
-        [directoryPath]: statusParts.length > 0 
-          ? `Deleted ${statusParts.join(' and ')} from ${totalFiles} file(s)${errors.length > 0 ? `. ${errors.length} error(s)` : ''}`
-          : `No items deleted${errors.length > 0 ? `. ${errors.length} error(s)` : ''}`,
-      }))
+      // setDeleteStatus(prev => ({
+      //   ...prev,
+      //   [directoryPath]: statusParts.length > 0
+      //     ? `Deleted ${statusParts.join(' and ')} from ${totalFiles} file(s)${errors.length > 0 ? `. ${errors.length} error(s)` : ''}`
+      //     : `No items deleted${errors.length > 0 ? `. ${errors.length} error(s)` : ''}`,
+      // }))
+      dispatch(
+        setDeleteStatus({
+          ...deleteStatus,
+          [directoryPath]: statusParts.length > 0
+            ? `Deleted ${statusParts.join(' and ')} from ${totalFiles} file(s)${errors.length > 0 ? `. ${errors.length} error(s)` : ''}`
+            : `No items deleted${errors.length > 0 ? `. ${errors.length} error(s)` : ''}`
+        })
+      );
 
       // Clear selections
-      setSelectedForDelete({})
-      setSelectedForDeleteRelationships({})
-      
+      dispatch(setSelectedForDelete({}))
+      dispatch(setSelectedForDeleteRelationships({}))
+
       // Refresh Neo4j structure and RAG statuses
       await fetchNeo4jStructure()
     } catch (e: any) {
-      setDeleteStatus(prev => ({
-        ...prev,
-        [directoryPath]: `Error: ${e.response?.data?.detail || e.message}`,
-      }))
+      // setDeleteStatus(prev => ({
+      //   ...prev,
+      //   [directoryPath]: `Error: ${e.response?.data?.detail || e.message}`,
+      // }))
+      setDeleteStatus({
+        ...deleteStatus,
+        [directoryPath]: `Error: ${e.response?.data?.detail || e.message}`
+      })
     } finally {
-      setIsDeletingChunks(prev => ({ ...prev, [directoryPath]: false }))
-      setIsDeletingRelationships(prev => ({ ...prev, [directoryPath]: false }))
+      // setIsDeletingChunks(prev => ({ ...prev, [directoryPath]: false }))
+      dispatch(setIsDeletingChunks({ ...isDeletingChunks, [directoryPath]: false }));
+      // setIsDeletingRelationships(prev => ({ ...prev, [directoryPath]: false }))
+      dispatch(setIsDeletingRelationships({ ...isDeletingRelationships, [directoryPath]: false }));
+
     }
   }
 
@@ -746,7 +860,7 @@ export default function ScanResultsDisplay({
       <Box key={node.id} sx={{ ml: level * 2, mb: 0.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 32 }}>
           <Icon sx={{ fontSize: 16, color: isDirectory ? 'primary.main' : 'text.secondary' }} />
-          <Typography 
+          <Typography
             variant="body2"
             sx={{
               ...(fileChanged && {
@@ -758,7 +872,7 @@ export default function ScanResultsDisplay({
             {node.name}
           </Typography>
           {fileChanged && (
-            <Chip 
+            <Chip
               label={fileChanged.reason === 'new' ? 'New' : fileChanged.reason === 'metadata' ? 'Changed (Metadata)' : 'Changed (Content)'}
               size="small"
               color={fileChanged.reason === 'new' ? 'success' : 'warning'}
@@ -778,11 +892,45 @@ export default function ScanResultsDisplay({
     )
   }
 
+  const handleUploadButton = (directoryNode: FileStructure) => {
+    if (!directoryNode) return null;
+
+    const machineId = localStorage.getItem('machineId') || '';
+    const hasSelectedFiles = getDescendantFileIds(
+      directoryNode,
+      machineId
+    ).some((id) => selectedForRag[id]);
+
+    const isUploading =
+      uploadProgress.total > 0 && uploadProgress.done < uploadProgress.total;
+
+    return (
+      <Button
+        variant="contained"
+        size="small"
+        startIcon={!isUploading && <FileIcon fontSize="small" />}
+        onClick={() => handleUploadDirectory(directoryNode)}
+        disabled={!hasSelectedFiles || isUploading}
+      >
+        {isUploading ? (
+          <Stack direction="row" spacing={1} alignItems="center">
+            <CircularProgress size={16} />
+            <Typography variant="caption">
+              Uploading… {uploadProgress.done}/{uploadProgress.total}
+            </Typography>
+          </Stack>
+        ) : (
+          'Upload Documents'
+        )}
+      </Button>
+    )
+  }
+
   const renderNeo4jNodeWithUpload = (node: FileStructure, level: number = 0): React.ReactNode => {
     const isDirectory = node.type === 'directory'
     const Icon = isDirectory ? FolderOpenIcon : FileIcon
     const stableId = buildStableId(machineId || '', node)
-    const isSelected = selectedForRag[stableId] || false
+    const isSelectedForRag = selectedForRag[stableId] || false
     const ragStatus = ragStatuses[stableId] || 'none'
     const hasRelationships = relationshipStatuses[stableId] || false
 
@@ -800,23 +948,30 @@ export default function ScanResultsDisplay({
     // Get Graph status badge (clickable to select for relationship creation)
     // If relationships already exist, badge is not selectable
     const getGraphStatusBadge = () => {
-      const isSelected = selectedForGraph[stableId] || false
+      const isSelectedForGraph = selectedForGraph[stableId] || false
       const canSelect = !hasRelationships // Only allow selection if no relationships exist
-      
+
       const chipProps = {
         label: "Graph" as const,
         size: "small" as const,
-        icon: isSelected ? <CheckCircleIcon sx={{ fontSize: 14 }} /> : undefined,
+        icon: isSelectedForGraph ? <CheckCircleIcon sx={{ fontSize: 14 }} /> : undefined,
         onClick: canSelect ? (e: React.MouseEvent) => {
           e.stopPropagation()
-          setSelectedForGraph(prev => ({
-            ...prev,
-            [stableId]: !prev[stableId]
-          }))
+          // setSelectedForGraph(prev => ({
+          //   ...prev,
+          //   [stableId]: !prev[stableId]
+          // }))
+          // dispatch(
+          //   setSelectedForGraph({
+          //     ...selectedForGraph,
+          //     [stableId]: !selectedForGraph[stableId],
+          //   })
+          // );
+          dispatch(toggleSelectedForGraph({ stableId }));
         } : undefined,
         sx: {
           cursor: canSelect ? 'pointer' : 'default',
-          ...(isSelected && {
+          ...(isSelectedForGraph && {
             border: '2px solid',
             borderColor: 'primary.main',
             backgroundColor: 'action.selected',
@@ -842,7 +997,7 @@ export default function ScanResultsDisplay({
           })
         }
       }
-      
+
       if (hasRelationships) {
         return <Chip {...chipProps} color="success" />
       } else {
@@ -861,20 +1016,52 @@ export default function ScanResultsDisplay({
 
     return (
       <Box key={node.id} sx={{ ml: level * 2, mb: 0.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, minHeight: 32 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 1,
+            minHeight: 32,
+          }}
+        >
+          {/* LEFT SIDE: icon, name, size */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Icon sx={{ fontSize: 16, color: isDirectory ? 'primary.main' : 'text.secondary' }} />
-            <Typography variant="body2" sx={{ lineHeight: 1.5 }}>{node.name}</Typography>
+            <Icon
+              sx={{
+                fontSize: 16,
+                color: isDirectory ? 'primary.main' : 'text.secondary',
+              }}
+            />
+            <Typography variant="body2" sx={{ lineHeight: 1.5 }}>
+              {node.name}
+            </Typography>
             {node.size && (
-              <Chip label={formatBytes(node.size)} size="small" variant="outlined" />
+              <Chip
+                label={formatBytes(node.size)}
+                size="small"
+                variant="outlined"
+              />
             )}
           </Box>
-          {isDirectory ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+
+          {/* RIGHT SIDE: actions */}
+          {isDirectory && (
+            // --- DIRECTORY ROW ---
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                flexWrap: 'wrap',
+                justifyContent: 'flex-end',
+              }}
+            >
+              {/* Keep per-directory "Select All" */}
               <FormControlLabel
                 control={
                   <Checkbox
-                    checked={isSelected}
+                    checked={isSelectedForRag}
                     onChange={() => toggleSelection(node, machineId || '')}
                     size="small"
                   />
@@ -882,6 +1069,11 @@ export default function ScanResultsDisplay({
                 label="Select All"
                 sx={{ m: 0 }}
               />
+
+              {/* ❌ Remove per-directory Upload button so we only use the card-header button */}
+              {/* If you still want *only root* to have a button, you could instead do:
+              {level === 0 && <Button ...>Upload Documents</Button>}
+           */}
               <Button
                 variant="outlined"
                 size="small"
@@ -898,35 +1090,64 @@ export default function ScanResultsDisplay({
                   ? `Uploading… ${uploadProgress.done}/${uploadProgress.total}`
                   : 'Upload Documents'}
               </Button>
+
               <Button
                 variant="outlined"
                 size="small"
                 color="error"
                 onClick={() => handleDeleteSelected(node)}
                 disabled={
-                  (getSelectedFilesForDelete(node).length === 0 && getSelectedFilesForDeleteRelationships(node).length === 0) ||
+                  (getSelectedFilesForDelete(node).length === 0 &&
+                    getSelectedFilesForDeleteRelationships(node).length === 0) ||
                   isDeletingChunks[node.fullPath || node.id] ||
                   isDeletingRelationships[node.fullPath || node.id]
                 }
-                startIcon={(isDeletingChunks[node.fullPath || node.id] || isDeletingRelationships[node.fullPath || node.id]) ? <CircularProgress size={16} /> : <DeleteIcon />}
+                startIcon={
+                  isDeletingChunks[node.fullPath || node.id] ||
+                    isDeletingRelationships[node.fullPath || node.id] ? (
+                    <CircularProgress size={16} />
+                  ) : (
+                    <DeleteIcon />
+                  )
+                }
               >
-                {(isDeletingChunks[node.fullPath || node.id] || isDeletingRelationships[node.fullPath || node.id]) 
-                  ? 'Deleting...' 
-                  : `Delete (${getSelectedFilesForDelete(node).length + getSelectedFilesForDeleteRelationships(node).length})`}
+                {isDeletingChunks[node.fullPath || node.id] ||
+                  isDeletingRelationships[node.fullPath || node.id]
+                  ? 'Deleting...'
+                  : `Delete (${getSelectedFilesForDelete(node).length +
+                  getSelectedFilesForDeleteRelationships(node).length
+                  })`}
               </Button>
-              {(uploadStatus[node.fullPath || node.id] || deleteStatus[node.fullPath || node.id]) && (
-                <Typography variant="caption" color="text.secondary" sx={{ width: '100%' }}>
-                  {uploadStatus[node.fullPath || node.id] || deleteStatus[node.fullPath || node.id]}
-                </Typography>
-              )}
+
+              {(uploadStatus[node.fullPath || node.id] ||
+                deleteStatus[node.fullPath || node.id]) && (
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ width: '100%' }}
+                  >
+                    {uploadStatus[node.fullPath || node.id] ||
+                      deleteStatus[node.fullPath || node.id]}
+                  </Typography>
+                )}
             </Box>
-          ) : (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          )}
+          {!isDirectory && (
+            // --- FILE ROW ---
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                flexWrap: 'nowrap', // keep all four inline
+              }}
+            >
               {ragStatus === 'none' ? (
+                // File not yet uploaded → only "Upload" selector
                 <FormControlLabel
                   control={
                     <Checkbox
-                      checked={isSelected}
+                      checked={isSelectedForRag}
                       onChange={() => toggleSelection(node, machineId || '')}
                       size="small"
                     />
@@ -936,19 +1157,28 @@ export default function ScanResultsDisplay({
                 />
               ) : (
                 <>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {getRagStatusBadge()}
-                    {getGraphStatusBadge()}
-                  </Box>
+                  {/* 1) Semantic status */}
+                  {getRagStatusBadge()}
+
+                  {/* 2) Graph status (clickable chip) */}
+                  {getGraphStatusBadge()}
+
+                  {/* 3) Delete File */}
                   <FormControlLabel
                     control={
                       <Checkbox
                         checked={selectedForDelete[stableId] || false}
                         onChange={(e) => {
-                          setSelectedForDelete(prev => ({
-                            ...prev,
-                            [stableId]: e.target.checked
-                          }))
+                          // setSelectedForDelete((prev) => ({
+                          //   ...prev,
+                          //   [stableId]: e.target.checked,
+                          // }));
+                          dispatch(
+                            setSelectedForDelete({
+                              ...selectedForDelete,
+                              [stableId]: e.target.checked,
+                            })
+                          );
                         }}
                         size="small"
                       />
@@ -956,16 +1186,24 @@ export default function ScanResultsDisplay({
                     label="Delete File"
                     sx={{ m: 0 }}
                   />
+
+                  {/* 4) Delete Graph (only when relationships exist) */}
                   {hasRelationships && (
                     <FormControlLabel
                       control={
                         <Checkbox
                           checked={selectedForDeleteRelationships[stableId] || false}
                           onChange={(e) => {
-                            setSelectedForDeleteRelationships(prev => ({
-                              ...prev,
-                              [stableId]: e.target.checked
-                            }))
+                            // setSelectedForDeleteRelationships((prev) => ({
+                            //   ...prev,
+                            //   [stableId]: e.target.checked,
+                            // }));
+                            dispatch(
+                              setSelectedForDeleteRelationships({
+                                ...selectedForDeleteRelationships,
+                                [stableId]: e.target.checked,
+                              })
+                            );
                           }}
                           size="small"
                         />
@@ -979,9 +1217,20 @@ export default function ScanResultsDisplay({
             </Box>
           )}
         </Box>
+
+        {/* CHILDREN */}
         {sortedChildren.length > 0 && (
-          <Box sx={{ ml: 2, borderLeft: '1px solid', borderColor: 'divider', pl: 1 }}>
-            {sortedChildren.map((child) => renderNeo4jNodeWithUpload(child, level + 1))}
+          <Box
+            sx={{
+              ml: 2,
+              borderLeft: '1px solid',
+              borderColor: 'divider',
+              pl: 1,
+            }}
+          >
+            {sortedChildren.map((child) =>
+              renderNeo4jNodeWithUpload(child, level + 1)
+            )}
           </Box>
         )}
       </Box>
@@ -1124,11 +1373,11 @@ export default function ScanResultsDisplay({
               </Box>
 
               {isLoadingNeo4jStructure ? (
-                <Paper variant="outlined" sx={{ p: 2, flex: 1, minHeight: 400, maxHeight: 400, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <Paper variant="outlined" sx={{ p: 2, flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                   <CircularProgress />
                 </Paper>
               ) : neo4jDirectoryStructure ? (
-                <Paper variant="outlined" sx={{ p: 2, flex: 1, minHeight: 400, maxHeight: 400, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+                <Paper variant="outlined" sx={{ p: 2, flex: 1, minHeight: 450, maxHeight: 450, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
                   <Box sx={{ pt: 0 }}>
                     {renderNeo4jNodeWithUpload(neo4jDirectoryStructure)}
                   </Box>
@@ -1155,107 +1404,128 @@ export default function ScanResultsDisplay({
         const hasSelectedGraph = Object.values(selectedForGraph).some(selected => selected === true)
         return hasSelectedGraph
       })() && (
-        <Card sx={{ mt: 3 }}>
-          <CardContent>
-            <Typography variant="h6" sx={{ mb: 3 }}>
-              Create Graph (Semantic Relationships)
-            </Typography>
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Similarity Threshold (0.0 - 1.0)"
-                  type="number"
-                  inputProps={{ min: 0, max: 1, step: 0.1 }}
-                  value={relationshipSettings.similarity_threshold}
-                  onChange={(e) =>
-                    setRelationshipSettings(prev => ({
-                      ...prev,
-                      similarity_threshold: parseFloat(e.target.value) || 0.7,
-                    }))
-                  }
-                  helperText="Only chunks with similarity ≥ this value will be connected"
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Top-K Connections (optional)"
-                  type="number"
-                  inputProps={{ min: 1 }}
-                  value={relationshipSettings.top_k || ''}
-                  onChange={(e) =>
-                    setRelationshipSettings(prev => ({
-                      ...prev,
-                      top_k: e.target.value ? parseInt(e.target.value) : null,
-                    }))
-                  }
-                  placeholder="No limit"
-                  helperText="Maximum relationships per chunk (leave empty for no limit)"
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={relationshipSettings.same_directory_only}
-                        onChange={(e) =>
-                          setRelationshipSettings(prev => ({
-                            ...prev,
-                            same_directory_only: e.target.checked,
-                          }))
-                        }
-                      />
+          <Card sx={{ mt: 3 }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 3 }}>
+                Create Graph (Semantic Relationships)
+              </Typography>
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Similarity Threshold (0.0 - 1.0)"
+                    type="number"
+                    inputProps={{ min: 0, max: 1, step: 0.1 }}
+                    value={relationshipSettings.similarity_threshold}
+                    onChange={(e) =>
+                      // setRelationshipSettings(prev => ({
+                      //   ...prev,
+                      //   similarity_threshold: parseFloat(e.target.value) || 0.7,
+                      // }))
+                      dispatch(
+                        setRelationshipSettings({
+                          similarity_threshold: parseFloat(e.target.value) || 0.7,
+                        })
+                      )
                     }
-                    label="Same Directory Only"
+                    helperText="Only chunks with similarity ≥ this value will be connected"
                   />
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={relationshipSettings.same_document_only}
-                        onChange={(e) =>
-                          setRelationshipSettings(prev => ({
-                            ...prev,
-                            same_document_only: e.target.checked,
-                          }))
-                        }
-                      />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Top-K Connections (optional)"
+                    type="number"
+                    inputProps={{ min: 1 }}
+                    value={relationshipSettings.top_k || ''}
+                    onChange={(e) =>
+                      // setRelationshipSettings(prev => ({
+                      //   ...prev,
+                      //   top_k: e.target.value ? parseInt(e.target.value) : prev.top_k,
+                      // }))
+                      dispatch(
+                        setRelationshipSettings({
+                          top_k: e.target.value
+                            ? parseInt(e.target.value)
+                            : relationshipSettings.top_k,
+                        }))
                     }
-                    label="Same Document Only"
+                    placeholder="No limit"
+                    helperText="Maximum relationships per chunk (leave empty for no limit)"
                   />
-                </Box>
-              </Grid>
-              <Grid item xs={12}>
-                <Divider sx={{ my: 2 }} />
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Box>
-                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                      Create Relationships for Directory
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Select a directory from the Neo4j structure above and create relationships
-                    </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={relationshipSettings.same_directory_only}
+                          onChange={(e) =>
+                            // setRelationshipSettings(prev => ({
+                            //   ...prev,
+                            //   same_directory_only: e.target.checked,
+                            // }))
+                            dispatch(
+                              setRelationshipSettings({
+                                same_directory_only: e.target.checked,
+                              })
+                            )
+                          }
+                        />
+                      }
+                      label="Same Directory Only"
+                    />
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={relationshipSettings.same_document_only}
+                          onChange={(e) =>
+                            // setRelationshipSettings(prev => ({
+                            //   ...prev,
+                            //   same_document_only: e.target.checked,
+                            // }))
+                            dispatch(
+                              setRelationshipSettings({
+                                same_document_only: e.target.checked,
+                              })
+                            )
+                          }
+                        />
+                      }
+                      label="Same Document Only"
+                    />
                   </Box>
-                  <Button
-                    variant="contained"
-                    onClick={() => handleCreateSemanticRelationships(neo4jDirectoryStructure)}
-                    disabled={isCreatingRelationships}
-                    startIcon={isCreatingRelationships ? <CircularProgress size={20} /> : <NetworkIcon />}
-                  >
-                    {isCreatingRelationships ? 'Creating...' : 'Create Graph'}
-                  </Button>
-                </Box>
-                {relationshipStatus[neo4jDirectoryStructure.fullPath || neo4jDirectoryStructure.id] && (
-                  <Alert severity="info" sx={{ mt: 2 }}>
-                    {relationshipStatus[neo4jDirectoryStructure.fullPath || neo4jDirectoryStructure.id]}
-                  </Alert>
-                )}
+                </Grid>
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 2 }} />
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                        Create Relationships for Directory
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Select a directory from the Neo4j structure above and create relationships
+                      </Typography>
+                    </Box>
+                    <Button
+                      variant="contained"
+                      onClick={() => handleCreateSemanticRelationships(neo4jDirectoryStructure)}
+                      disabled={isCreatingRelationships}
+                      startIcon={isCreatingRelationships ? <CircularProgress size={20} /> : <NetworkIcon />}
+                    >
+                      {isCreatingRelationships ? 'Creating...' : 'Create Graph'}
+                    </Button>
+                  </Box>
+                  {relationshipStatus[neo4jDirectoryStructure.fullPath || neo4jDirectoryStructure.id] && (
+                    <Alert severity="info" sx={{ mt: 2 }}>
+                      {relationshipStatus[neo4jDirectoryStructure.fullPath || neo4jDirectoryStructure.id]}
+                    </Alert>
+                  )}
+                </Grid>
               </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        )}
 
       {/* Neo4j Graph Database Section */}
       <Card sx={{ mt: 3 }}>
