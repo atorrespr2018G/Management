@@ -106,7 +106,7 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
       title: '',
       items: [
         { text: 'Overview', icon: <HomeIcon />, href: '/' },
-        { text: 'Model catalog', icon: <AppsIcon />, href: '/model-catalog' },
+        { text: 'Chat', icon: <ChatBubbleOutlineIcon />, href: '/chat' },
         { text: 'Playgrounds', icon: <ChatBubbleOutlineIcon />, href: '/playgrounds' },
       ],
     },
@@ -204,7 +204,7 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
       )}
 
       {/* Navigation Items */}
-      <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
+      <Box sx={{ flexGrow: 1, overflowY: 'auto', pt: 8 }}>
         {sections.map((section, sectionIndex) => (
           <Box key={sectionIndex}>
             {section.title && isOpen && (
