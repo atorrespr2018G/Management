@@ -41,7 +41,7 @@ import {
 } from '@/services/neo4jApi'
 import { formatBytes } from '@/utils/formatters'
 import { useMachineId } from '@/hooks/useMachineId'
-import type { GraphVisualization, GraphStats, FileStructure, GraphNode } from '@/types/neo4j'
+import type { GraphVisualization, GraphStats, GraphNode } from '@/types/neo4j'
 import { useNeo4jStructure } from '@/hooks/useNeo4jStructure'
 import DirectoryStructuresPanel from '@/components/DirectoryStructuresPanel'
 import { useStoreDirectoryInNeo4j } from '@/hooks/useStoreDirectoryInNeo4j'
@@ -77,11 +77,7 @@ export default function RetrievePage() {
     const networkRef = useRef<any>(null)
     const containerRef = useRef<HTMLDivElement>(null)
     const fullscreenContainerRef = useRef<HTMLDivElement>(null)
-    const { fetchNeo4jStructure } = useNeo4jStructure({
-        machineId,
-        node: scanResults?.data,
-        autoFetch: true, // preserves the old "load on mount / scan change" behaviour
-    });
+    const { fetchNeo4jStructure } = useNeo4jStructure({ machineId, node: scanResults?.data });
     const {
         isStoring,
         storeMessage,
@@ -460,7 +456,7 @@ export default function RetrievePage() {
             {/* Directory Structures - Side by Side */}
             {scanResults && (
                 <DirectoryStructuresPanel
-                    scanResults={scanResults?.data}
+                    node={scanResults?.data}
                     machineId={machineId}
                     isStoring={isStoring}
                     storeMessage={storeMessage}
