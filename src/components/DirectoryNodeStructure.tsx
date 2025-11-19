@@ -15,15 +15,13 @@ import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import {
     setSelectedForRag,
-    setSelectedForDelete,
-    setSelectedForDeleteRelationships,
     toggleSelectedForGraph,
 } from '../store/slices/neoSlice';
 import type { FileStructure } from '@/types/neo4j'
 
 // Reusable Component replacing renderNeo4jNodeWithUpload
-const DirectoryNodeStructure = ({ node, level = 0, isSelectableForUpload = false, fetchNeo4jStructure }: {
-    node: FileStructure, fetchNeo4jStructure: () => Promise<void>, level?: number, isSelectableForUpload?: boolean
+const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, fetchNeo4jStructure }: {
+    node: FileStructure, fetchNeo4jStructure: () => Promise<void>, level?: number, isSelectable?: boolean
 }) => {
     if (!node) return null;
     const dispatch = useDispatch();
@@ -63,28 +61,28 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectableForUpload = false
     // Get Graph status badge (clickable to select for relationship creation)
     // If relationships already exist, badge is not selectable
     const getGraphStatusBadge = () => {
-        const isSelectedForGraph = selectedForGraph[stableId] || false
-        const canSelect = !hasRelationships // Only allow selection if no relationships exist
-        // console.log('hasRelationships', hasRelationships)
+        // 🚫 Hide Graph button for files that are not yet uploaded / embedded
+        if (ragStatus === 'none')
+            return null;
+
+        const isSelectedForGraph = selectedForGraph[stableId] || false;
+        const canSelect = !hasRelationships; // Only allow selection if no relationships exist
 
         const chipProps = {
-            label: "Graph" as const,
-            size: "small" as const,
+            label: 'Graph' as const,
+            size: 'small' as const,
             icon: isSelectedForGraph ? <CheckCircleIcon sx={{ fontSize: 14 }} /> : undefined,
-            onClick: canSelect ? (e: React.MouseEvent) => {
-                e.stopPropagation()
-                // setSelectedForGraph(prev => ({
-                //   ...prev,
-                //   [stableId]: !prev[stableId]
-                // }))
-                // dispatch(
-                //   setSelectedForGraph({
-                //     ...selectedForGraph,
-                //     [stableId]: !selectedForGraph[stableId],
-                //   })
-                // );
-                dispatch(toggleSelectedForGraph({ stableId }));
-            } : undefined,
+            onClick: canSelect
+                ? (e: React.MouseEvent) => {
+                    e.stopPropagation();
+                    // dispatch(
+                    //   setSelectedForGraph({
+                    //     ...selectedForGraph,
+                    //     [stableId]: !selectedForGraph[stableId],
+                    //   })
+                    // );   
+                    dispatch(toggleSelectedForGraph({ stableId }));
+                } : undefined,
             sx: {
                 cursor: canSelect ? 'pointer' : 'default',
                 ...(isSelectedForGraph && {
@@ -92,34 +90,23 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectableForUpload = false
                     borderColor: 'primary.main',
                     backgroundColor: 'action.selected',
                     fontWeight: 'bold',
-                    '&:hover': {
-                        backgroundColor: 'action.hover',
-                    }
+                    '&:hover': { backgroundColor: 'action.hover' },
                 }),
-                ...(hasRelationships && {
-                    opacity: 0.9,
-                }),
+                ...(hasRelationships && { opacity: 0.9 }),
                 ...(canSelect && {
-                    '&:hover': {
-                        opacity: 0.8,
-                        transform: 'scale(1.05)',
-                    },
+                    '&:hover': { opacity: 0.8, transform: 'scale(1.05)' },
                     transition: 'all 0.2s ease-in-out',
                 }),
                 ...(!canSelect && {
-                    '&:hover': {
-                        cursor: 'not-allowed',
-                    }
-                })
-            }
-        }
+                    '&:hover': { cursor: 'not-allowed' },
+                }),
+            },
+        };
 
-        if (hasRelationships) {
-            return <Chip {...chipProps} color="success" />
-        } else {
-            return <Chip {...chipProps} variant="outlined" />
-        }
-    }
+        return hasRelationships
+            ? (<Chip {...chipProps} color="success" />)
+            : (<Chip {...chipProps} variant="outlined" />);
+    };
 
     // Sort children: directories first, then files, both alphabetically (same as scanned tree)
     const sortedChildren = children ? [...children].sort((a, b) => {
@@ -138,43 +125,6 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectableForUpload = false
 
         dispatch(setSelectedForRag({ node, machineId, stableId, newSelected }));
     };
-
-    // // Refresh relationship statuses for files in a directory
-    // const refreshRelationshipStatuses = async (node: FileStructure) => {
-    //     if (!machineId) return
-
-    //     const refreshForNode = async (fileNode: FileStructure) => {
-    //         if (fileNode.type === 'file') {
-    //             const fileKey = buildStableId(machineId, fileNode)
-    //             try {
-    //                 const relStatus = await getFileRelationshipStatus(machineId, fileNode.fullPath || fileNode.id)
-    //                 // setRelationshipStatuses(prev => ({ ...prev, [fileKey]: relStatus.has_relationships }))
-    //                 dispatch(
-    //                     setRelationshipStatusForFile({
-    //                         fileKey,
-    //                         hasRelationships: relStatus.has_relationships
-    //                     })
-    //                 );
-    //             } catch (error) {
-    //                 console.error(`Error refreshing relationship status for ${fileNode.fullPath}:`, error)
-    //                 // setRelationshipStatuses(prev => ({ ...prev, [fileKey]: false }))
-    //                 dispatch(
-    //                     setRelationshipStatusForFile({
-    //                         fileKey,
-    //                         hasRelationships: false
-    //                     })
-    //                 );
-    //             }
-    //         }
-    //         if (fileNode.children && Array.isArray(fileNode.children)) {
-    //             for (const child of fileNode.children) {
-    //                 await refreshForNode(child)
-    //             }
-    //         }
-    //     }
-
-    //     await refreshForNode(node)
-    // }
 
     return (
         <Box sx={{ ml: level ? 2 : 0, my: 0.5 }}
@@ -203,110 +153,51 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectableForUpload = false
                 </Stack>
 
                 {/* Right side: selection + RAG / upload info */}
-                {isSelectableForUpload && (
+                {isSelectable && (
                     <Stack direction="row" spacing={1} alignItems="center" >
-                        {isDirectory && (
+                        {isDirectory && level === 0 && (
+                            <FormControlLabel
+                                sx={{ m: 0 }}
+                                control={
+                                    <Checkbox
+                                        size="small"
+                                        checked={isSelectedForRag}
+                                        onChange={() => toggleSelection(node, machineId || '')}
+                                    />
+                                }
+                                label={
+                                    <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                    >
+                                        Select All
+                                    </Typography>
+                                }
+                            />
+                        )}
+
+                        {!isDirectory && (
                             <>
+                                {/* status chips stay, but no extra checkboxes */}
+                                {getRagStatusBadge()}
+                                {getGraphStatusBadge()}
+
+                                {/* single checkbox that means "this file is selected for actions" */}
                                 <FormControlLabel
                                     sx={{ m: 0 }}
                                     control={
                                         <Checkbox
                                             size="small"
                                             checked={isSelectedForRag}
-                                            onChange={() => toggleSelection(node, machineId || '')}
+                                            onChange={() => toggleSelection(node, machineId)}
                                         />
                                     }
                                     label={
-                                        <Typography
-                                            variant="caption"
-                                            color="text.secondary"
-                                        >
-                                            Select All
+                                        <Typography variant="caption" color="text.secondary">
+                                            Select
                                         </Typography>
                                     }
                                 />
-                            </>
-                        )}
-
-                        {!isDirectory && (
-                            <>
-                                {ragStatus === 'none' && (
-                                    <FormControlLabel
-                                        sx={{ m: 0 }}
-                                        control={
-                                            <Checkbox
-                                                size="small"
-                                                checked={isSelectedForRag}
-                                                onChange={() => toggleSelection(node, machineId)}
-                                            />
-                                        }
-                                        label={
-                                            <Typography
-                                                variant="caption"
-                                                color="text.secondary"
-                                            >
-                                                Not RAG
-                                            </Typography>
-                                        }
-                                    />
-                                )}
-                                {ragStatus != 'none' && (
-                                    <>
-                                        {getRagStatusBadge()}
-                                        {getGraphStatusBadge()}
-                                        <FormControlLabel
-                                            sx={{ m: 0 }}
-                                            control={
-                                                <Checkbox
-                                                    checked={selectedForDelete[stableId] || false}
-                                                    onChange={(e) => {
-                                                        // setSelectedForDelete((prev) => ({
-                                                        //   ...prev,
-                                                        //   [stableId]: e.target.checked,
-                                                        // }));
-                                                        dispatch(
-                                                            setSelectedForDelete({
-                                                                ...selectedForDelete,
-                                                                [stableId]: e.target.checked,
-                                                            })
-                                                        );
-                                                    }}
-                                                    size="small"
-                                                />
-                                            }
-                                            label={
-                                                <Typography variant="caption" color="error" style={{ letterSpacing: 0 }}>
-                                                    Delete File
-                                                </Typography>
-                                            }
-                                        />
-
-                                        {hasRelationships && (
-                                            <FormControlLabel
-                                                control={
-                                                    <Checkbox
-                                                        checked={selectedForDeleteRelationships[stableId] || false}
-                                                        onChange={(e) => {
-                                                            // setSelectedForDeleteRelationships((prev) => ({
-                                                            //   ...prev,
-                                                            //   [stableId]: e.target.checked,
-                                                            // }));
-                                                            dispatch(
-                                                                setSelectedForDeleteRelationships({
-                                                                    ...selectedForDeleteRelationships,
-                                                                    [stableId]: e.target.checked,
-                                                                })
-                                                            );
-                                                        }}
-                                                        size="small"
-                                                    />
-                                                }
-                                                label={<Typography variant="caption" color="error">Delete Graph</Typography>}
-                                                sx={{ m: 0 }}
-                                            />
-                                        )}
-                                    </>
-                                )}
                             </>
                         )}
                     </Stack>
@@ -329,7 +220,7 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectableForUpload = false
                             key={child.id}
                             node={child}
                             level={level + 1}
-                            isSelectableForUpload={isSelectableForUpload}
+                            isSelectable={isSelectable}
                             fetchNeo4jStructure={fetchNeo4jStructure}
                         />
                     ))}

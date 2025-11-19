@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { FileNode, FileStructure } from '@/types/neo4j';
+import { FileStructure } from '@/types/neo4j';
 import { buildStableId } from '@/utils/treeHelpers';
 
 // Get all descendant file IDs (recursive)
