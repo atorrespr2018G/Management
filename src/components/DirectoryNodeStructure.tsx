@@ -21,7 +21,7 @@ import type { FileStructure } from '@/types/neo4j'
 
 // Reusable Component replacing renderNeo4jNodeWithUpload
 const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, fetchNeo4jStructure }: {
-    node: FileStructure, fetchNeo4jStructure: () => Promise<void>, level?: number, isSelectable?: boolean
+    node: FileStructure, fetchNeo4jStructure?: () => Promise<void>, level?: number, isSelectable?: boolean
 }) => {
     if (!node) return null;
     const dispatch = useDispatch();
@@ -104,7 +104,7 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, fetchNe
         };
 
         return hasRelationships
-            ? (<Chip {...chipProps} color="success" />)
+            ? (<Chip {...chipProps} color="info" />)
             : (<Chip {...chipProps} variant="outlined" />);
     };
 
@@ -189,14 +189,11 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, fetchNe
                                         <Checkbox
                                             size="small"
                                             checked={isSelectedForRag}
+                                            color={ragStatus !== 'none' ? 'error' : 'info'}
                                             onChange={() => toggleSelection(node, machineId)}
                                         />
                                     }
-                                    label={
-                                        <Typography variant="caption" color="text.secondary">
-                                            Select
-                                        </Typography>
-                                    }
+                                    label={''}
                                 />
                             </>
                         )}
