@@ -3,7 +3,7 @@
 import { useCallback, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
-import type { FileStructure } from '@/types/neo4j';
+import type { FileStructure, UseNeo4jStructureOptions } from '@/types/neo4j';
 import { buildStableId } from '@/utils/treeHelpers';
 import {
     getDirectoryFromNeo4j,
@@ -22,21 +22,12 @@ import {
 
 type ChangedReason = 'metadata' | 'content' | 'new';
 
-interface UseNeo4jStructureOptions {
-    /** Current machineId (from useMachineId or elsewhere) */
-    machineId: string | null;
-    /** Scanned root node whose structure we want to compare against Neo4j */
-    node?: FileStructure | null;
-    /** If true, auto-fetch whenever node/machineId change */
-    autoFetch?: boolean;
-}
+
 
 /**
  * Load the Neo4j directory structure, keeping Redux state in sync.
  */
-export const useNeo4jStructure = ({ machineId, node,
-    autoFetch = false,
-}: UseNeo4jStructureOptions) => {
+export const useNeo4jStructure = ({ machineId, node }: UseNeo4jStructureOptions) => {
     const dispatch = useDispatch();
 
     const { neo4jDirectoryStructure, isLoadingNeo4jStructure } = useSelector(
@@ -206,10 +197,9 @@ export const useNeo4jStructure = ({ machineId, node,
 
     // Optional auto-fetch (matches old useEffect behaviour in ScanResultsDisplay)
     useEffect(() => {
-        if (autoFetch && node && machineId)
+        if (node && machineId)
             fetchNeo4jStructure();
-
-    }, [autoFetch, machineId, node, fetchNeo4jStructure]);
+    }, [machineId, node, fetchNeo4jStructure]);
 
     return {
         neo4jDirectoryStructure,
@@ -217,95 +207,3 @@ export const useNeo4jStructure = ({ machineId, node,
         fetchNeo4jStructure,
     };
 };
-
-
-// import { useEffect, useCallback } from 'react';
-// import { useDispatch } from 'react-redux';
-
-// // import { fetchNeo4jStructure } from '@/lib/fetchNeo4jStructure';
-
-// import {
-//     setIsLoadingNeo4jStructure,
-//     setNeo4jDirectoryStructure,
-//     setChangedFiles,
-//     setRagStatuses,
-//     setRelationshipStatuses,
-//     setRelationshipStatusForFile,
-//     setSelectedForRag,
-// } from '@/store/slices/neoSlice';
-
-// import { FileStructure } from '@/types/neo4j';
-
-// interface UseNeo4jStructureParams {
-//     machineId: string | null;
-//     scanResults: FileStructure | null;
-// }
-
-// // ------------------------------------------------------------
-// // THE HOOK
-// // ------------------------------------------------------------
-// export function useNeo4jStructure({ machineId, scanResults }: UseNeo4jStructureParams) {
-//     const dispatch = useDispatch();
-
-//     const loadNeo4j = useCallback(async () => {
-//         if (!scanResults || !machineId) return;
-
-//         const rootFullPath = scanResults.fullPath || '';
-//         if (!rootFullPath) return;
-
-//         try {
-//             // start loading
-//             dispatch(setIsLoadingNeo4jStructure(true));
-
-//             // run the pure data loader
-//             const {
-//                 structure,
-//                 changedMap,
-//                 ragStatuses,
-//                 setRelationshipStatusForFile,
-//             } = await fetchNeo4jStructure(
-//                 machineId,
-//                 rootFullPath,
-//                 scanResults
-//             );
-
-//             if (!structure) return;
-
-//             // ---- UPDATE REDUX ----
-//             dispatch(setNeo4jDirectoryStructure(structure));
-//             dispatch(setChangedFiles(changedMap));
-
-//             // Clear old state
-//             dispatch(setRagStatuses({}));
-//             dispatch(setRelationshipStatuses({}));
-//             dispatch(setSelectedForRag({}));
-
-//             // Apply rag statuses
-//             Object.entries(ragStatuses).forEach(([fileKey, status]) => {
-//                 dispatch(setRagStatuses({ fileKey, status }));
-//             });
-
-//             // Apply relationship statuses
-//             Object.entries(setRelationshipStatusForFile).forEach(([fileKey, hasRelationships]) => {
-//                 dispatch(
-//                     setRelationshipStatusForFile({
-//                         fileKey,
-//                         hasRelationships,
-//                     })
-//                 );
-//             });
-
-//         } catch (err) {
-//             console.error('Error loading Neo4j structure:', err);
-//         } finally {
-//             dispatch(setIsLoadingNeo4jStructure(false));
-//         }
-//     }, [dispatch, machineId, scanResults]);
-
-//     // Auto-run when machineId or fullPath changes
-//     useEffect(() => {
-//         loadNeo4j();
-//     }, [loadNeo4j]);
-
-//     return { reloadNeo4jStructure: loadNeo4j };
-// }

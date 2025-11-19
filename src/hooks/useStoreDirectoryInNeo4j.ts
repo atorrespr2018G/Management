@@ -2,15 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { checkNeo4jHealth, storeInNeo4j, getNeo4jStats } from '@/services/neo4jApi';
-import type { FileStructure } from '@/types/neo4j';
-
-interface UseStoreDirectoryInNeo4jOptions {
-    scanData: FileStructure | null;
-    metadata?: Record<string, any>;
-    machineId: string | null;
-    /** Called after a successful store (e.g. refresh structure / graph) */
-    onAfterStore?: () => Promise<void> | void;
-}
+import type { UseStoreDirectoryInNeo4jOptions } from '@/types/neo4j';
 
 export function useStoreDirectoryInNeo4j({
     scanData,

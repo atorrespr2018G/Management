@@ -39,21 +39,22 @@ import {
 } from '../store/slices/neoSlice';
 import DirectoryStructuresPanel from './DirectoryStructuresPanel';
 import { useStoreDirectoryInNeo4j } from '@/hooks/useStoreDirectoryInNeo4j';
+import { ScanResultsDisplayProps } from '@/types/components';
 
-interface ScanResults {
-  data: FileStructure
-  totalFiles?: number
-  totalFolders?: number
-  source?: string
-  metadata?: Record<string, any>
-}
+// interface ScanResults {
+//   data: FileStructure
+//   totalFiles?: number
+//   totalFolders?: number
+//   source?: string
+//   metadata?: Record<string, any>
+// }
 
-interface ScanResultsDisplayProps {
-  scanResults: ScanResults
-  showActionButtons?: boolean
-  onClearResults?: () => void
-  onScanAgain?: () => void
-}
+// interface ScanResultsDisplayProps {
+//   scanResults: ScanResults
+//   showActionButtons?: boolean
+//   onClearResults?: () => void
+//   onScanAgain?: () => void
+// }
 
 const ScanResultsDisplay = ({
   scanResults,
@@ -74,7 +75,6 @@ const ScanResultsDisplay = ({
   const { fetchNeo4jStructure } = useNeo4jStructure({
     machineId,
     node: scanResults?.data,
-    autoFetch: true, // preserves the old "load on mount / scan change" behaviour
   });
 
   const {
@@ -310,7 +310,7 @@ const ScanResultsDisplay = ({
 
       {/* Directory Structures - Side by Side */}
       <DirectoryStructuresPanel
-        scanResults={scanResults.data}
+        node={scanResults?.data}
         machineId={machineId}
         isStoring={isStoring}
         storeMessage={storeMessage}

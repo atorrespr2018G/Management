@@ -1,23 +1,24 @@
 // TypeScript types for Neo4j API
 
+export interface UseNeo4jStructureOptions {
+  /** Current machineId (from useMachineId or elsewhere) */
+  machineId: string | null;
+  /** Scanned root node whose structure we want to compare against Neo4j */
+  node?: FileStructure | null;
+}
+
+export interface UseStoreDirectoryInNeo4jOptions {
+  scanData: FileStructure | null;
+  metadata?: Record<string, any>;
+  machineId: string | null;
+  /** Called after a successful store (e.g. refresh structure / graph) */
+  onAfterStore?: () => Promise<void> | void;
+}
+
 export interface MachineRegistrationResponse {
   machineId: string;
   isNew: boolean;
 }
-
-// export interface FileNode {
-//   id: string;
-//   name: string;
-//   type: 'file' | 'directory';
-//   size?: number;
-//   fullPath?: string;
-//   relativePath?: string;
-//   children?: FileNode[];
-//   extension?: string;
-//   modified?: string;
-//   hash?: string; // SHA256 hash of file content for change detection
-//   modifiedTime?: string; // ISO string of modification time
-// }
 
 export interface FileStructure {
   id: string;
