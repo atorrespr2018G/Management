@@ -1,9 +1,7 @@
 
 import { useDispatch, useSelector } from 'react-redux';
-// import { FolderOpen, FileJson } from 'lucide-react';
-import { formatBytes } from '../utils/formatters';
+import { formatBytes, truncateFileName } from '../utils/formatters';
 import { buildStableId } from '../utils/treeHelpers';
-
 import {
     Box,
     Stack,
@@ -11,47 +9,16 @@ import {
     Checkbox,
     FormControlLabel,
     Chip,
-    Button,
 } from '@mui/material';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import DeleteIcon from '@mui/icons-material/Delete'
-import CircularProgress from '@mui/material/CircularProgress';
 import {
-    setNeo4jDirectoryStructure,
-    setIsLoadingNeo4jStructure,
     setSelectedForRag,
-    setRagStatuses,
-    setUploadStatus,
-    setUploadProgress,
-    setSelectedForGraph,
     setSelectedForDelete,
     setSelectedForDeleteRelationships,
-    setRelationshipStatuses,
-    setRelationshipSettings,
-    setIsCreatingRelationships,
-    setRelationshipStatus,
-    setIsDeletingChunks,
-    setIsDeletingRelationships,
-    setDeleteStatus,
-    setRelationshipStatusForFile,
     toggleSelectedForGraph,
 } from '../store/slices/neoSlice';
-import {
-    storeInNeo4j,
-    getNeo4jStats,
-    checkNeo4jHealth,
-    getDirectoryFromNeo4j,
-    uploadFilesBatch,
-    getFileRagStatus,
-    getFileRelationshipStatus,
-    createSemanticRelationships,
-    deleteFileRelationships,
-    deleteFileChunks,
-    deleteDirectoryChunks,
-    deleteDirectoryRelationships,
-} from '@/services/neo4jApi'
 import type { FileStructure } from '@/types/neo4j'
 
 // Reusable Component replacing renderNeo4jNodeWithUpload
@@ -61,23 +28,12 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectableForUpload = false
     if (!node) return null;
     const dispatch = useDispatch();
     const {
-        neo4jDirectoryStructure,
-        isLoadingNeo4jStructure,
         selectedForRag,
         ragStatuses,
-        uploadStatus,
-        uploadProgress,
         selectedForGraph,
         selectedForDelete,
         selectedForDeleteRelationships,
         relationshipStatuses,
-        relationshipSettings,
-        isCreatingRelationships,
-        relationshipStatus,
-        isDeletingChunks,
-        isDeletingRelationships,
-        deleteStatus,
-        changedFiles
     } = useSelector((state: any) => state.neo);
 
     const isDirectory = node.type === 'directory';
@@ -166,10 +122,10 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectableForUpload = false
     }
 
     // Sort children: directories first, then files, both alphabetically (same as scanned tree)
-    const sortedChildren = node.children ? [...node.children].sort((a, b) => {
+    const sortedChildren = children ? [...children].sort((a, b) => {
         // Directories come before files
-        if (a.type === 'directory' && b.type === 'file') return -1
-        if (a.type === 'file' && b.type === 'directory') return 1
+        if (a.type === 'directory' && b.type === 'file') return 1
+        if (a.type === 'file' && b.type === 'directory') return -1
         // Within same type, sort alphabetically by name
         return a.name.localeCompare(b.name)
     }) : []
@@ -237,7 +193,7 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectableForUpload = false
                         color={isDirectory ? 'primary' : 'action'}
                     />
                     <Typography variant="body2" fontWeight={500}>
-                        {node.name}
+                        {truncateFileName(node)}
                     </Typography>
                     {typeof bytes === 'number' && (
                         <Typography variant="caption" color="text.secondary">
@@ -358,7 +314,7 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectableForUpload = false
             </Stack>
 
             {/* Children */}
-            {children && children.length > 0 && (
+            {sortedChildren && sortedChildren.length > 0 && (
                 <Box
                     sx={{
                         borderLeft: 1,
@@ -368,7 +324,7 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectableForUpload = false
                         mt: 0.5,
                     }}
                 >
-                    {children.map((child: any) => (
+                    {sortedChildren.map((child: any) => (
                         <DirectoryNodeStructure
                             key={child.id}
                             node={child}

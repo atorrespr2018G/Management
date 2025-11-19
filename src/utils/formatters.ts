@@ -1,14 +1,16 @@
+import { FileStructure } from "@/types/neo4j";
+
 /**
  * Format bytes to human readable size
  */
 export const formatBytes = (bytes: number): string => {
   if (bytes === 0) return '0 Bytes';
   if (!bytes || isNaN(bytes)) return 'Unknown size';
-  
+
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
+
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 };
 
@@ -29,7 +31,7 @@ export const formatDate = (dateString: string): string => {
  */
 export const getFileIcon = (extension: string): string => {
   const ext = extension?.toLowerCase() || '';
-  
+
   if (['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp'].includes(ext)) {
     return 'image';
   }
@@ -52,3 +54,8 @@ export const calculateTotalSize = (node: { type: string; size?: number; children
   return node.children?.reduce((sum, child) => sum + calculateTotalSize(child), 0) || 0;
 };
 
+
+export const truncateFileName = (node: FileStructure) => {
+  const { name } = node
+  return (name.length < 32) ? name : name.substring(0, 32) + '...'
+}
