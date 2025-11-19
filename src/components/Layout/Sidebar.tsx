@@ -106,7 +106,7 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
       title: '',
       items: [
         { text: 'Overview', icon: <HomeIcon />, href: '/' },
-        { text: 'Model catalog', icon: <AppsIcon />, href: '/model-catalog' },
+        { text: 'Chat', icon: <ChatBubbleOutlineIcon />, href: '/chat' },
         { text: 'Playgrounds', icon: <ChatBubbleOutlineIcon />, href: '/playgrounds' },
       ],
     },
