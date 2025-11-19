@@ -296,7 +296,7 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged }: 
                     size="small"
                     color="error"
                     onClick={() => handleDeleteFiles(directoryNode)}
-                    disabled={deleteFilesCount === 0 || isDeletingChunks[directoryPath]}
+                    disabled={isUploading && (deleteFilesCount === 0 || isDeletingChunks[directoryPath])}
                     startIcon={
                         isDeletingChunks[directoryPath] ? <CircularProgress size={16} /> : <DeleteIcon />
                     }
