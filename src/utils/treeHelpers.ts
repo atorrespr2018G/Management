@@ -1,23 +1,23 @@
-import type { FileNode, FileStructure } from "@/types/neo4j";
+import type { FileStructure } from "@/types/neo4j";
 
 /**
  * Count files in a tree structure
  * @param {object} node - Tree node
  * @returns {number} Total file count
  */
-export const countFiles = (node: FileNode): number => {
+export const countFiles = (node: FileStructure): number => {
     if (node.type === 'file') return 1;
-    return node.children?.reduce((sum: number, child: FileNode) => sum + countFiles(child), 0) || 0;
+    return node.children?.reduce((sum: number, child: FileStructure) => sum + countFiles(child), 0) || 0;
 };
 
 /**
  * Count folders in a tree structure
- * @param {FileNode} node - Tree node
+ * @param {FileStructure} node - Tree node
  * @returns {number} Total folder count
  */
-export const countFolders = (node: FileNode): number => {
+export const countFolders = (node: FileStructure): number => {
     if (node.type === 'file') return 0;
-    return node.children?.reduce((sum: number, child: FileNode) => sum + countFolders(child) + 1, 0) || 0;
+    return node.children?.reduce((sum: number, child: FileStructure) => sum + countFolders(child) + 1, 0) || 0;
 };
 
 /**
@@ -26,7 +26,7 @@ export const countFolders = (node: FileNode): number => {
  * @param {array} result - Result array (for recursion)
  * @returns {array} Flattened array
  */
-export const flattenTree = (node: FileNode, result: FileNode[] = []) => {
+export const flattenTree = (node: FileStructure, result: FileStructure[] = []) => {
     result.push(node);
     if (node.children) {
         node.children.forEach(child => flattenTree(child, result));
@@ -40,11 +40,11 @@ export const flattenTree = (node: FileNode, result: FileNode[] = []) => {
  * @param {string} query - Search query
  * @returns {object|null} Filtered tree
  */
-export const filterTreeByName = (node: FileNode, query: string) => {
+export const filterTreeByName = (node: FileStructure, query: string) => {
     const matchesQuery = node.name.toLowerCase().includes(query.toLowerCase());
 
     if (node.children) {
-        const filteredChildren: FileNode[] = node.children
+        const filteredChildren: FileStructure[] = node.children
             .map(child => filterTreeByName(child, query))
             .filter(child => child !== null);
 

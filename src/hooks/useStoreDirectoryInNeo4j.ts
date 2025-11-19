@@ -29,7 +29,6 @@ export function useStoreDirectoryInNeo4j({
 
             if (health.neo4j_connected) {
                 const stats = await getNeo4jStats();
-                // merge or just replace – up to you; here we merge
                 status = { ...health, ...stats };
             }
 
@@ -99,6 +98,6 @@ export function useStoreDirectoryInNeo4j({
         neo4jStatus,
         handleStoreInNeo4j,
         checkNeo4jConnection,
-        setStoreMessage // optional if you want to clear message manually
+        setStoreMessage // optional if want to clear message manually
     };
 }

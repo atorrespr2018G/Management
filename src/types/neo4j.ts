@@ -5,19 +5,19 @@ export interface MachineRegistrationResponse {
   isNew: boolean;
 }
 
-export interface FileNode {
-  id: string;
-  name: string;
-  type: 'file' | 'directory';
-  size?: number;
-  fullPath?: string;
-  relativePath?: string;
-  children?: FileNode[];
-  extension?: string;
-  modified?: string;
-  hash?: string; // SHA256 hash of file content for change detection
-  modifiedTime?: string; // ISO string of modification time
-}
+// export interface FileNode {
+//   id: string;
+//   name: string;
+//   type: 'file' | 'directory';
+//   size?: number;
+//   fullPath?: string;
+//   relativePath?: string;
+//   children?: FileNode[];
+//   extension?: string;
+//   modified?: string;
+//   hash?: string; // SHA256 hash of file content for change detection
+//   modifiedTime?: string; // ISO string of modification time
+// }
 
 export interface FileStructure {
   id: string;
