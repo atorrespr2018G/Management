@@ -93,7 +93,7 @@ const DirectoryStructuresPanel = ({
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
-                                mb: 2,
+                                mb: 1,
                             }}
                         >
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -150,21 +150,9 @@ const DirectoryStructuresPanel = ({
                         )}
 
                         {/* Tree */}
-                        <Paper
-                            variant="outlined"
-                            sx={{
-                                p: 2,
-                                flex: 1,
-                                minHeight: 260,
-                                bgcolor: 'grey.50',
-                                display: 'flex',
-                                flexDirection: 'column',
-                            }}
-                        >
-                            <Box sx={{ pt: 0 }}>
-                                <DirectoryNodeStructure node={scanResults} fetchNeo4jStructure={fetchNeo4jStructure} />
-                            </Box>
-                        </Paper>
+                        <Box sx={{ pt: 0 }}>
+                            <DirectoryNodeStructure node={scanResults} fetchNeo4jStructure={fetchNeo4jStructure} />
+                        </Box>
                     </CardContent>
                 </Card>
             </Grid>
