@@ -23,6 +23,7 @@ const initialState = {
     ragStatuses: {},    // key: machineId:fullPath -> 'complete' | 'partial' | 'none'
     uploadStatus: {},   // key: directory id/fullPath -> message
     uploadProgress: { done: 0, total: 0, totalChunks: 0 }, // Upload progress tracking
+    isUploading: false,
     selectedForGraph: {} as Record<string, boolean>,
     selectedForDelete: {} as Record<string, boolean>,
     selectedForDeleteRelationships: {} as Record<string, boolean>,
@@ -100,6 +101,12 @@ const neoSlice = createSlice({
                 total,
                 totalChunks,
             };
+        },
+        setIsUploading: (state, action) => {
+            state.isUploading = action.payload as boolean;
+        },
+        resetUploadProgress: (state) => {
+            state.uploadProgress = { done: 0, total: 0, totalChunks: 0 };
         },
         setIsLoadingNeo4jStructure: (state, action) => {
             state.isLoadingNeo4jStructure = action.payload;
@@ -206,6 +213,8 @@ export const {
     setRagStatuses,
     setUploadStatus,
     setUploadProgress,
+    setIsUploading,
+    resetUploadProgress,
     setIsLoadingNeo4jStructure,
     setSelectedForGraph,
     setSelectedForDelete,
