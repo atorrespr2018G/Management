@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import {
   Box,
   Container,
@@ -37,14 +37,54 @@ export default function ChatPage() {
   const [conversationId, setConversationId] = useState<string | undefined>()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const agentDataRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
+  // Scroll page to top when component mounts (when navigating to chat)
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [])
+
+  // Scroll Agent Data section to top when component mounts - useLayoutEffect for synchronous execution
+  useLayoutEffect(() => {
+    const scrollAgentDataToTop = () => {
+      if (agentDataRef.current) {
+        agentDataRef.current.scrollTop = 0
+      }
+    }
+    
+    // Try immediately (synchronously before paint)
+    scrollAgentDataToTop()
+    
+    // Also try after multiple delays to catch any async updates
+    const timeout1 = setTimeout(scrollAgentDataToTop, 0)
+    const timeout2 = setTimeout(scrollAgentDataToTop, 50)
+    const timeout3 = setTimeout(scrollAgentDataToTop, 100)
+    
+    return () => {
+      clearTimeout(timeout1)
+      clearTimeout(timeout2)
+      clearTimeout(timeout3)
+    }
+  }, [])
+
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+
+  // Get the latest assistant message for displaying agent data
+  const latestAssistantMessage = messages.filter(m => m.role === 'assistant').slice(-1)[0]
+
+  // Scroll Agent Data section to top when new assistant message arrives
+  useEffect(() => {
+    if (agentDataRef.current && latestAssistantMessage) {
+      // Scroll to top immediately
+      agentDataRef.current.scrollTop = 0
+    }
+  }, [latestAssistantMessage])
 
   const handleSend = async () => {
     const query = inputValue.trim()
@@ -99,8 +139,6 @@ export default function ChatPage() {
     }
   }
 
-  // Get the latest assistant message for displaying agent data
-  const latestAssistantMessage = messages.filter(m => m.role === 'assistant').slice(-1)[0]
   // Extract file paths from sources, remove duplicates and null/undefined values
   const allFilePaths = latestAssistantMessage?.sources
     ?.map(s => s.file_path)
@@ -384,6 +422,7 @@ export default function ChatPage() {
         >
           {/* Upper Section - Agent Data */}
           <Box
+            ref={agentDataRef}
             sx={{
               flex: '1 1 50%',
               overflowY: 'auto',
