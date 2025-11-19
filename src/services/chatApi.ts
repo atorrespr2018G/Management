@@ -5,6 +5,16 @@ export interface Source {
   text?: string | null
   similarity?: number | null
   hybrid_score?: number | null
+  metadata?: {
+    vector_score?: number
+    keyword_score?: number
+    path_score?: number
+    hop_count?: number
+    hop_penalty?: number
+    chunk_index?: number
+    file_id?: string
+    chunk_size?: number
+  } | null
 }
 
 export interface ChatRequest {
@@ -47,4 +57,5 @@ export async function sendMessage(
     throw new Error('Failed to send message')
   }
 }
+
 

@@ -204,7 +204,7 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
       )}
 
       {/* Navigation Items */}
-      <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
+      <Box sx={{ flexGrow: 1, overflowY: 'auto', pt: 8 }}>
         {sections.map((section, sectionIndex) => (
           <Box key={sectionIndex}>
             {section.title && isOpen && (
