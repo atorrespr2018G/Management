@@ -113,7 +113,7 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
     {
       title: 'Repositories',
       items: [
-        { text: 'Connectors', icon: <StorageIcon />, href: '/repositories/connectors', subItems: [] },
+        { text: 'Database', icon: <StorageIcon />, href: '/repositories/database', subItems: [] },
         { text: 'Data Source', icon: <WorkIcon />, href: '/repositories/data-source', subItems: [] },
         { text: 'Enterprise', icon: <BusinessIcon />, href: '/repositories/enterprise', subItems: [] },
       ],

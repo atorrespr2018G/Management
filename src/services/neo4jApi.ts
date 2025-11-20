@@ -18,6 +18,10 @@ import type {
   ConnectorConfigRequest,
   ConnectorPath,
   ConnectorPathRequest,
+  DatabaseConfig,
+  DatabaseConfigRequest,
+  TestConnectionResponse,
+  SchemaInfo,
 } from '@/types/neo4j';
 
 // Helper function to make API calls
@@ -348,6 +352,61 @@ export const deleteDirectoryRelationships = async (machineId: string, directoryP
   const params = new URLSearchParams({ machine_id: machineId });
   return apiCall(`/api/graph/directories/${encodedPath}/relationships?${params.toString()}`, {
     method: 'DELETE',
+  });
+};
+
+// Database Configuration
+export const createDatabaseConfig = async (
+  config: DatabaseConfigRequest
+): Promise<DatabaseConfig> => {
+  return apiCall<DatabaseConfig>('/api/databases', {
+    method: 'POST',
+    body: JSON.stringify(config),
+  });
+};
+
+export const getDatabaseConfigs = async (
+  databaseType?: string
+): Promise<DatabaseConfig[]> => {
+  const params = databaseType ? `?database_type=${databaseType}` : '';
+  return apiCall<DatabaseConfig[]>(`/api/databases${params}`);
+};
+
+export const getDatabaseConfig = async (dbId: string): Promise<DatabaseConfig> => {
+  return apiCall<DatabaseConfig>(`/api/databases/${dbId}`);
+};
+
+export const deleteDatabaseConfig = async (dbId: string): Promise<any> => {
+  return apiCall(`/api/databases/${dbId}`, {
+    method: 'DELETE',
+  });
+};
+
+export const testDatabaseConnection = async (dbId: string): Promise<TestConnectionResponse> => {
+  return apiCall<TestConnectionResponse>(`/api/databases/${dbId}/test`, {
+    method: 'POST',
+  });
+};
+
+export const introspectDatabaseSchema = async (
+  dbId: string,
+  overwrite: boolean = false
+): Promise<{ message: string; schema_info: SchemaInfo; storage_result: any }> => {
+  const params = overwrite ? '?overwrite=true' : '';
+  return apiCall(`/api/databases/${dbId}/schema/introspect${params}`, {
+    method: 'POST',
+  });
+};
+
+export const uploadDatabaseSchema = async (
+  dbId: string,
+  schemaInfo: SchemaInfo,
+  overwrite: boolean = false
+): Promise<{ message: string; storage_result: any }> => {
+  const params = overwrite ? '?overwrite=true' : '';
+  return apiCall(`/api/databases/${dbId}/schema/upload${params}`, {
+    method: 'POST',
+    body: JSON.stringify(schemaInfo),
   });
 };
 
