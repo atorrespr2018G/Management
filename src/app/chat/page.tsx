@@ -75,6 +75,7 @@ export default function ChatPage() {
     scrollToBottom()
   }, [messages])
 
+  // Const
   // Get the latest assistant message for displaying agent data
   const latestAssistantMessage = messages.filter(m => m.role === 'assistant').slice(-1)[0]
 
