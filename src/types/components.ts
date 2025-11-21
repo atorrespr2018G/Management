@@ -18,7 +18,6 @@ export interface ScannedDirectoryStructureCardProps {
 
 export interface ScanResultsDisplayProps {
     scanResults: ScanResults
-    showActionButtons?: boolean
     onClearResults?: () => void
     onScanAgain?: () => void
     sx?: {}

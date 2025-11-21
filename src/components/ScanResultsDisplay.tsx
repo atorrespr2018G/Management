@@ -38,14 +38,14 @@ import {
   setRelationshipStatusForFile,
   clearStatusForDirectory,
 } from '../store/slices/neoSlice';
-import DirectoryStructuresPanel from './DirectoryStructure/DirectoryStructuresPanel';
 import { useStoreDirectoryInNeo4j } from '@/hooks/useStoreDirectoryInNeo4j';
 import { ScanResultsDisplayProps } from '@/types/components';
+import ScannedDirectoryStructureCard from './DirectoryStructure/ScannedDirectoryStructureCard';
+import NeoDirectoryStructureCard from './DirectoryStructure/NeoDirectoryStructureCard';
 
 
 const ScanResultsDisplay = ({
   scanResults,
-  showActionButtons = false,
   onClearResults,
   onScanAgain,
   sx = {},
@@ -263,7 +263,7 @@ const ScanResultsDisplay = ({
       </Box>
 
       {/* Summary Cards */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
+      <Grid container spacing={3} sx={{ mb: 2.8 }}>
         <Grid item xs={12} md={4}>
           <Card sx={{ bgcolor: 'primary.50', background: 'linear-gradient(to bottom right, #e3f2fd, #bbdefb)' }}>
             <CardContent>
@@ -302,16 +302,47 @@ const ScanResultsDisplay = ({
         </Grid>
       </Grid>
 
-      {/* Directory Structures - Side by Side */}
-      <DirectoryStructuresPanel
-        node={scanResults?.data}
-        machineId={machineId}
-        isStoring={isStoring}
-        storeMessage={storeMessage}
-        onStoreInNeo4j={handleStoreInNeo4j}
-        areActionsEnabled={areActionsEnabled}
-        onResetNeoStatus={handleResetNeoStatus}
-      />
+      {areActionsEnabled && (
+        // {/* Directory Structures - Side by Side */ }
+        <Grid container spacing={2}>
+          {/* Scanned / Local Directory */}
+          <Grid item xs={12} md={6}>
+            <ScannedDirectoryStructureCard
+              node={scanResults?.data}
+              machineId={machineId}
+              storeMessage={storeMessage}
+              isStoring={isStoring}
+              onStoreInNeo4j={handleStoreInNeo4j}
+              fetchNeo4jStructure={fetchNeo4jStructure}
+              areActionsEnabled={areActionsEnabled}
+            />
+          </Grid>
+
+          {/* Neo4j Directory */}
+
+          <Grid item xs={12} md={6}>
+            <NeoDirectoryStructureCard
+              fetchNeo4jStructure={fetchNeo4jStructure}
+              areActionsEnabled={areActionsEnabled}
+              onResetNeoStatus={handleResetNeoStatus}
+            // onGraphDataChanged={onGraphDataChanged}
+            />
+          </Grid>
+        </Grid>
+      )}
+
+      {!areActionsEnabled && (
+        <ScannedDirectoryStructureCard
+          node={scanResults?.data}
+          machineId={machineId}
+          storeMessage={storeMessage}
+          isStoring={isStoring}
+          onStoreInNeo4j={handleStoreInNeo4j}
+          fetchNeo4jStructure={fetchNeo4jStructure}
+          areActionsEnabled={areActionsEnabled}
+        />
+      )
+      }
 
       {/* Create Semantic Relationships Section - Only show when Graph badges are selected */}
       {
@@ -526,7 +557,7 @@ const ScanResultsDisplay = ({
 
       {/* Action Buttons */}
       {
-        showActionButtons && (
+        areActionsEnabled && (
           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 3 }}>
             {onClearResults && (
               <Button variant="outlined" onClick={onClearResults}>

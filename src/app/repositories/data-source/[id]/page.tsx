@@ -372,7 +372,7 @@ export default function ConnectorDetailPage() {
               <TimedAlert
                 message="Path added and scanned successfully!"
                 severity="success"
-                durationMs={40000}
+                durationMs={4000}
                 onClose={() => setSuccess(false)}
                 sx={{ mb: 0, px: 1.5, py: 0.25, '& .MuiAlert-message': { px: 0.5 } }}
               />
@@ -430,7 +430,7 @@ export default function ConnectorDetailPage() {
         <Paper sx={{ mb: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}>
           <Tabs value={currentTab} onChange={(e, newValue) => setCurrentTab(newValue)}>
             <Tab label={`Paths (${paths.length})`} />
-            <Tab label={`All Results ${(allPathResults?.size > 1) ? `(${allPathResults.size})` : ''}`} />
+            <Tab label={`All Results ${(allPathResults?.size >= paths.length) ? `(${allPathResults.size})` : ''}`} />
           </Tabs>
         </Paper>
 
@@ -503,7 +503,6 @@ export default function ConnectorDetailPage() {
                     source: scanResults.source || 'local',
                     metadata: { source: scanResults.source || 'local' },
                   }}
-                  showActionButtons={false}
                 />
               </Box>
             )}
@@ -576,7 +575,8 @@ export default function ConnectorDetailPage() {
                         ? { borderRadius: 0 }
                         : { borderRadius: 0, borderBottomLeftRadius: 4, borderBottomRightRadius: 4 }
                       }
-                      areActionsEnabled={scanData?.fullPath === pathResult.data.fullPath}
+                      // areActionsEnabled={scanData?.fullPath === pathResult.data.fullPath}
+                      areActionsEnabled={currentTab !== 1}
                     />
                     {/* {index < allPathResults.size - 1 && <Divider sx={{ my: 4 }} />} */}
                   </Box>

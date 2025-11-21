@@ -20,6 +20,7 @@ import DatabaseIcon from '@mui/icons-material/Storage'
 import DirectoryNodeStructure from './DirectoryNodeStructure'
 import { DirectoryStructuresProps } from '@/types/components';
 import { TimedAlert } from '@/components/TimedAlert';
+import { DirectoryStructureContainer } from './DirectoryStructureContainer';
 
 export default function ScannedDirectoryStructureCard({
   node,
@@ -54,91 +55,62 @@ export default function ScannedDirectoryStructureCard({
   }
 
   return (
-    // <Card sx={{ height: '100%' }}>
-    <Card sx={{ height: 700, display: 'flex', flexDirection: 'column' }}>
-      <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        {/* <CardContent> */}
-        <CardHeader
-          sx={{ p: 0, pb: 2 }}
-          title={
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Typography whiteSpace="nowrap" fontWeight={600}>
-                Directory Structure
-              </Typography>
-              <Chip
-                label="LOCAL"
-                size="small"
-                color="warning"
-                variant="outlined"
-              />
-            </Stack>
-          }
-          // sx={{ pb: 1 }}
-          action={
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              {areActionsEnabled && (
-                <Button
-                  variant="contained"
-                  size="small"
-                  onClick={onStoreInNeo4j}
-                  // disabled={(isStoring || !machineId) && showStoreButton}
-                  disabled={isStoring || !machineId}
-                  startIcon={
-                    isStoring ? <CircularProgress size={16} /> : <DatabaseIcon />
-                  }
-                >
-                  {isStoring ? 'Storing...' : 'Store in Neo4j'}
-                </Button>
-              )}
-              <IconButton onClick={handleCopy} size="small">
-                <ContentCopyIcon />
-              </IconButton>
-              <IconButton onClick={handleDownload} size="small">
-                <DownloadIcon />
-              </IconButton>
-            </Box>
-          }
-        />
-
-        {/* Alerts */}
-        {copied && (
-          <TimedAlert
-            sx={{ mb: 2 }}
-            message="Copied to clipboard!"
-            severity="success"
-            durationMs={2000}
-            onClose={() => setCopied(false)}
-          />
-        )}
-
-        {storeMessage && (
-          <TimedAlert
-            sx={{ mb: 2 }}
-            message={storeMessage}
-            severity={storeMessage.includes('❌') ? 'error' : 'success'}
-            durationMs={4000}
-          />
-        )}
-
-        {/* Tree */}
-        {/* <Paper variant="outlined" sx={{ p: 1.5 }}>
-          <DirectoryNodeStructure
-            node={node}
-            fetchNeo4jStructure={fetchNeo4jStructure}
-            areActionsEnabled={areActionsEnabled}
-          />
-        </Paper>
-       */}
-        <Box sx={{ flex: 1, overflow: 'auto', mt: 1 }}>
-          <Paper variant="outlined" sx={{ p: 1.5, minHeight: '100%' }}>
-            <DirectoryNodeStructure
-              node={node}
-              fetchNeo4jStructure={fetchNeo4jStructure}
-              areActionsEnabled={areActionsEnabled}
-            />
-          </Paper>
+    <DirectoryStructureContainer
+      title="Directory Structure"
+      chipLabel="LOCAL"
+      chipColor="warning"
+      actions={
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {areActionsEnabled && (
+            <Button
+              variant="contained"
+              size="small"
+              onClick={onStoreInNeo4j}
+              // disabled={(isStoring || !machineId) && showStoreButton}
+              disabled={isStoring || !machineId}
+              startIcon={
+                isStoring ? <CircularProgress size={16} /> : <DatabaseIcon />
+              }
+            >
+              {isStoring ? 'Storing...' : 'Store in Neo4j'}
+            </Button>
+          )}
+          <IconButton onClick={handleCopy} size="small">
+            <ContentCopyIcon />
+          </IconButton>
+          <IconButton onClick={handleDownload} size="small">
+            <DownloadIcon />
+          </IconButton>
         </Box>
-      </CardContent>
-    </Card>
+      }
+      alerts={
+        <>
+          {copied && (
+            <TimedAlert
+              sx={{ mb: 2 }}
+              message="Copied to clipboard!"
+              severity="success"
+              durationMs={2000}
+              onClose={() => setCopied(false)}
+            />
+          )}
+
+          {storeMessage && (
+            <TimedAlert
+              sx={{ mb: 2 }}
+              message={storeMessage}
+              severity={storeMessage.includes('❌') ? 'error' : 'success'}
+              durationMs={4000}
+            />
+          )}
+        </>
+      }
+    >
+      <DirectoryNodeStructure
+        node={node}
+        fetchNeo4jStructure={fetchNeo4jStructure}
+        areActionsEnabled={areActionsEnabled}
+      />
+    </DirectoryStructureContainer>
   )
 }
