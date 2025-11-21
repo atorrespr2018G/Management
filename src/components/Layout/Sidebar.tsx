@@ -34,6 +34,7 @@ import SecurityIcon from '@mui/icons-material/Security'
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive'
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import StorageIcon from '@mui/icons-material/Storage'
+import DataObjectIcon from '@mui/icons-material/DataObject'
 import WorkIcon from '@mui/icons-material/Work'
 import FolderIcon from '@mui/icons-material/Folder'
 import HubIcon from '@mui/icons-material/Hub'
@@ -106,14 +107,15 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
       title: '',
       items: [
         { text: 'Overview', icon: <HomeIcon />, href: '/' },
-        { text: 'Model catalog', icon: <AppsIcon />, href: '/model-catalog' },
+        { text: 'Chat', icon: <ChatBubbleOutlineIcon />, href: '/chat' },
+        { text: 'Chat SQL', icon: <DataObjectIcon />, href: '/chat-sql' },
         { text: 'Playgrounds', icon: <ChatBubbleOutlineIcon />, href: '/playgrounds' },
       ],
     },
     {
       title: 'Repositories',
       items: [
-        { text: 'Connectors', icon: <StorageIcon />, href: '/repositories/connectors', subItems: [] },
+        { text: 'Database', icon: <StorageIcon />, href: '/repositories/database', subItems: [] },
         { text: 'Data Source', icon: <WorkIcon />, href: '/repositories/data-source', subItems: [] },
         { text: 'Enterprise', icon: <BusinessIcon />, href: '/repositories/enterprise', subItems: [] },
       ],
@@ -204,7 +206,7 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
       )}
 
       {/* Navigation Items */}
-      <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
+      <Box sx={{ flexGrow: 1, overflowY: 'auto', pt: 8 }}>
         {sections.map((section, sectionIndex) => (
           <Box key={sectionIndex}>
             {section.title && isOpen && (

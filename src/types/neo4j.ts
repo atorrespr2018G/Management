@@ -134,3 +134,64 @@ export interface ConnectorPathRequest {
   name?: string;
 }
 
+export interface DatabaseConfig {
+  id: string;
+  database_type: string;
+  name: string;
+  host: string;
+  port: number;
+  database_name: string;
+  username: string;
+  schema_name?: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DatabaseConfigRequest {
+  database_type: string;
+  name: string;
+  host: string;
+  port: number;
+  database_name: string;
+  username: string;
+  password: string;
+  schema_name?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface TestConnectionResponse {
+  success: boolean;
+  message: string;
+  error?: string;
+}
+
+export interface SchemaInfo {
+  database_name: string;
+  schema_name: string;
+  tables: TableInfo[];
+}
+
+export interface TableInfo {
+  name: string;
+  columns: ColumnInfo[];
+  primary_keys: string[];
+  foreign_keys: ForeignKeyInfo[];
+}
+
+export interface ColumnInfo {
+  name: string;
+  data_type: string;
+  nullable: boolean;
+  primary_key: boolean;
+  foreign_key: ForeignKeyInfo | null;
+  default: string | null;
+}
+
+export interface ForeignKeyInfo {
+  name: string;
+  constrained_columns: string[];
+  referred_table: string;
+  referred_columns: string[];
+}
+
