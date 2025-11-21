@@ -17,7 +17,9 @@ const DirectoryStructuresPanel = ({
     isStoring,
     storeMessage,
     onStoreInNeo4j,
-    onGraphDataChanged
+    onGraphDataChanged,
+    areActionsEnabled = true,
+    onResetNeoStatus
 }: DirectoryStructuresProps) => {
     const { fetchNeo4jStructure } = useNeo4jStructure({ machineId, node });
 
@@ -32,12 +34,18 @@ const DirectoryStructuresPanel = ({
                     isStoring={isStoring}
                     onStoreInNeo4j={onStoreInNeo4j}
                     fetchNeo4jStructure={fetchNeo4jStructure}
+                    areActionsEnabled={areActionsEnabled}
                 />
             </Grid>
 
             {/* Neo4j Directory */}
             <Grid item xs={12} md={6}>
-                <NeoDirectoryStructureCard fetchNeo4jStructure={fetchNeo4jStructure} onGraphDataChanged={onGraphDataChanged} />
+                <NeoDirectoryStructureCard
+                    fetchNeo4jStructure={fetchNeo4jStructure}
+                    onGraphDataChanged={onGraphDataChanged}
+                    areActionsEnabled={areActionsEnabled}
+                    onResetNeoStatus={onResetNeoStatus}
+                />
             </Grid>
         </Grid>
     );

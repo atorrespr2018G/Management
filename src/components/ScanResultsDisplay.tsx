@@ -36,8 +36,9 @@ import {
   setIsCreatingRelationships,
   setRelationshipStatus,
   setRelationshipStatusForFile,
+  clearStatusForDirectory,
 } from '../store/slices/neoSlice';
-import DirectoryStructuresPanel from './DirectoryStructuresPanel';
+import DirectoryStructuresPanel from './DirectoryStructure/DirectoryStructuresPanel';
 import { useStoreDirectoryInNeo4j } from '@/hooks/useStoreDirectoryInNeo4j';
 import { ScanResultsDisplayProps } from '@/types/components';
 
@@ -61,9 +62,16 @@ const ScanResultsDisplay = ({
   showActionButtons = false,
   onClearResults,
   onScanAgain,
+  sx = {},
+  areActionsEnabled = true
 }: ScanResultsDisplayProps) => {
   const { machineId } = useMachineId()
   const dispatch = useDispatch();
+
+  const handleResetNeoStatus = (key: string) => {
+    dispatch(clearStatusForDirectory(key));
+  };
+
   const {
     neo4jDirectoryStructure,
     selectedForGraph,
@@ -255,10 +263,10 @@ const ScanResultsDisplay = ({
   // }
 
   return (
-    <Box>
+    <Box sx={{ p: 1, pb: 4, bgcolor: 'background.default', borderRadius: 2, ...sx }} >
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box>
+        <Box sx={{ pl: 2, pt: 2 }}>
           <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', mb: 1 }}>
             Scan Results
           </Typography>
@@ -315,6 +323,8 @@ const ScanResultsDisplay = ({
         isStoring={isStoring}
         storeMessage={storeMessage}
         onStoreInNeo4j={handleStoreInNeo4j}
+        areActionsEnabled={areActionsEnabled}
+        onResetNeoStatus={handleResetNeoStatus}
       />
 
       {/* Create Semantic Relationships Section - Only show when Graph badges are selected */}

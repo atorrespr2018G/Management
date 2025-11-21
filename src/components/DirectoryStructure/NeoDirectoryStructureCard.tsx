@@ -1,11 +1,11 @@
 
 import { useDispatch, useSelector } from 'react-redux';
-import { buildStableId } from '../utils/treeHelpers'
+import { buildStableId } from '../../utils/treeHelpers'
 import DatabaseIcon from '@mui/icons-material/Storage'
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import LoopIcon from '@mui/icons-material/Loop';
 import DeleteIcon from '@mui/icons-material/Delete'
-import { uploadFilesBatch, deleteFileRelationships, deleteFileChunks } from '../services/neo4jApi';
+import { uploadFilesBatch, deleteFileRelationships, deleteFileChunks } from '../../services/neo4jApi';
 import DirectoryNodeStructure from './DirectoryNodeStructure';
 import { FileStructure } from '@/types/neo4j';
 import {
@@ -18,7 +18,7 @@ import {
     setIsDeletingRelationships,
     setDeleteStatus,
     removeChangedFiles,
-} from '../store/slices/neoSlice';
+} from '../../store/slices/neoSlice';
 import {
     Card,
     CardHeader,
@@ -30,12 +30,15 @@ import {
     Stack,
     Paper,
 } from '@mui/material';
-
+import { TimedAlert } from '@/components/TimedAlert';
+import type { AlertColor } from '@mui/material/Alert';
 import { useMachineId } from '@/hooks/useMachineId';
 
-const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged }: {
+const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, areActionsEnabled, onResetNeoStatus }: {
     fetchNeo4jStructure: () => Promise<void>,
-    onGraphDataChanged?: () => Promise<void>
+    onGraphDataChanged?: () => Promise<void>,
+    areActionsEnabled?: boolean,
+    onResetNeoStatus?: (key: string) => void
 }) => {
     const dispatch = useDispatch();
     const { machineId } = useMachineId()
@@ -129,6 +132,8 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged }: 
 
         // Initialize progress
         dispatch(setUploadProgress({ done: 0, total: selectedFiles.length, totalChunks: 0 }));
+        dispatch(setDeleteStatus({}));
+
         dispatch(setIsUploading(true));
         // Check for changed files and delete relationships before upload
         const changedFilesToClean = uploadable.filter(f => changedFiles[f.stableId])
@@ -208,6 +213,7 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged }: 
                     statusMessage += `. ${allErrors.length} error(s): ${allErrors.slice(0, 2).join('; ')}${allErrors.length > 2 ? '...' : ''}`
                 }
             }
+
             // setUploadStatus(prev => ({ ...prev, [directoryNode.fullPath || directoryNode.id]: statusMessage }))
             dispatch(setUploadStatus({ directoryNode, status: statusMessage }));
             dispatch(setUploadProgress({ done: 0, total: selectedFiles.length, totalChunks: 0 }));
@@ -270,59 +276,63 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged }: 
 
         return (
             <>
-                {/* Upload Docs */}
-                <Button
-                    variant="contained"
-                    size="small"
-                    startIcon={!isUploading && <FileUploadIcon fontSize="small" />}
-                    onClick={() => handleUploadDirectory(directoryNode)}
-                    disabled={uploadableCount === 0 || isUploading}
-                >
-                    {isUploading ? (
-                        <Stack direction="row" spacing={1} alignItems="center">
-                            <CircularProgress size={16} />
-                            <Typography variant="caption">
-                                Uploading… {uploadProgress.done}/{uploadProgress.total}
-                            </Typography>
-                        </Stack>
-                    ) : (
-                        'Docs'
-                    )}
-                </Button>
-
                 {/* Delete File (semantic chunks) */}
-                <Button
-                    variant="outlined"
-                    size="small"
-                    color="error"
-                    onClick={() => handleDeleteFiles(directoryNode)}
-                    disabled={isUploading && (deleteFilesCount === 0 || isDeletingChunks[directoryPath])}
-                    startIcon={
-                        isDeletingChunks[directoryPath] ? <CircularProgress size={16} /> : <DeleteIcon />
-                    }
-                >
-                    {isDeletingChunks[directoryPath] ? 'Deleting File…' : `File (${deleteFilesCount})`}
-                </Button>
+                {areActionsEnabled && (
+                    <>
+                        {/* Upload Docs */}
+                        <Button
+                            sx={{ mr: 1 }}
+                            variant="contained"
+                            size="small"
+                            startIcon={!isUploading && <FileUploadIcon fontSize="small" />}
+                            onClick={() => handleUploadDirectory(directoryNode)}
+                            disabled={uploadableCount === 0 || isUploading}
+                        >
+                            {isUploading ? (
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                    <CircularProgress size={16} />
+                                    <Typography variant="caption">
+                                        Uploading… {uploadProgress.done}/{uploadProgress.total}
+                                    </Typography>
+                                </Stack>
+                            ) : (`Docs (${uploadableCount})`)}
+                        </Button>
+                        <Button
+                            sx={{ mr: 1 }}
+                            variant="outlined"
+                            size="small"
+                            color="error"
+                            onClick={() => handleDeleteFiles(directoryNode)}
+                            disabled={isUploading || (deleteFilesCount === 0 || isDeletingChunks[directoryPath])}
+                            startIcon={
+                                isDeletingChunks[directoryPath] ? <CircularProgress size={16} /> : <DeleteIcon />
+                            }
+                        >
+                            {isDeletingChunks[directoryPath] ? 'Deleting File…' : `File (${deleteFilesCount})`}
+                        </Button>
 
-                {/* Delete Graph (relationships only) */}
-                <Button
-                    variant="outlined"
-                    size="small"
-                    color="error"
-                    onClick={() => handleDeleteGraphs(directoryNode)}
-                    disabled={deleteGraphsCount === 0 || isDeletingRelationships[directoryPath]}
-                    startIcon={
-                        isDeletingRelationships[directoryPath] ? (
-                            <CircularProgress size={16} />
-                        ) : (
-                            <DeleteIcon />
-                        )
-                    }
-                >
-                    {isDeletingRelationships[directoryPath]
-                        ? 'Deleting Graph…'
-                        : `Graph (${deleteGraphsCount})`}
-                </Button>
+                        {/* Delete Graph (relationships only) */}
+                        <Button
+                            sx={{ mr: 1 }}
+                            variant="outlined"
+                            size="small"
+                            color="error"
+                            onClick={() => handleDeleteGraphs(directoryNode)}
+                            disabled={deleteGraphsCount === 0 || isDeletingRelationships[directoryPath]}
+                            startIcon={
+                                isDeletingRelationships[directoryPath] ? (
+                                    <CircularProgress size={16} />
+                                ) : (
+                                    <DeleteIcon />
+                                )
+                            }
+                        >
+                            {isDeletingRelationships[directoryPath]
+                                ? 'Deleting Graph…'
+                                : `Graph (${deleteGraphsCount})`}
+                        </Button>
+                    </>
+                )}
             </>
         );
     };
@@ -356,6 +366,8 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged }: 
         try {
             dispatch(setIsDeletingChunks({ ...isDeletingChunks, [directoryPath]: true }));
             dispatch(setDeleteStatus({ ...deleteStatus, [directoryPath]: 'Deleting file chunks…' }));
+            dispatch(setUploadStatus({ directoryNode, status: '' }));
+            dispatch(resetUploadProgress());
 
             let totalChunks = 0;
             let totalRelationships = 0;
@@ -386,7 +398,7 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged }: 
                 })
             );
 
-            // Optional: clear selection after delete
+            // clear selection after delete
             dispatch(setSelectedForRag({}));
 
             await fetchNeo4jStructure();
@@ -423,6 +435,7 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged }: 
         try {
             dispatch(setIsDeletingRelationships({ ...isDeletingRelationships, [directoryPath]: true }));
             dispatch(setDeleteStatus({ ...deleteStatus, [directoryPath]: 'Deleting graph…' }));
+            dispatch(setUploadStatus({ directoryNode, status: '' }));
 
             let totalRelationships = 0;
             const errors: string[] = [];
@@ -446,35 +459,29 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged }: 
             })
             );
 
-            // Optional: keep chunks, just refresh graph state
+            // keep chunks, just refresh graph state
             await fetchNeo4jStructure();
         } finally {
             dispatch(setIsDeletingRelationships({ ...isDeletingRelationships, [directoryPath]: false }));
         }
     };
 
-    const uploadTextKey = neo4jDirectoryStructure?.fullPath || neo4jDirectoryStructure?.id;
-    const uploadText = uploadTextKey && uploadStatus[uploadTextKey]
-        ? uploadStatus[uploadTextKey]
-        : '';
+    // const uploadTextKey = neo4jDirectoryStructure?.fullPath || neo4jDirectoryStructure?.id;
+    // const uploadText = uploadTextKey && uploadStatus[uploadTextKey]
+    //     ? uploadStatus[uploadTextKey]
+    //     : '';
 
-    // {uploadText && (
-    //   <Typography variant="caption" color="text.secondary">
-    //       {uploadText}
-    //   </Typography>
-    // */}
-    // {(
-    //     // uploadStatus[node.fullPath || node.id] ||
-    //     deleteStatus[neo4jDirectoryStructure.fullPath || neo4jDirectoryStructure.id]) && (
-    //         <Typography
-    //             variant="caption"
-    //             color="text.secondary"
-    //             sx={{ width: '100%' }}
-    //         >
-    //             {uploadStatus[neo4jDirectoryStructure.fullPath || neo4jDirectoryStructure.id] ||
-    //                 deleteStatus[neo4jDirectoryStructure.fullPath || neo4jDirectoryStructure.id]}
-    //         </Typography>
-    //     )}
+    const statusKey = neo4jDirectoryStructure?.fullPath || neo4jDirectoryStructure?.id || '';
+    const statusMessage = (statusKey && (deleteStatus[statusKey] || uploadStatus[statusKey])) || '';
+
+    const getStatusSeverity = (msg: string): AlertColor => {
+        const lower = msg.toLowerCase();
+        if (lower.startsWith('error') || lower.includes('error:')) return 'error';
+        if (lower.startsWith('no ') || lower.includes('no items deleted')) return 'warning';
+        return 'success'; // e.g. "Deleted 19 chunks from 1 file(s)"
+    };
+
+
     return (
         <>
             {isLoadingNeo4jStructure && (
@@ -483,15 +490,14 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged }: 
                 </Paper>
             )}
             {!isLoadingNeo4jStructure && (
-                <Card>
+                <Card sx={{ height: '100%' }}>
                     <CardContent>
                         <CardHeader
-                            style={{ padding: 0, paddingBottom: '1em' }}
+                            sx={{ p: 0, pb: 2 }}
                             title={
                                 <Stack direction="row" spacing={1} alignItems="center">
                                     <Typography whiteSpace="nowrap" fontWeight={600}>
-                                        Directory Structure {/* (Neo4j) */}
-                                        {/* {`Directory Structure ${!isSelectable ? '(Scanned)' : ''}`} */}
+                                        Directory Structure
                                     </Typography>
                                     <Chip
                                         label="NEO4J DB"
@@ -506,7 +512,8 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged }: 
                             }
                             action={handleButtons(neo4jDirectoryStructure || null)}
                         />
-                        {(
+
+                        {/* {(
                             // uploadStatus[node.fullPath || node.id] ||
                             deleteStatus[neo4jDirectoryStructure?.fullPath || neo4jDirectoryStructure?.id]) && (
                                 <Typography
@@ -517,13 +524,27 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged }: 
                                     {uploadStatus[neo4jDirectoryStructure?.fullPath || neo4jDirectoryStructure?.id] ||
                                         deleteStatus[neo4jDirectoryStructure?.fullPath || neo4jDirectoryStructure?.id]}
                                 </Typography>
-                            )}
-                        {neo4jDirectoryStructure ? (
-                            <DirectoryNodeStructure
-                                node={neo4jDirectoryStructure}
-                                isSelectable={true}
-                                fetchNeo4jStructure={fetchNeo4jStructure}
+                        )} */}
+
+                        {statusKey && statusMessage && (
+                            <TimedAlert
+                                sx={{ mb: 2 }}
+                                message={statusMessage}
+                                severity={getStatusSeverity(statusMessage)}
+                                durationMs={20000}
+                                // autoHide={!statusMessage.includes('Uploading...')}
+                                onClose={() => onResetNeoStatus?.(statusKey)}
                             />
+                        )}
+                        {neo4jDirectoryStructure ? (
+                            <Paper variant="outlined" sx={{ p: 1.5 }}>
+                                <DirectoryNodeStructure
+                                    node={neo4jDirectoryStructure}
+                                    isSelectable={true}
+                                    fetchNeo4jStructure={fetchNeo4jStructure}
+                                    areActionsEnabled={areActionsEnabled}
+                                />
+                            </Paper>
                         ) : (
                             // <Box sx={{ textAlign: 'center', py: 4 }} >
                             <Paper
@@ -542,7 +563,6 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged }: 
                                 <Typography variant="body2" color="text.secondary">
                                     No directory results have been scanned
                                 </Typography>
-                                {/* </Box> */}
                             </Paper>
                         )}
                     </CardContent>

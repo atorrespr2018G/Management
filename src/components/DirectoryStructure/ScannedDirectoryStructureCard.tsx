@@ -1,0 +1,134 @@
+'use client'
+
+import { useState } from 'react'
+import {
+  Box,
+  Typography,
+  Card,
+  CardContent,
+  Button,
+  CircularProgress,
+  Paper,
+  Chip,
+  IconButton,
+  CardHeader,
+  Stack,
+} from '@mui/material'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import DownloadIcon from '@mui/icons-material/Download'
+import DatabaseIcon from '@mui/icons-material/Storage'
+import DirectoryNodeStructure from './DirectoryNodeStructure'
+import { DirectoryStructuresProps } from '@/types/components';
+import { TimedAlert } from '@/components/TimedAlert';
+
+export default function ScannedDirectoryStructureCard({
+  node,
+  machineId,
+  storeMessage,
+  isStoring,
+  onStoreInNeo4j,
+  fetchNeo4jStructure,
+  areActionsEnabled = true
+}: DirectoryStructuresProps) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = () => {
+    const dataStr = JSON.stringify(node, null, 2)
+    navigator.clipboard.writeText(dataStr).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  const handleDownload = () => {
+    const dataStr = JSON.stringify(node, null, 2)
+    const dataBlob = new Blob([dataStr], { type: 'application/json' })
+    const url = URL.createObjectURL(dataBlob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `scan-results-${new Date().toISOString()}.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <Card sx={{ height: '100%' }}>
+      {/* <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}> */}
+      {/* <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}> */}
+      <CardContent>
+        <CardHeader
+          sx={{ p: 0, pb: 2 }}
+          title={
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography whiteSpace="nowrap" fontWeight={600}>
+                Directory Structure
+              </Typography>
+              <Chip
+                label="LOCAL"
+                size="small"
+                color="warning"
+                variant="outlined"
+              />
+            </Stack>
+          }
+          // sx={{ pb: 1 }}
+          action={
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              {areActionsEnabled && (
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={onStoreInNeo4j}
+                  // disabled={(isStoring || !machineId) && showStoreButton}
+                  disabled={isStoring || !machineId}
+                  startIcon={
+                    isStoring ? <CircularProgress size={16} /> : <DatabaseIcon />
+                  }
+                >
+                  {isStoring ? 'Storing...' : 'Store in Neo4j'}
+                </Button>
+              )}
+              <IconButton onClick={handleCopy} size="small">
+                <ContentCopyIcon />
+              </IconButton>
+              <IconButton onClick={handleDownload} size="small">
+                <DownloadIcon />
+              </IconButton>
+            </Box>
+          }
+        />
+
+        {/* Alerts */}
+        {copied && (
+          <TimedAlert
+            sx={{ mb: 2 }}
+            message="Copied to clipboard!"
+            severity="success"
+            durationMs={2000}
+            onClose={() => setCopied(false)}
+          />
+        )}
+
+        {storeMessage && (
+          <TimedAlert
+            sx={{ mb: 2 }}
+            message={storeMessage}
+            severity={storeMessage.includes('❌') ? 'error' : 'success'}
+            durationMs={4000}
+          />
+        )}
+
+        {/* Tree */}
+        <Paper variant="outlined" sx={{ p: 1.5 }}>
+          <DirectoryNodeStructure
+            node={node}
+            fetchNeo4jStructure={fetchNeo4jStructure}
+            areActionsEnabled={areActionsEnabled}
+          />
+        </Paper>
+      </CardContent>
+    </Card>
+  )
+}
