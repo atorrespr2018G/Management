@@ -29,6 +29,7 @@ import {
     CircularProgress,
     Stack,
     Paper,
+    Box,
 } from '@mui/material';
 import { TimedAlert } from '@/components/TimedAlert';
 import type { AlertColor } from '@mui/material/Alert';
@@ -478,7 +479,7 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, ar
         const lower = msg.toLowerCase();
         if (lower.startsWith('error') || lower.includes('error:')) return 'error';
         if (lower.startsWith('no ') || lower.includes('no items deleted')) return 'warning';
-        return 'success'; // e.g. "Deleted 19 chunks from 1 file(s)"
+        return 'success';
     };
 
 
@@ -490,8 +491,8 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, ar
                 </Paper>
             )}
             {!isLoadingNeo4jStructure && (
-                <Card sx={{ height: '100%' }}>
-                    <CardContent>
+                <Card sx={{ height: 700, display: 'flex', flexDirection: 'column' }}>
+                    <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                         <CardHeader
                             sx={{ p: 0, pb: 2 }}
                             title={
@@ -537,33 +538,39 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, ar
                             />
                         )}
                         {neo4jDirectoryStructure ? (
-                            <Paper variant="outlined" sx={{ p: 1.5 }}>
-                                <DirectoryNodeStructure
-                                    node={neo4jDirectoryStructure}
-                                    isSelectable={true}
-                                    fetchNeo4jStructure={fetchNeo4jStructure}
-                                    areActionsEnabled={areActionsEnabled}
-                                />
-                            </Paper>
+                            <Box sx={{ flex: 1, overflow: 'auto', mt: 1 }}>
+                                <Paper variant="outlined" sx={{ p: 1.5, minHeight: '100%', bgcolor: '#f8f8f8ff' }}>
+                                    {/* <Paper variant="outlined" sx={{ p: 1.5 }}> */}
+                                    <DirectoryNodeStructure
+                                        node={neo4jDirectoryStructure}
+                                        isSelectable={true}
+                                        fetchNeo4jStructure={fetchNeo4jStructure}
+                                        areActionsEnabled={areActionsEnabled}
+                                    />
+                                </Paper>
+                            </Box>
                         ) : (
                             // <Box sx={{ textAlign: 'center', py: 4 }} >
-                            <Paper
-                                variant="outlined"
-                                sx={{
-                                    p: 2,
-                                    flex: 1,
-                                    minHeight: 300,
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    justifyContent: 'center',
-                                    alignItems: 'center',
-                                }}
-                            >
-                                <DatabaseIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-                                <Typography variant="body2" color="text.secondary">
-                                    No directory results have been scanned
-                                </Typography>
-                            </Paper>
+                            <Box sx={{ flex: 1, overflow: 'auto', mt: 1 }}>
+                                {/* <Paper variant="outlined" sx={{ p: 1.5, minHeight: '100%' }}></Paper> */}
+                                <Paper
+                                    variant="outlined"
+                                    sx={{
+                                        p: 1.5,
+                                        flex: 1,
+                                        minHeight: '100%',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                    }}
+                                >
+                                    <DatabaseIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                                    <Typography variant="body2" color="text.secondary">
+                                        No directory results have been scanned
+                                    </Typography>
+                                </Paper>
+                            </Box>
                         )}
                     </CardContent>
                 </Card>

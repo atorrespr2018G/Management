@@ -54,10 +54,10 @@ export default function ScannedDirectoryStructureCard({
   }
 
   return (
-    <Card sx={{ height: '100%' }}>
-      {/* <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}> */}
-      {/* <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}> */}
-      <CardContent>
+    // <Card sx={{ height: '100%' }}>
+    <Card sx={{ height: 700, display: 'flex', flexDirection: 'column' }}>
+      <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        {/* <CardContent> */}
         <CardHeader
           sx={{ p: 0, pb: 2 }}
           title={
@@ -121,13 +121,23 @@ export default function ScannedDirectoryStructureCard({
         )}
 
         {/* Tree */}
-        <Paper variant="outlined" sx={{ p: 1.5 }}>
+        {/* <Paper variant="outlined" sx={{ p: 1.5 }}>
           <DirectoryNodeStructure
             node={node}
             fetchNeo4jStructure={fetchNeo4jStructure}
             areActionsEnabled={areActionsEnabled}
           />
         </Paper>
+       */}
+        <Box sx={{ flex: 1, overflow: 'auto', mt: 1 }}>
+          <Paper variant="outlined" sx={{ p: 1.5, minHeight: '100%' }}>
+            <DirectoryNodeStructure
+              node={node}
+              fetchNeo4jStructure={fetchNeo4jStructure}
+              areActionsEnabled={areActionsEnabled}
+            />
+          </Paper>
+        </Box>
       </CardContent>
     </Card>
   )
