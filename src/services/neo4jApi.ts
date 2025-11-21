@@ -477,10 +477,25 @@ export const getSchemaElements = async (
   return apiCall(`/api/databases/${dbId}/schema/elements${params}`);
 };
 
+export const getDatabaseSchema = async (
+  dbId: string
+): Promise<SchemaInfo> => {
+  return apiCall<SchemaInfo>(`/api/databases/${dbId}/schema`);
+};
+
 export const deleteDatabaseSchema = async (
   dbId: string
 ): Promise<{ message: string; schemas_deleted: number }> => {
   return apiCall(`/api/databases/${dbId}/schema`, {
+    method: 'DELETE',
+  });
+};
+
+export const deleteTable = async (
+  dbId: string,
+  tableName: string
+): Promise<{ message: string; table_name: string; columns_deleted: number; tables_deleted: number }> => {
+  return apiCall(`/api/databases/${dbId}/schema/tables/${encodeURIComponent(tableName)}`, {
     method: 'DELETE',
   });
 };

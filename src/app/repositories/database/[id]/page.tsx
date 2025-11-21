@@ -43,7 +43,9 @@ import {
   updateSchemaMetadata,
   createMetricDefinition,
   getSchemaElements,
+  getDatabaseSchema,
   deleteDatabaseSchema,
+  deleteTable,
   type SchemaMetadataUpdate,
   type MetricDefinitionRequest,
   type DatabaseConfigRequest,
@@ -71,6 +73,7 @@ export default function DatabaseDetailPage() {
   
   // Edit config dialog
   const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editUseEnv, setEditUseEnv] = useState(true) // Track which edit mode (.env or stored)
   const [editConfig, setEditConfig] = useState<DatabaseConfigRequest>({
     database_type: '',
     name: '',
@@ -119,6 +122,17 @@ export default function DatabaseDetailPage() {
       setError(null)
       const dbConfig = await getDatabaseConfig(dbId)
       setConfig(dbConfig)
+      
+      // Also load existing schema if available
+      try {
+        const schema = await getDatabaseSchema(dbId)
+        if (schema && schema.tables && schema.tables.length > 0) {
+          setSchemaInfo(schema)
+        }
+      } catch (schemaErr: any) {
+        // Schema might not exist yet, which is fine
+        console.log('No existing schema found or error loading schema:', schemaErr)
+      }
     } catch (err: any) {
       console.error('Failed to load database config:', err)
       setError('Failed to load database configuration')
@@ -136,10 +150,10 @@ export default function DatabaseDetailPage() {
     try {
       const result = await introspectDatabaseSchema(dbId, false)
       setSchemaInfo(result.schema_info)
-      alert(`Schema introspected successfully! Found ${result.schema_info.tables.length} tables.`)
+        alert(`Schema discovered successfully! Found ${result.schema_info.tables.length} tables.`)
     } catch (err: any) {
-      console.error('Failed to introspect schema:', err)
-      setError('Failed to introspect schema: ' + (err.message || 'Unknown error'))
+      console.error('Failed to discover schema:', err)
+      setError('Failed to discover schema: ' + (err.message || 'Unknown error'))
     } finally {
       setIntrospecting(false)
     }
@@ -323,8 +337,38 @@ export default function DatabaseDetailPage() {
     }
   }
 
-  const handleOpenEditDialog = () => {
+  const handleDeleteTable = async (tableName: string) => {
+    if (!dbId) return
+
+    if (!confirm(`Are you sure you want to delete the table "${tableName}"? This will remove the table and all its columns from Neo4j.`)) {
+      return
+    }
+
+    setDeleting(true)
+    setError(null)
+
+    try {
+      const result = await deleteTable(dbId, tableName)
+      // Refresh schema info after deletion
+      if (schemaInfo) {
+        const updatedTables = schemaInfo.tables.filter(t => t.name !== tableName)
+        setSchemaInfo({
+          ...schemaInfo,
+          tables: updatedTables
+        })
+      }
+      alert(`Table "${tableName}" deleted successfully! Removed ${result.columns_deleted} column(s).`)
+    } catch (err: any) {
+      console.error('Failed to delete table:', err)
+      setError('Failed to delete table: ' + (err.message || 'Unknown error'))
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const handleOpenEditDialog = (useEnv: boolean = true) => {
     if (!config) return
+    setEditUseEnv(useEnv)
     setEditConfig({
       database_type: config.database_type,
       name: config.name,
@@ -387,7 +431,7 @@ export default function DatabaseDetailPage() {
     }
   }
 
-  const handleTestConnectionEdit = async (useEnv: boolean = true) => {
+  const handleTestConnectionEdit = async (useEnv: boolean) => {
     if (!editConfig.name || !editConfig.host || !editConfig.database_name || !editConfig.username) {
       alert('Please fill in all required fields before testing connection')
       return
@@ -409,7 +453,7 @@ export default function DatabaseDetailPage() {
       // First create/update the config
       const updatedConfig = await updateDatabaseConfig(dbId, tempConfig)
       
-      // Then test the connection
+      // Then test the connection with the specified method
       const result = await testDatabaseConnection(updatedConfig.id, useEnv)
       if (result.success) {
         alert(`Connection test successful!\n${result.message}`)
@@ -478,19 +522,39 @@ export default function DatabaseDetailPage() {
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <Button
                   variant="outlined"
-                  onClick={handleTestConnection}
-                  disabled={testing || introspecting || embedding || deleting}
+                  onClick={() => handleTestConnection(true)}
+                  disabled={testing || testingStored || introspecting || embedding || deleting}
                   startIcon={testing ? <CircularProgress size={16} /> : null}
+                  title="Test connection using .env variables (if available)"
                 >
-                  {testing ? 'Testing...' : 'Test Connection'}
+                  {testing ? 'Testing...' : 'Test (.env)'}
                 </Button>
                 <Button
                   variant="outlined"
-                  onClick={handleOpenEditDialog}
+                  onClick={() => handleTestConnection(false)}
+                  disabled={testing || testingStored || introspecting || embedding || deleting}
+                  startIcon={testingStored ? <CircularProgress size={16} /> : null}
+                  title="Test connection using stored parameters"
+                >
+                  {testingStored ? 'Testing...' : 'Test (Stored)'}
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => handleOpenEditDialog(true)}
                   disabled={introspecting || embedding || deleting}
                   startIcon={<EditIcon />}
+                  title="Edit configuration (tests use .env variables)"
                 >
-                  Edit
+                  Edit (.env)
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => handleOpenEditDialog(false)}
+                  disabled={introspecting || embedding || deleting}
+                  startIcon={<EditIcon />}
+                  title="Edit configuration (tests use stored parameters)"
+                >
+                  Edit (Stored)
                 </Button>
               </Box>
             </Box>
@@ -547,7 +611,7 @@ export default function DatabaseDetailPage() {
                   disabled={introspecting || embedding || deleting}
                   startIcon={introspecting ? <CircularProgress size={16} /> : <TableChartIcon />}
                 >
-                  {introspecting ? 'Introspecting...' : 'Introspect Schema'}
+                  {introspecting ? 'Discovering...' : 'Schema Discovery'}
                 </Button>
               </Box>
             </Box>
@@ -572,8 +636,21 @@ export default function DatabaseDetailPage() {
                             handleOpenEnrichment('table', table.name)
                           }}
                           sx={{ mr: 1 }}
+                          title="Edit table metadata"
                         >
                           <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteTable(table.name)
+                          }}
+                          sx={{ mr: 1 }}
+                          disabled={deleting}
+                          title="Delete table"
+                        >
+                          <DeleteIcon fontSize="small" />
                         </IconButton>
                         <Chip label={`${table.columns?.length || 0} columns`} size="small" />
                         {table.primary_keys && table.primary_keys.length > 0 && (
@@ -620,7 +697,7 @@ export default function DatabaseDetailPage() {
               </Box>
             ) : (
               <Typography variant="body2" color="text.secondary">
-                No schema loaded. Click "Introspect Schema" to discover the database schema, or "Upload JSON" to upload a schema file.
+                No schema loaded. Click "Schema Discovery" to discover the database schema, or "Upload JSON" to upload a schema file.
               </Typography>
             )}
           </CardContent>
@@ -837,7 +914,10 @@ export default function DatabaseDetailPage() {
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>Edit Database Configuration</DialogTitle>
+        <DialogTitle>
+          Edit Database Configuration
+          {editUseEnv ? ' (Tests use .env)' : ' (Tests use stored config)'}
+        </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
             <TextField
@@ -928,9 +1008,9 @@ export default function DatabaseDetailPage() {
               onClick={() => handleTestConnectionEdit(false)}
               disabled={testingEdit || testingEditStored}
               startIcon={testingEditStored ? <CircularProgress size={16} /> : null}
-              title="Test connection using configured parameters"
+              title="Test connection using stored parameters"
             >
-              {testingEditStored ? 'Testing...' : 'Test (Config)'}
+              {testingEditStored ? 'Testing...' : 'Test (Stored)'}
             </Button>
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
