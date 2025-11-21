@@ -65,7 +65,7 @@ export function useStoreDirectoryInNeo4j({
                 true // metadata only for now
             );
 
-            setStoreMessage('✅ Directory stored in Neo4j (metadata only).');
+            setStoreMessage('Directory stored in Neo4j (metadata only).');
 
             const stats = await getNeo4jStats();
             setNeo4jStatus(stats);
@@ -76,8 +76,7 @@ export function useStoreDirectoryInNeo4j({
             }
         } catch (error: any) {
             setStoreMessage(
-                `❌ Error storing in Neo4j: ${error instanceof Error ? error.message : 'Unknown error'
-                }`
+                `❌ Error storing in Neo4j: ${error instanceof Error ? error.message : 'Unknown error'}`
             );
         } finally {
             setIsStoring(false);

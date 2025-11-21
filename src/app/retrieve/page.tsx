@@ -43,7 +43,7 @@ import { formatBytes } from '@/utils/formatters'
 import { useMachineId } from '@/hooks/useMachineId'
 import type { GraphVisualization, GraphStats, GraphNode } from '@/types/neo4j'
 import { useNeo4jStructure } from '@/hooks/useNeo4jStructure'
-import DirectoryStructuresPanel from '@/components/DirectoryStructuresPanel'
+import DirectoryStructuresPanel from '@/components/DirectoryStructure/DirectoryStructuresPanel'
 import { useStoreDirectoryInNeo4j } from '@/hooks/useStoreDirectoryInNeo4j'
 
 const NEO4J_API_URL = process.env.NEXT_PUBLIC_NEO4J_API_URL || 'http://localhost:8000'
