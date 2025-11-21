@@ -18,10 +18,10 @@ const getDescendantFileIds = (node: FileStructure, machineId: string) => {
 
 const initialState = {
     neo4jDirectoryStructure: null,
-    isLoadingNeo4jStructure: false,   // isLoadingNeo4jStructure
-    selectedForRag: {}, // key: machineId:fullPath -> boolean
-    ragStatuses: {},    // key: machineId:fullPath -> 'complete' | 'partial' | 'none'
-    uploadStatus: {},   // key: directory id/fullPath -> message
+    isLoadingNeo4jStructure: false,
+    selectedForRag: {} as Record<string, boolean>, // key: machineId:fullPath -> boolean
+    ragStatuses: {} as Record<string, string>,    // key: machineId:fullPath -> 'complete' | 'partial' | 'none'
+    uploadStatus: {} as Record<string, string>,   // key: directory id/fullPath -> message
     uploadProgress: { done: 0, total: 0, totalChunks: 0 }, // Upload progress tracking
     isUploading: false,
     selectedForGraph: {} as Record<string, boolean>,
@@ -180,6 +180,12 @@ const neoSlice = createSlice({
                 delete state.changedFiles[id];
             });
         },
+        clearStatusForDirectory: (state, action: PayloadAction<string>) => {
+            console.log('clearState key?', action.payload)
+            const key = action.payload;
+            delete state.uploadStatus[key];
+            delete state.deleteStatus[key];
+        },
         clearNeoResults: (state) => {
             state.selectedForRag = {};
             state.ragStatuses = {};
@@ -230,6 +236,7 @@ export const {
     setDeleteStatus,
     setChangedFiles,
     removeChangedFiles,
+    clearStatusForDirectory,
     clearNeoResults,
 } = neoSlice.actions;
 
