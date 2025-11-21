@@ -1,5 +1,7 @@
 // TypeScript types for Scanner functionality
 
+import { FileStructure } from './neo4j'
+
 export type ScanSource = 'local' | 'drive' | 'sharepoint';
 
 export interface ScanResult {
@@ -10,6 +12,15 @@ export interface ScanResult {
     totalFiles: number;
     totalSize: number;
   };
+}
+
+// duplicates ... choose to delete in the future
+export interface ScanResults {
+  data: FileStructure
+  totalFiles?: number
+  totalFolders?: number
+  source?: string
+  metadata?: Record<string, any>
 }
 
 export interface ScannerState {
