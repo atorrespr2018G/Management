@@ -62,6 +62,9 @@ export default function DatabaseDetailPage() {
   const [embedding, setEmbedding] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [testing, setTesting] = useState(false)
+  const [testingStored, setTestingStored] = useState(false)
+  const [testingEdit, setTestingEdit] = useState(false)
+  const [testingEditStored, setTestingEditStored] = useState(false)
   const [schemaInfo, setSchemaInfo] = useState<SchemaInfo | null>(null)
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
   const [jsonSchema, setJsonSchema] = useState('')
@@ -355,14 +358,18 @@ export default function DatabaseDetailPage() {
     }
   }
 
-  const handleTestConnection = async () => {
+  const handleTestConnection = async (useEnv: boolean = true) => {
     if (!dbId) return
 
-    setTesting(true)
+    if (useEnv) {
+      setTesting(true)
+    } else {
+      setTestingStored(true)
+    }
     setError(null)
 
     try {
-      const result = await testDatabaseConnection(dbId)
+      const result = await testDatabaseConnection(dbId, useEnv)
       if (result.success) {
         alert(`Connection test successful!\n${result.message}`)
       } else {
@@ -372,7 +379,52 @@ export default function DatabaseDetailPage() {
       console.error('Failed to test connection:', err)
       setError('Failed to test connection: ' + (err.message || 'Unknown error'))
     } finally {
-      setTesting(false)
+      if (useEnv) {
+        setTesting(false)
+      } else {
+        setTestingStored(false)
+      }
+    }
+  }
+
+  const handleTestConnectionEdit = async (useEnv: boolean = true) => {
+    if (!editConfig.name || !editConfig.host || !editConfig.database_name || !editConfig.username) {
+      alert('Please fill in all required fields before testing connection')
+      return
+    }
+
+    if (useEnv) {
+      setTestingEdit(true)
+    } else {
+      setTestingEditStored(true)
+    }
+
+    try {
+      // Create a temporary config for testing
+      const tempConfig = {
+        ...editConfig,
+        name: editConfig.name || 'Test Connection',
+      }
+      
+      // First create/update the config
+      const updatedConfig = await updateDatabaseConfig(dbId, tempConfig)
+      
+      // Then test the connection
+      const result = await testDatabaseConnection(updatedConfig.id, useEnv)
+      if (result.success) {
+        alert(`Connection test successful!\n${result.message}`)
+      } else {
+        alert(`Connection test failed: ${result.error || result.message}`)
+      }
+    } catch (err: any) {
+      console.error('Failed to test connection:', err)
+      alert('Failed to test connection: ' + (err.message || 'Unknown error'))
+    } finally {
+      if (useEnv) {
+        setTestingEdit(false)
+      } else {
+        setTestingEditStored(false)
+      }
     }
   }
 
@@ -861,15 +913,37 @@ export default function DatabaseDetailPage() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => {
-            setEditDialogOpen(false)
-            setError(null)
-          }}>
-            Cancel
-          </Button>
-          <Button variant="contained" onClick={handleSaveConfig}>
-            Save
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, flexGrow: 1 }}>
+            <Button
+              variant="outlined"
+              onClick={() => handleTestConnectionEdit(true)}
+              disabled={testingEdit || testingEditStored}
+              startIcon={testingEdit ? <CircularProgress size={16} /> : null}
+              title="Test connection using .env variables (if available)"
+            >
+              {testingEdit ? 'Testing...' : 'Test (.env)'}
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => handleTestConnectionEdit(false)}
+              disabled={testingEdit || testingEditStored}
+              startIcon={testingEditStored ? <CircularProgress size={16} /> : null}
+              title="Test connection using configured parameters"
+            >
+              {testingEditStored ? 'Testing...' : 'Test (Config)'}
+            </Button>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button onClick={() => {
+              setEditDialogOpen(false)
+              setError(null)
+            }}>
+              Cancel
+            </Button>
+            <Button variant="contained" onClick={handleSaveConfig}>
+              Save
+            </Button>
+          </Box>
         </DialogActions>
       </Dialog>
     </Box>

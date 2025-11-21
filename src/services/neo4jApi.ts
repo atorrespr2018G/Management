@@ -392,8 +392,9 @@ export const updateDatabaseConfig = async (
   });
 };
 
-export const testDatabaseConnection = async (dbId: string): Promise<TestConnectionResponse> => {
-  return apiCall<TestConnectionResponse>(`/api/databases/${dbId}/test`, {
+export const testDatabaseConnection = async (dbId: string, useEnv: boolean = true): Promise<TestConnectionResponse> => {
+  const url = `/api/databases/${dbId}/test?use_env=${useEnv}`;
+  return apiCall<TestConnectionResponse>(url, {
     method: 'POST',
   });
 };
