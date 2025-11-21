@@ -55,7 +55,41 @@ export const calculateTotalSize = (node: { type: string; size?: number; children
 };
 
 
-export const truncateFileName = (node: FileStructure) => {
-  const { name } = node
-  return (name.length < 32) ? name : name.substring(0, 32) + '...'
-}
+// export const truncateFileName = (node: FileStructure) => {
+//   const { name } = node
+//   return (name.length < 32) ? name : name.substring(0, 32) + '...'
+// }
+
+export const truncateFileName = (node: FileStructure, maxLength = 52): string => {
+  if (!node || !node.name) return '';
+
+  const fullName = node.name;
+
+  const lastDot = fullName.lastIndexOf('.');
+  if (lastDot === -1) {
+    // No extension – simple fallback
+    return fullName.length <= maxLength
+      ? fullName
+      : fullName.slice(0, maxLength - 3) + '...';
+  }
+
+  const name = fullName.slice(0, lastDot);      // part before extension
+  const ext = fullName.slice(lastDot);          // ✅ real extension (".pdf", etc.)
+
+  // If the full name already fits, return unchanged
+  if (fullName.length <= maxLength) return fullName;
+
+  // We want: "<start> ... <end><ext>"
+  const reserved = ext.length + ' ... '.length;
+  const available = maxLength - reserved;
+
+  if (available <= 0) return fullName; // safety fallback
+
+  const keepStart = Math.floor(available * 0.9);
+  const keepEnd = available - keepStart;
+
+  const startPart = name.slice(0, keepStart).trimEnd();
+  const endPart = name.slice(-keepEnd).trimStart();
+
+  return `${startPart} ... ${endPart}${ext}`;
+};
