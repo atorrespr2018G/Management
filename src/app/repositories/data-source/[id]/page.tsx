@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Fragment } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import {
   Box,
@@ -13,13 +13,10 @@ import {
   ListItem,
   ListItemButton,
   ListItemText,
-  ListItemSecondaryAction,
   CircularProgress,
   Alert,
   Divider,
   Chip,
-  Card,
-  CardContent,
   Tabs,
   Tab,
 } from '@mui/material'
@@ -36,6 +33,7 @@ import {
 import type { ConnectorConfig, ConnectorPath } from '@/types/neo4j'
 import type { FileStructure } from '@/types/neo4j'
 import ScanResultsDisplay from '@/components/ScanResultsDisplay'
+import { TimedAlert } from '@/components/TimedAlert'
 
 export default function ConnectorDetailPage() {
   const router = useRouter()
@@ -77,7 +75,7 @@ export default function ConnectorDetailPage() {
   const scanAllPaths = async () => {
     // Find paths that haven't been scanned yet
     const unscannedPaths = paths.filter(path => !allPathResults.has(path.id))
-    
+
     if (unscannedPaths.length === 0) {
       return // All paths already scanned
     }
@@ -107,7 +105,7 @@ export default function ConnectorDetailPage() {
           data: scanDataResponse.data,
           source: scanDataResponse.metadata?.source || 'local',
         }
-        
+
         // Store results for this path
         setAllPathResults(prev => {
           const updated = new Map(prev)
@@ -169,11 +167,11 @@ export default function ConnectorDetailPage() {
       const pathToScan = newPath.trim()
       setNewPath('')
       setSaving(false)
-      
+
       // Reload paths to ensure we have the latest data
       const updatedPaths = await getConnectorPaths(configId)
       setPaths(updatedPaths)
-      
+
       // Find the newly added path
       const newPathEntry = updatedPaths.find(p => p.path === pathToScan)
 
@@ -200,7 +198,7 @@ export default function ConnectorDetailPage() {
         }
         setScanData(scanDataResponse.data)
         setScanResults(results)
-        
+
         // Store results for the newly added path
         if (newPathEntry) {
           setAllPathResults(prev => {
@@ -217,7 +215,7 @@ export default function ConnectorDetailPage() {
             return updated
           })
         }
-        
+
         setSuccess(true)
       } catch (scanErr: any) {
         console.error('Scan error:', scanErr)
@@ -290,7 +288,7 @@ export default function ConnectorDetailPage() {
       }
       setScanData(scanDataResponse.data)
       setScanResults(results)
-      
+
       // Store results for this path in allPathResults
       setAllPathResults(prev => {
         const updated = new Map(prev)
@@ -305,7 +303,7 @@ export default function ConnectorDetailPage() {
         })
         return updated
       })
-      
+
       setSuccess(true)
     } catch (scanErr: any) {
       console.error('Scan error:', scanErr)
@@ -354,50 +352,85 @@ export default function ConnectorDetailPage() {
 
         {/* Add New Path Section */}
         <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+          {/* <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
             Add Directory Path
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+          </Typography> */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              mb: 2,
+              gap: 2,
+            }}
+          >
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Add Directory Path
+            </Typography>
+
+            {success && (
+              <TimedAlert
+                message="Path added and scanned successfully!"
+                severity="success"
+                durationMs={40000}
+                onClose={() => setSuccess(false)}
+                sx={{ mb: 0, px: 1.5, py: 0.25, '& .MuiAlert-message': { px: 0.5 } }}
+              />
+            )}
+            {error && (
+              <TimedAlert
+                message={error}
+                severity="error"
+                onClose={() => setError(null)}
+                sx={{ mb: 0, px: 1.5, py: 0.25, '& .MuiAlert-message': { px: 0.5 } }}
+              />
+            )}
+          </Box>
+
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'row' }}>
             <TextField
               fullWidth
               label="Directory Path"
               value={newPath}
               onChange={(e) => setNewPath(e.target.value)}
               placeholder="e.g., C:\\Users\\Documents\\Subfolder or D:\\Projects\\Folder"
-              helperText="Enter the full path to a directory you want to add"
               onKeyPress={(e) => {
                 if (e.key === 'Enter' && !saving && !scanning) {
-                  handleAddPath()
+                  handleAddPath();
                 }
               }}
             />
+
             <Button
               variant="contained"
               startIcon={saving || scanning ? <CircularProgress size={20} /> : <AddIcon />}
               onClick={handleAddPath}
-              disabled={saving || scanning || !newPath.trim()}
-              sx={{ minWidth: 120 }}
+              disabled={saving || scanning || !newPath.trim()
+                // || !newPath.includes('C:\\') || !newPath.includes('D:\\')
+              }
+              sx={{ minWidth: 120, ml: 2, alignSelf: 'stretch' }}
             >
-              {scanning ? 'Scanning...' : saving ? 'Adding...' : 'Add & Scan'}
+              <Typography sx={{ whiteSpace: 'nowrap' }}>
+                {scanning ? 'Scanning...' : (saving ? 'Adding...' : 'Add & Scan')}
+              </Typography>
             </Button>
           </Box>
-          {error && (
-            <Alert severity="error" sx={{ mt: 2 }} onClose={() => setError(null)}>
-              {error}
-            </Alert>
-          )}
-          {success && (
-            <Alert severity="success" sx={{ mt: 2 }}>
-              Path added and scanned successfully!
-            </Alert>
-          )}
+
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ mt: 0.5, pl: 1 }}
+          >
+            Enter the full path to a directory you want to add
+          </Typography>
+
         </Paper>
 
         {/* Tabs Section */}
-        <Paper sx={{ mb: 3 }}>
+        <Paper sx={{ mb: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}>
           <Tabs value={currentTab} onChange={(e, newValue) => setCurrentTab(newValue)}>
             <Tab label={`Paths (${paths.length})`} />
-            <Tab label={`All Results (${allPathResults.size})`} />
+            <Tab label={`All Results ${(allPathResults?.size > 1) ? `(${allPathResults.size})` : ''}`} />
           </Tabs>
         </Paper>
 
@@ -405,7 +438,7 @@ export default function ConnectorDetailPage() {
         {currentTab === 0 && (
           <>
             {/* Paths List */}
-            <Paper sx={{ p: 3, mb: 3 }}>
+            <Paper sx={{ p: 3, mb: 3, borderRadius: 0 }}>
               <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
                 Configured Paths ({paths.length})
               </Typography>
@@ -419,7 +452,7 @@ export default function ConnectorDetailPage() {
               ) : (
                 <List>
                   {paths.map((path, index) => (
-                    <React.Fragment key={path.id}>
+                    <Fragment key={path.id}>
                       <ListItem
                         disablePadding
                         secondaryAction={
@@ -453,7 +486,7 @@ export default function ConnectorDetailPage() {
                         </ListItemButton>
                       </ListItem>
                       {index < paths.length - 1 && <Divider />}
-                    </React.Fragment>
+                    </Fragment>
                   ))}
                 </List>
               )}
@@ -508,25 +541,25 @@ export default function ConnectorDetailPage() {
                 </Typography>
               </Paper>
             ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', }}>
                 {Array.from(allPathResults.values()).map((pathResult, index) => (
                   <Box key={pathResult.path.id}>
-                    <Paper sx={{ p: 2, mb: 2, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+                    <Paper sx={{ p: 2, borderRadius: 0, bgcolor: 'primary.dark', color: 'primary.contrastText' }}>
                       <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                        {pathResult.path.name}
+                        {`${index + 1}. ${pathResult.path.name}`}
                       </Typography>
                       <Typography variant="body2" sx={{ opacity: 0.9 }}>
                         {pathResult.path.path}
                       </Typography>
                       <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
-                        <Chip 
-                          label={`Files: ${pathResult.results.totalFiles}`} 
-                          size="small" 
+                        <Chip
+                          label={`Files: ${pathResult.results.totalFiles}`}
+                          size="small"
                           sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
                         />
-                        <Chip 
-                          label={`Folders: ${pathResult.results.totalFolders}`} 
-                          size="small" 
+                        <Chip
+                          label={`Folders: ${pathResult.results.totalFolders}`}
+                          size="small"
                           sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
                         />
                       </Box>
@@ -539,9 +572,13 @@ export default function ConnectorDetailPage() {
                         source: pathResult.results.source || 'local',
                         metadata: { source: pathResult.results.source || 'local' },
                       }}
-                      showActionButtons={false}
+                      sx={(allPathResults?.size < index + 1)
+                        ? { borderRadius: 0 }
+                        : { borderRadius: 0, borderBottomLeftRadius: 4, borderBottomRightRadius: 4 }
+                      }
+                      areActionsEnabled={scanData?.fullPath === pathResult.data.fullPath}
                     />
-                    {index < allPathResults.size - 1 && <Divider sx={{ my: 4 }} />}
+                    {/* {index < allPathResults.size - 1 && <Divider sx={{ my: 4 }} />} */}
                   </Box>
                 ))}
               </Box>
