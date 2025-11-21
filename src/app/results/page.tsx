@@ -45,7 +45,7 @@ export default function ResultsPage() {
           source: scanResults.source,
           metadata: scanResults.metadata,
         }}
-        showActionButtons={true}
+        areActionsEnabled={true}
         onClearResults={() => dispatch(clearResults())}
         onScanAgain={() => router.push('/scanner')}
       />
