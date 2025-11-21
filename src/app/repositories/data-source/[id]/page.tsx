@@ -430,7 +430,7 @@ export default function ConnectorDetailPage() {
         <Paper sx={{ mb: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}>
           <Tabs value={currentTab} onChange={(e, newValue) => setCurrentTab(newValue)}>
             <Tab label={`Paths (${paths.length})`} />
-            <Tab label={`All Results ${(allPathResults?.size > 0) ? `(${allPathResults.size})` : ''}`} />
+            <Tab label={`All Results ${(allPathResults?.size > 1) ? `(${allPathResults.size})` : ''}`} />
           </Tabs>
         </Paper>
 
