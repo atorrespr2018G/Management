@@ -42,20 +42,6 @@ import DirectoryStructuresPanel from './DirectoryStructure/DirectoryStructuresPa
 import { useStoreDirectoryInNeo4j } from '@/hooks/useStoreDirectoryInNeo4j';
 import { ScanResultsDisplayProps } from '@/types/components';
 
-// interface ScanResults {
-//   data: FileStructure
-//   totalFiles?: number
-//   totalFolders?: number
-//   source?: string
-//   metadata?: Record<string, any>
-// }
-
-// interface ScanResultsDisplayProps {
-//   scanResults: ScanResults
-//   showActionButtons?: boolean
-//   onClearResults?: () => void
-//   onScanAgain?: () => void
-// }
 
 const ScanResultsDisplay = ({
   scanResults,

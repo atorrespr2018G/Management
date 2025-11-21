@@ -21,6 +21,8 @@ export interface ScanResultsDisplayProps {
     showActionButtons?: boolean
     onClearResults?: () => void
     onScanAgain?: () => void
+    sx?: {}
+    areActionsEnabled?: boolean
 }
 
 export interface DirectoryStructuresPanelProps {
@@ -61,6 +63,13 @@ export interface DirectoryStructuresProps {
 
     /** Fetch Graph Data to render new/deleted relationships */
     onGraphDataChanged?: () => Promise<void>
+
     /** Fetch Graph Data to render new/deleted relationships */
     fetchNeo4jStructure?: () => Promise<void>
+
+    /** Enables or disables all Neo4j action buttons in NeoDirectoryStructureCard */
+    areActionsEnabled?: boolean
+
+    /** Clears Neo4j upload/delete status for the given directory key after alerts close */
+    onResetNeoStatus?: (key: string) => void;
 }
