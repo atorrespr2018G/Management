@@ -23,12 +23,32 @@ import {
   ListItem,
   ListItemText,
   Chip,
+  Autocomplete,
+  Divider,
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import TableChartIcon from '@mui/icons-material/TableChart'
-import { getDatabaseConfig, introspectDatabaseSchema, uploadDatabaseSchema } from '@/services/neo4jApi'
-import type { DatabaseConfig, SchemaInfo } from '@/types/neo4j'
+import EditIcon from '@mui/icons-material/Edit'
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
+import AddIcon from '@mui/icons-material/Add'
+import DeleteIcon from '@mui/icons-material/Delete'
+import {
+  getDatabaseConfig,
+  updateDatabaseConfig,
+  testDatabaseConnection,
+  introspectDatabaseSchema,
+  uploadDatabaseSchema,
+  embedDatabaseSchema,
+  updateSchemaMetadata,
+  createMetricDefinition,
+  getSchemaElements,
+  deleteDatabaseSchema,
+  type SchemaMetadataUpdate,
+  type MetricDefinitionRequest,
+  type DatabaseConfigRequest,
+} from '@/services/neo4jApi'
+import type { DatabaseConfig, SchemaInfo, TableInfo, ColumnInfo } from '@/types/neo4j'
 
 export default function DatabaseDetailPage() {
   const router = useRouter()
@@ -39,9 +59,50 @@ export default function DatabaseDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [introspecting, setIntrospecting] = useState(false)
+  const [embedding, setEmbedding] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [testing, setTesting] = useState(false)
   const [schemaInfo, setSchemaInfo] = useState<SchemaInfo | null>(null)
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
   const [jsonSchema, setJsonSchema] = useState('')
+  
+  // Edit config dialog
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editConfig, setEditConfig] = useState<DatabaseConfigRequest>({
+    database_type: '',
+    name: '',
+    host: '',
+    port: 5432,
+    database_name: '',
+    username: '',
+    password: '',
+    schema_name: '',
+  })
+  
+  // Enrichment dialogs
+  const [enrichmentDialogOpen, setEnrichmentDialogOpen] = useState(false)
+  const [enrichmentElement, setEnrichmentElement] = useState<{ type: string; id: string; name: string } | null>(null)
+  const [enrichmentData, setEnrichmentData] = useState<{ description: string; synonyms: string[]; domain: string }>({
+    description: '',
+    synonyms: [],
+    domain: '',
+  })
+  
+  // Metric dialog
+  const [metricDialogOpen, setMetricDialogOpen] = useState(false)
+  const [metricData, setMetricData] = useState<{
+    name: string
+    definition: string
+    calculation: string
+    relatedTables: string[]
+    relatedColumns: string[]
+  }>({
+    name: '',
+    definition: '',
+    calculation: '',
+    relatedTables: [],
+    relatedColumns: [],
+  })
 
   useEffect(() => {
     if (dbId) {
@@ -100,6 +161,221 @@ export default function DatabaseDetailPage() {
     }
   }
 
+  const handleGenerateEmbeddings = async () => {
+    if (!dbId) return
+
+    setEmbedding(true)
+    setError(null)
+
+    try {
+      const result = await embedDatabaseSchema(dbId)
+      alert(
+        `Embeddings generated successfully!\n` +
+        `- Tables: ${result.result.tables}\n` +
+        `- Columns: ${result.result.columns}\n` +
+        `- Metrics: ${result.result.metrics}\n` +
+        `- Total embedded: ${result.result.embedded}`
+      )
+    } catch (err: any) {
+      console.error('Failed to generate embeddings:', err)
+      setError('Failed to generate embeddings: ' + (err.message || 'Unknown error'))
+    } finally {
+      setEmbedding(false)
+    }
+  }
+
+  const handleOpenEnrichment = async (elementType: 'table' | 'column', elementName: string, tableName?: string) => {
+    if (!dbId || !schemaInfo) return
+
+    try {
+      // Get schema elements to find the element ID
+      const elements = await getSchemaElements(dbId, elementType)
+      let element: any
+      
+      if (elementType === 'column' && tableName) {
+        // For columns, find by name and table name
+        element = elements.elements.find((e: any) => e.name === elementName && e.table_name === tableName)
+      } else {
+        // For tables, find by name
+        element = elements.elements.find((e: any) => e.name === elementName)
+      }
+      
+      if (!element) {
+        // If not found via API, construct ID based on backend format
+        // This is a fallback - ideally the element should be in the API response
+        const schemaName = schemaInfo.schema_name || 'public'
+        let elementId: string
+        
+        if (elementType === 'table') {
+          // Table ID format: {db_node_id}_schema_{schema_name}_table_{table_name}
+          // We'll need to construct this, but for now try to find it
+          setError(`Table ${elementName} not found in schema elements. Please ensure schema is loaded.`)
+          return
+        } else {
+          // Column ID format: {table_node_id}_col_{col_name}
+          // We need the table ID first
+          const tableElement = elements.elements.find((e: any) => e.type === 'table' && e.name === tableName)
+          if (!tableElement) {
+            setError(`Table ${tableName} not found`)
+            return
+          }
+          elementId = `${tableElement.id}_col_${elementName}`
+          element = { id: elementId, name: elementName, description: '', synonyms: [], domain: '' }
+        }
+      }
+
+      setEnrichmentElement({
+        type: elementType,
+        id: element.id,
+        name: elementName,
+      })
+      setEnrichmentData({
+        description: element.description || '',
+        synonyms: element.synonyms || [],
+        domain: element.domain || '',
+      })
+      setEnrichmentDialogOpen(true)
+    } catch (err: any) {
+      console.error('Failed to load element data:', err)
+      setError('Failed to load element data: ' + (err.message || 'Unknown error'))
+    }
+  }
+
+  const handleSaveEnrichment = async () => {
+    if (!dbId || !enrichmentElement) return
+
+    try {
+      const metadata: SchemaMetadataUpdate = {
+        description: enrichmentData.description || undefined,
+        synonyms: enrichmentData.synonyms.length > 0 ? enrichmentData.synonyms : undefined,
+        domain: enrichmentData.domain || undefined,
+      }
+
+      await updateSchemaMetadata(dbId, enrichmentElement.type, enrichmentElement.id, metadata)
+      setEnrichmentDialogOpen(false)
+      alert('Metadata updated successfully!')
+      
+      // Reload schema elements to show updated data
+      if (schemaInfo) {
+        const elements = await getSchemaElements(dbId, enrichmentElement.type)
+        // Update the schema info with new metadata
+        // This is a simplified update - in production you'd want to merge the data properly
+      }
+    } catch (err: any) {
+      console.error('Failed to update metadata:', err)
+      setError('Failed to update metadata: ' + (err.message || 'Unknown error'))
+    }
+  }
+
+  const handleCreateMetric = async () => {
+    if (!dbId || !metricData.name || !metricData.definition || !metricData.calculation) {
+      setError('Please fill in all required fields')
+      return
+    }
+
+    try {
+      const metricRequest: MetricDefinitionRequest = {
+        metric_name: metricData.name,
+        metric_definition: metricData.definition,
+        calculation: metricData.calculation,
+        related_tables: metricData.relatedTables,
+        related_columns: metricData.relatedColumns,
+      }
+
+      await createMetricDefinition(dbId, metricRequest)
+      setMetricDialogOpen(false)
+      setMetricData({
+        name: '',
+        definition: '',
+        calculation: '',
+        relatedTables: [],
+        relatedColumns: [],
+      })
+      alert('Metric definition created successfully!')
+    } catch (err: any) {
+      console.error('Failed to create metric:', err)
+      setError('Failed to create metric: ' + (err.message || 'Unknown error'))
+    }
+  }
+
+  const handleDeleteSchema = async () => {
+    if (!dbId) return
+
+    if (!confirm('Are you sure you want to delete the schema from Neo4j? This will remove all tables, columns, and metrics. The database configuration will be kept.')) {
+      return
+    }
+
+    setDeleting(true)
+    setError(null)
+
+    try {
+      const result = await deleteDatabaseSchema(dbId)
+      setSchemaInfo(null)
+      alert(`Schema deleted successfully! Removed ${result.schemas_deleted} schema(s).`)
+    } catch (err: any) {
+      console.error('Failed to delete schema:', err)
+      setError('Failed to delete schema: ' + (err.message || 'Unknown error'))
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const handleOpenEditDialog = () => {
+    if (!config) return
+    setEditConfig({
+      database_type: config.database_type,
+      name: config.name,
+      host: config.host,
+      port: config.port,
+      database_name: config.database_name,
+      username: config.username,
+      password: '', // Don't pre-fill password for security
+      schema_name: config.schema_name || '',
+    })
+    setEditDialogOpen(true)
+  }
+
+  const handleSaveConfig = async () => {
+    if (!dbId) return
+
+    if (!editConfig.name || !editConfig.host || !editConfig.database_name || !editConfig.username) {
+      setError('Please fill in all required fields')
+      return
+    }
+
+    try {
+      setError(null)
+      const updated = await updateDatabaseConfig(dbId, editConfig)
+      setConfig(updated)
+      setEditDialogOpen(false)
+      alert('Database configuration updated successfully!')
+    } catch (err: any) {
+      console.error('Failed to update configuration:', err)
+      setError('Failed to update configuration: ' + (err.message || 'Unknown error'))
+    }
+  }
+
+  const handleTestConnection = async () => {
+    if (!dbId) return
+
+    setTesting(true)
+    setError(null)
+
+    try {
+      const result = await testDatabaseConnection(dbId)
+      if (result.success) {
+        alert(`Connection test successful!\n${result.message}`)
+      } else {
+        setError(`Connection test failed: ${result.error || result.message}`)
+      }
+    } catch (err: any) {
+      console.error('Failed to test connection:', err)
+      setError('Failed to test connection: ' + (err.message || 'Unknown error'))
+    } finally {
+      setTesting(false)
+    }
+  }
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -143,9 +419,29 @@ export default function DatabaseDetailPage() {
 
         <Card sx={{ mb: 2 }}>
           <CardContent>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Database Configuration
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">
+                Database Configuration
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  variant="outlined"
+                  onClick={handleTestConnection}
+                  disabled={testing || introspecting || embedding || deleting}
+                  startIcon={testing ? <CircularProgress size={16} /> : null}
+                >
+                  {testing ? 'Testing...' : 'Test Connection'}
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={handleOpenEditDialog}
+                  disabled={introspecting || embedding || deleting}
+                  startIcon={<EditIcon />}
+                >
+                  Edit
+                </Button>
+              </Box>
+            </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               <Typography><strong>Type:</strong> {config.database_type}</Typography>
               <Typography><strong>Host:</strong> {config.host}:{config.port}</Typography>
@@ -160,18 +456,43 @@ export default function DatabaseDetailPage() {
           <CardContent>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6">Schema</Typography>
-              <Box sx={{ display: 'flex', gap: 1 }}>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 <Button
                   variant="outlined"
                   onClick={() => setUploadDialogOpen(true)}
-                  disabled={introspecting}
+                  disabled={introspecting || embedding || deleting}
                 >
                   Upload JSON
                 </Button>
                 <Button
+                  variant="outlined"
+                  onClick={handleGenerateEmbeddings}
+                  disabled={introspecting || embedding || deleting || !schemaInfo}
+                  startIcon={embedding ? <CircularProgress size={16} /> : <AutoAwesomeIcon />}
+                >
+                  {embedding ? 'Generating...' : 'Generate Embeddings'}
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => setMetricDialogOpen(true)}
+                  disabled={!schemaInfo || deleting}
+                  startIcon={<AddIcon />}
+                >
+                  Create Metric
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  onClick={handleDeleteSchema}
+                  disabled={introspecting || embedding || deleting || !schemaInfo}
+                  startIcon={deleting ? <CircularProgress size={16} /> : <DeleteIcon />}
+                >
+                  {deleting ? 'Deleting...' : 'Delete Schema'}
+                </Button>
+                <Button
                   variant="contained"
                   onClick={handleIntrospect}
-                  disabled={introspecting}
+                  disabled={introspecting || embedding || deleting}
                   startIcon={introspecting ? <CircularProgress size={16} /> : <TableChartIcon />}
                 >
                   {introspecting ? 'Introspecting...' : 'Introspect Schema'}
@@ -192,11 +513,21 @@ export default function DatabaseDetailPage() {
                         <Typography variant="subtitle1" sx={{ flexGrow: 1 }}>
                           {table.name}
                         </Typography>
-                        <Chip label={`${table.columns.length} columns`} size="small" />
-                        {table.primary_keys.length > 0 && (
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleOpenEnrichment('table', table.name)
+                          }}
+                          sx={{ mr: 1 }}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <Chip label={`${table.columns?.length || 0} columns`} size="small" />
+                        {table.primary_keys && table.primary_keys.length > 0 && (
                           <Chip label={`${table.primary_keys.length} PK`} size="small" color="primary" />
                         )}
-                        {table.foreign_keys.length > 0 && (
+                        {table.foreign_keys && table.foreign_keys.length > 0 && (
                           <Chip label={`${table.foreign_keys.length} FK`} size="small" color="secondary" />
                         )}
                       </Box>
@@ -206,7 +537,7 @@ export default function DatabaseDetailPage() {
                         Columns:
                       </Typography>
                       <List dense>
-                        {table.columns.map((col) => (
+                        {(table.columns || []).map((col) => (
                           <ListItem key={col.name} sx={{ pl: 0 }}>
                             <ListItemText
                               primary={
@@ -214,6 +545,12 @@ export default function DatabaseDetailPage() {
                                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
                                     {col.name}
                                   </Typography>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleOpenEnrichment('column', col.name, table.name)}
+                                  >
+                                    <EditIcon fontSize="small" />
+                                  </IconButton>
                                   <Chip label={col.data_type} size="small" variant="outlined" />
                                   {col.primary_key && <Chip label="PK" size="small" color="primary" />}
                                   {col.foreign_key && <Chip label="FK" size="small" color="secondary" />}
@@ -273,7 +610,268 @@ export default function DatabaseDetailPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Enrichment Dialog */}
+      <Dialog
+        open={enrichmentDialogOpen}
+        onClose={() => {
+          setEnrichmentDialogOpen(false)
+          setEnrichmentElement(null)
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Edit {enrichmentElement?.type === 'table' ? 'Table' : 'Column'}: {enrichmentElement?.name}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+            <TextField
+              label="Description"
+              multiline
+              rows={3}
+              value={enrichmentData.description}
+              onChange={(e) => setEnrichmentData({ ...enrichmentData, description: e.target.value })}
+              fullWidth
+              placeholder="Business description of this element"
+            />
+            <Autocomplete
+              multiple
+              freeSolo
+              options={[]}
+              value={enrichmentData.synonyms}
+              onChange={(_, newValue) => {
+                setEnrichmentData({ ...enrichmentData, synonyms: newValue })
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Synonyms"
+                  placeholder="Add synonyms (press Enter to add)"
+                />
+              )}
+            />
+            <TextField
+              label="Business Domain"
+              value={enrichmentData.domain}
+              onChange={(e) => setEnrichmentData({ ...enrichmentData, domain: e.target.value })}
+              fullWidth
+              placeholder="e.g., Sales, Finance, HR"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setEnrichmentDialogOpen(false)
+            setEnrichmentElement(null)
+          }}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={handleSaveEnrichment}>
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Metric Definition Dialog */}
+      <Dialog
+        open={metricDialogOpen}
+        onClose={() => {
+          setMetricDialogOpen(false)
+          setMetricData({
+            name: '',
+            definition: '',
+            calculation: '',
+            relatedTables: [],
+            relatedColumns: [],
+          })
+        }}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Create Metric Definition</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+            <TextField
+              label="Metric Name"
+              value={metricData.name}
+              onChange={(e) => setMetricData({ ...metricData, name: e.target.value })}
+              fullWidth
+              required
+              placeholder="e.g., Total Revenue, Customer Count"
+            />
+            <TextField
+              label="Metric Definition"
+              multiline
+              rows={3}
+              value={metricData.definition}
+              onChange={(e) => setMetricData({ ...metricData, definition: e.target.value })}
+              fullWidth
+              required
+              placeholder="Business definition of what this metric represents"
+            />
+            <TextField
+              label="Calculation (SQL or Formula)"
+              multiline
+              rows={4}
+              value={metricData.calculation}
+              onChange={(e) => setMetricData({ ...metricData, calculation: e.target.value })}
+              fullWidth
+              required
+              placeholder="e.g., SELECT SUM(amount) FROM orders WHERE status = 'completed'"
+            />
+            <Autocomplete
+              multiple
+              freeSolo
+              options={schemaInfo?.tables.map(t => t.name) || []}
+              value={metricData.relatedTables}
+              onChange={(_, newValue) => {
+                setMetricData({ ...metricData, relatedTables: newValue })
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Related Tables"
+                  placeholder="Select or type table names"
+                />
+              )}
+            />
+            <Autocomplete
+              multiple
+              freeSolo
+              options={
+                schemaInfo?.tables.flatMap(t => (t.columns || []).map(c => `${t.name}.${c.name}`)) || []
+              }
+              value={metricData.relatedColumns}
+              onChange={(_, newValue) => {
+                setMetricData({ ...metricData, relatedColumns: newValue })
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Related Columns"
+                  placeholder="Select or type column names (format: table.column)"
+                />
+              )}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setMetricDialogOpen(false)
+            setMetricData({
+              name: '',
+              definition: '',
+              calculation: '',
+              relatedTables: [],
+              relatedColumns: [],
+            })
+          }}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={handleCreateMetric}>
+            Create Metric
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Database Config Dialog */}
+      <Dialog
+        open={editDialogOpen}
+        onClose={() => {
+          setEditDialogOpen(false)
+          setError(null)
+        }}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Edit Database Configuration</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+            <TextField
+              label="Name"
+              value={editConfig.name}
+              onChange={(e) => setEditConfig({ ...editConfig, name: e.target.value })}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Database Type"
+              value={editConfig.database_type}
+              onChange={(e) => setEditConfig({ ...editConfig, database_type: e.target.value })}
+              fullWidth
+              required
+              select
+              SelectProps={{ native: true }}
+            >
+              <option value="postgresql">PostgreSQL</option>
+              <option value="mysql">MySQL</option>
+              <option value="sqlserver">SQL Server</option>
+              <option value="oracle">Oracle</option>
+              <option value="snowflake">Snowflake</option>
+            </TextField>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                label="Host"
+                value={editConfig.host}
+                onChange={(e) => setEditConfig({ ...editConfig, host: e.target.value })}
+                fullWidth
+                required
+              />
+              <TextField
+                label="Port"
+                type="number"
+                value={editConfig.port}
+                onChange={(e) => setEditConfig({ ...editConfig, port: parseInt(e.target.value) || 5432 })}
+                fullWidth
+                required
+              />
+            </Box>
+            <TextField
+              label="Database Name"
+              value={editConfig.database_name}
+              onChange={(e) => setEditConfig({ ...editConfig, database_name: e.target.value })}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Schema Name"
+              value={editConfig.schema_name}
+              onChange={(e) => setEditConfig({ ...editConfig, schema_name: e.target.value })}
+              fullWidth
+              placeholder="Optional (e.g., public, dbo)"
+            />
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                label="Username"
+                value={editConfig.username}
+                onChange={(e) => setEditConfig({ ...editConfig, username: e.target.value })}
+                fullWidth
+                required
+              />
+              <TextField
+                label="Password"
+                type="password"
+                value={editConfig.password}
+                onChange={(e) => setEditConfig({ ...editConfig, password: e.target.value })}
+                fullWidth
+                placeholder="Leave blank to keep current password"
+              />
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setEditDialogOpen(false)
+            setError(null)
+          }}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={handleSaveConfig}>
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
-

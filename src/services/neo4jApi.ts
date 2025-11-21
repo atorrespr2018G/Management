@@ -382,6 +382,16 @@ export const deleteDatabaseConfig = async (dbId: string): Promise<any> => {
   });
 };
 
+export const updateDatabaseConfig = async (
+  dbId: string,
+  config: DatabaseConfigRequest
+): Promise<DatabaseConfig> => {
+  return apiCall<DatabaseConfig>(`/api/databases/${dbId}`, {
+    method: 'PUT',
+    body: JSON.stringify(config),
+  });
+};
+
 export const testDatabaseConnection = async (dbId: string): Promise<TestConnectionResponse> => {
   return apiCall<TestConnectionResponse>(`/api/databases/${dbId}/test`, {
     method: 'POST',
@@ -407,6 +417,70 @@ export const uploadDatabaseSchema = async (
   return apiCall(`/api/databases/${dbId}/schema/upload${params}`, {
     method: 'POST',
     body: JSON.stringify(schemaInfo),
+  });
+};
+
+export interface SchemaMetadataUpdate {
+  description?: string;
+  synonyms?: string[];
+  domain?: string;
+  metadata?: Record<string, any>;
+}
+
+export const updateSchemaMetadata = async (
+  dbId: string,
+  elementType: string,
+  elementId: string,
+  metadata: SchemaMetadataUpdate
+): Promise<{ message: string; element_id: string }> => {
+  return apiCall(`/api/databases/${dbId}/schema/${elementType}/${elementId}/metadata`, {
+    method: 'PUT',
+    body: JSON.stringify(metadata),
+  });
+};
+
+export interface MetricDefinitionRequest {
+  metric_name: string;
+  metric_definition: string;
+  calculation: string;
+  related_tables: string[];
+  related_columns: string[];
+  metadata?: Record<string, any>;
+}
+
+export const createMetricDefinition = async (
+  dbId: string,
+  metric: MetricDefinitionRequest
+): Promise<{ message: string; metric_id: string }> => {
+  return apiCall(`/api/databases/${dbId}/schema/metrics`, {
+    method: 'POST',
+    body: JSON.stringify(metric),
+  });
+};
+
+export const embedDatabaseSchema = async (
+  dbId: string,
+  elementType?: string
+): Promise<{ message: string; result: { embedded: number; tables: number; columns: number; metrics: number } }> => {
+  const params = elementType ? `?element_type=${elementType}` : '';
+  return apiCall(`/api/databases/${dbId}/schema/embed${params}`, {
+    method: 'POST',
+  });
+};
+
+export const getSchemaElements = async (
+  dbId: string,
+  elementType?: string
+): Promise<{ elements: any[] }> => {
+  const params = elementType ? `?element_type=${elementType}` : '';
+  return apiCall(`/api/databases/${dbId}/schema/elements${params}`);
+};
+
+export const deleteDatabaseSchema = async (
+  dbId: string
+): Promise<{ message: string; schemas_deleted: number }> => {
+  return apiCall(`/api/databases/${dbId}/schema`, {
+    method: 'DELETE',
   });
 };
 
