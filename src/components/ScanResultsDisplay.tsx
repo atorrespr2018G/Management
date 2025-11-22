@@ -249,7 +249,7 @@ const ScanResultsDisplay = ({
   // }
 
   return (
-    <Box sx={{ p: 1, pb: 4, bgcolor: 'background.default', borderRadius: 2, ...sx }} >
+    <Box sx={{ p: 1, bgcolor: 'background.default', borderRadius: 2, ...sx }} >
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box sx={{ pl: 2, pt: 2 }}>
@@ -476,7 +476,7 @@ const ScanResultsDisplay = ({
       }
 
       {/* Neo4j Graph Database Section */}
-      <Card sx={{ mt: 3 }}>
+      <Card sx={{ mt: 3, mb: 3, }}>
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h6">Neo4j Graph Database</Typography>
