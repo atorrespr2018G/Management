@@ -35,6 +35,7 @@ import type { FileStructure } from '@/types/neo4j'
 import ScanResultsDisplay from '@/components/ScanResultsDisplay'
 import { TimedAlert } from '@/components/TimedAlert'
 import { ConnectorTabContent } from '@/components/ConnectorTabContent'
+import DeleteConfirmDialog from '@/components/DeleteConfirmDialog'
 
 
 export default function ConnectorDetailPage() {
@@ -56,6 +57,8 @@ export default function ConnectorDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [scanningAll, setScanningAll] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [pathToDelete, setPathToDelete] = useState<ConnectorPath | null>(null);
 
   useEffect(() => {
     if (configId) {
@@ -73,6 +76,31 @@ export default function ConnectorDetailPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTab])
+
+  const handleRequestDeletePath = (path: ConnectorPath) => {
+    setPathToDelete(path);
+    setConfirmOpen(true);
+  };
+
+  const handleConfirmDeletePath = async () => {
+    if (!pathToDelete) return;
+
+    await handleDeletePath(pathToDelete.id);   // your existing delete logic
+    setConfirmOpen(false);
+    setPathToDelete(null);
+  };
+
+  const handleCancelDelete = () => {
+    setConfirmOpen(false);
+    setPathToDelete(null);
+  };
+
+  // const handleDeleteClick = () => setConfirmOpen(true)
+
+  // const handleConfirmDelete = (pathId: string) => {
+  //   handleDeletePath(pathId);
+  //   setConfirmOpen(false);
+  // };
 
   const scanAllPaths = async () => {
     // Find paths that haven't been scanned yet
@@ -234,10 +262,6 @@ export default function ConnectorDetailPage() {
   }
 
   const handleDeletePath = async (pathId: string) => {
-    if (!confirm('Are you sure you want to delete this path?')) {
-      return
-    }
-
     try {
       await deleteConnectorPath(configId, pathId)
       // Reload paths to ensure we have the latest data
@@ -447,7 +471,21 @@ export default function ConnectorDetailPage() {
           scanData={scanData}
           scanResults={scanResults}
           onPathClick={handlePathClick}
-          onDeletePath={handleDeletePath}
+          onRequestDeletePath={handleRequestDeletePath}
+        />
+
+        <DeleteConfirmDialog
+          open={confirmOpen}
+          title="Delete Path"
+          // message={`Are you sure you want to delete this path?`}
+          message={
+            pathToDelete
+              ? `Are you sure you want to delete "${pathToDelete.name} path"?`
+              : 'Are you sure you want to delete this path?'
+          }
+          // onCancel={() => setConfirmOpen(false)}
+          onCancel={handleCancelDelete}
+          onConfirm={handleConfirmDeletePath}
         />
       </Box>
     </Box>

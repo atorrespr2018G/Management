@@ -44,7 +44,7 @@ type Props = {
         source?: string
     } | null
     onPathClick: (path: ConnectorPath) => void
-    onDeletePath: (pathId: string) => void
+    onRequestDeletePath: (path: ConnectorPath) => void;
 }
 
 export const ConnectorTabContent: React.FC<Props> = ({
@@ -57,8 +57,12 @@ export const ConnectorTabContent: React.FC<Props> = ({
     scanData,
     scanResults,
     onPathClick,
-    onDeletePath,
+    onRequestDeletePath,
 }) => {
+    const handleDeleteClick = (path: ConnectorPath) => {
+        onRequestDeletePath(path);
+    };
+
     return (
         <>
             {/* === TAB 0: Paths === */}
@@ -88,7 +92,7 @@ export const ConnectorTabContent: React.FC<Props> = ({
                                                     aria-label="delete"
                                                     onClick={(e) => {
                                                         e.stopPropagation()
-                                                        onDeletePath(path.id)
+                                                        handleDeleteClick(path)
                                                     }}
                                                     color="error"
                                                     sx={{ mr: 1, }}
