@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { useSelector } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import {
     Box,
     Container,
@@ -43,8 +43,10 @@ import { formatBytes } from '@/utils/formatters'
 import { useMachineId } from '@/hooks/useMachineId'
 import type { GraphVisualization, GraphStats, GraphNode } from '@/types/neo4j'
 import { useNeo4jStructure } from '@/hooks/useNeo4jStructure'
-import DirectoryStructuresPanel from '@/components/DirectoryStructure/DirectoryStructuresPanel'
 import { useStoreDirectoryInNeo4j } from '@/hooks/useStoreDirectoryInNeo4j'
+import ScannedDirectoryStructureCard from '@/components/DirectoryStructure/ScannedDirectoryStructureCard'
+import NeoDirectoryStructureCard from '@/components/DirectoryStructure/NeoDirectoryStructureCard'
+import { clearStatusForDirectory } from '@/store/slices/neoSlice'
 
 const NEO4J_API_URL = process.env.NEXT_PUBLIC_NEO4J_API_URL || 'http://localhost:8000'
 
@@ -63,7 +65,7 @@ if (typeof window !== 'undefined') {
 
 export default function RetrievePage() {
     const { scanResults } = useSelector((state: any) => state.scanner)
-    // const { neo4jDirectoryStructure } = useSelector((state: any) => state.neo);
+    const dispatch = useDispatch();
     const { machineId } = useMachineId()
 
     const [graphData, setGraphData] = useState<GraphVisualization>({ nodes: [], links: [] })
@@ -107,6 +109,10 @@ export default function RetrievePage() {
             createNetwork(fullscreenContainerRef.current, true)
         }
     }, [isFullscreen, graphData])
+
+    const handleResetNeoStatus = (key: string) => {
+        dispatch(clearStatusForDirectory(key));
+    };
 
     const fetchGraphData = async () => {
         try {
@@ -454,16 +460,30 @@ export default function RetrievePage() {
             </Grid>
 
             {/* Directory Structures - Side by Side */}
-            {scanResults && (
-                <DirectoryStructuresPanel
-                    node={scanResults?.data}
-                    machineId={machineId}
-                    isStoring={isStoring}
-                    storeMessage={storeMessage}
-                    onStoreInNeo4j={handleStoreInNeo4j}
-                    onGraphDataChanged={fetchGraphData}
-                />
-            )}
+            <Grid container spacing={2}>
+                {/* Scanned / Local Directory */}
+                <Grid item xs={12} md={6}>
+                    <ScannedDirectoryStructureCard
+                        node={scanResults?.data}
+                        machineId={machineId}
+                        storeMessage={storeMessage}
+                        isStoring={isStoring}
+                        onStoreInNeo4j={handleStoreInNeo4j}
+                        fetchNeo4jStructure={fetchNeo4jStructure}
+                    //   areActionsEnabled={areActionsEnabled}
+                    />
+                </Grid>
+
+                {/* Neo4j Directory */}
+
+                <Grid item xs={12} md={6}>
+                    <NeoDirectoryStructureCard
+                        fetchNeo4jStructure={fetchNeo4jStructure}
+                        onResetNeoStatus={handleResetNeoStatus}
+                    // onGraphDataChanged={onGraphDataChanged}
+                    />
+                </Grid>
+            </Grid>
 
             {/* Graph Data Table */}
             {graphData.nodes.length > 0 && (
