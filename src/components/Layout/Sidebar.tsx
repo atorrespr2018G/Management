@@ -34,6 +34,7 @@ import SecurityIcon from '@mui/icons-material/Security'
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive'
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import StorageIcon from '@mui/icons-material/Storage'
+import DataObjectIcon from '@mui/icons-material/DataObject'
 import WorkIcon from '@mui/icons-material/Work'
 import FolderIcon from '@mui/icons-material/Folder'
 import HubIcon from '@mui/icons-material/Hub'
@@ -107,6 +108,7 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
       items: [
         { text: 'Overview', icon: <HomeIcon />, href: '/' },
         { text: 'Chat', icon: <ChatBubbleOutlineIcon />, href: '/chat' },
+        { text: 'Chat SQL', icon: <DataObjectIcon />, href: '/chat-sql' },
         { text: 'Playgrounds', icon: <ChatBubbleOutlineIcon />, href: '/playgrounds' },
       ],
     },
