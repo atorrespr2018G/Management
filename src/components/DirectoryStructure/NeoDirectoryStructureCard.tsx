@@ -478,7 +478,7 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, ar
 
     const getStatusSeverity = (msg: string): AlertColor => {
         const lower = msg.toLowerCase();
-        if (lower.startsWith('error') || lower.includes('error:')) return 'error';
+        if (lower.startsWith('error') || lower.includes('error:') || lower.includes('delete')) return 'error';
         if (lower.startsWith('no ') || lower.includes('no items deleted')) return 'warning';
         return 'success';
     };
