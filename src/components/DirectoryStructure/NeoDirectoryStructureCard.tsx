@@ -283,9 +283,9 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, ar
                     <>
                         {/* Upload Docs */}
                         <Button
-                            sx={{ mr: 1 }}
+                            sx={{ mr: 1, px: 1.3 }}
                             variant="contained"
-                            size="small"
+                            size="large"
                             startIcon={!isUploading && <FileUploadIcon fontSize="small" />}
                             onClick={() => handleUploadDirectory(directoryNode)}
                             disabled={uploadableCount === 0 || isUploading}
@@ -300,9 +300,9 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, ar
                             ) : (`Docs (${uploadableCount})`)}
                         </Button>
                         <Button
-                            sx={{ mr: 1 }}
+                            sx={{ mr: 1, px: 1.3 }}
                             variant="outlined"
-                            size="small"
+                            size="large"
                             color="error"
                             onClick={() => handleDeleteFiles(directoryNode)}
                             disabled={isUploading || (deleteFilesCount === 0 || isDeletingChunks[directoryPath])}
@@ -315,9 +315,9 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, ar
 
                         {/* Delete Graph (relationships only) */}
                         <Button
-                            sx={{ mr: 1 }}
+                            sx={{ mr: 1, px: 1.3 }}
                             variant="outlined"
-                            size="small"
+                            size="large"
                             color="error"
                             onClick={() => handleDeleteGraphs(directoryNode)}
                             disabled={deleteGraphsCount === 0 || isDeletingRelationships[directoryPath]}
@@ -511,7 +511,7 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, ar
                             />
                         )}>
                     {neo4jDirectoryStructure ? (
-                        < DirectoryNodeStructure
+                        <DirectoryNodeStructure
                             node={neo4jDirectoryStructure}
                             isSelectable={true}
                             fetchNeo4jStructure={fetchNeo4jStructure}

@@ -64,7 +64,7 @@ export default function ScannedDirectoryStructureCard({
           {areActionsEnabled && (
             <Button
               variant="contained"
-              size="small"
+              size="large"
               onClick={onStoreInNeo4j}
               // disabled={(isStoring || !machineId) && showStoreButton}
               disabled={isStoring || !machineId}

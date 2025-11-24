@@ -41,6 +41,7 @@ export const DirectoryStructureContainer = ({
                 maxHeight: minHeight,
                 display: 'flex',
                 flexDirection: 'column',
+                mb: 3
             }}
         >
             <CardContent
@@ -55,7 +56,7 @@ export const DirectoryStructureContainer = ({
                     sx={{ p: 0, pb: 2 }}
                     title={
                         <Stack direction="row" spacing={1} alignItems="center">
-                            <Typography whiteSpace="nowrap" fontWeight={600}>
+                            <Typography whiteSpace="nowrap" fontSize={'1.25rem'} fontWeight={600}>
                                 {title}
                             </Typography>
                             {chipLabel && (

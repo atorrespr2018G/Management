@@ -346,16 +346,33 @@ const ScanResultsDisplay = ({
 
       {/* Create Semantic Relationships Section - Only show when Graph badges are selected */}
       {
-        neo4jDirectoryStructure && (() => {
+        neo4jDirectoryStructure && areActionsEnabled && (() => {
           // Check if any files are selected for graph creation
           const hasSelectedGraph = Object.values(selectedForGraph).some(selected => selected === true)
           return hasSelectedGraph
         })() && (
-          <Card sx={{ mt: 3 }}>
+          <Card sx={{ mb: 3 }}>
+            {/* <Card sx={{ mt: 0 }}> */}
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 3 }}>
-                Create Graph (Semantic Relationships)
-              </Typography>
+              <Box
+                sx={{
+                  mb: 3,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  // mt: 3,
+                  // gap: 2,
+                }}
+              >
+                <Typography variant="h6" whiteSpace={'nowrap'}>
+                  Create Graph (Semantic Relationships)
+                </Typography>
+                {relationshipStatus[neo4jDirectoryStructure.fullPath || neo4jDirectoryStructure.id] && (
+                  <Alert severity="info" sx={{ width: '70%', ml: 2 }}>
+                    {relationshipStatus[neo4jDirectoryStructure.fullPath || neo4jDirectoryStructure.id]}
+                  </Alert>
+                )}
+              </Box>
               <Grid container spacing={3}>
                 <Grid item xs={12} md={6}>
                   <TextField
@@ -463,11 +480,6 @@ const ScanResultsDisplay = ({
                       {isCreatingRelationships ? 'Creating...' : 'Create Graph'}
                     </Button>
                   </Box>
-                  {relationshipStatus[neo4jDirectoryStructure.fullPath || neo4jDirectoryStructure.id] && (
-                    <Alert severity="info" sx={{ mt: 2 }}>
-                      {relationshipStatus[neo4jDirectoryStructure.fullPath || neo4jDirectoryStructure.id]}
-                    </Alert>
-                  )}
                 </Grid>
               </Grid>
             </CardContent>
@@ -476,101 +488,103 @@ const ScanResultsDisplay = ({
       }
 
       {/* Neo4j Graph Database Section */}
-      <Card sx={{ mt: 3, mb: 3, }}>
-        <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6">Neo4j Graph Database</Typography>
-            <Button
-              variant="outlined"
-              onClick={checkNeo4jConnection}
-              startIcon={<UploadIcon />}
-            >
-              Check Connection
-            </Button>
-          </Box>
-
-          {neo4jStatus ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box
-                  sx={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: '50%',
-                    bgcolor: neo4jStatus.neo4j_connected ? 'success.main' : 'error.main',
-                  }}
-                />
-                <Typography variant="body2" fontWeight="medium">
-                  {neo4jStatus.neo4j_connected ? 'Connected' : 'Disconnected'}
-                </Typography>
-              </Box>
-
-              {neo4jStatus.total_nodes !== undefined && (
-                <Grid container spacing={2}>
-                  <Grid item xs={4}>
-                    <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
-                      <Typography variant="caption" color="text.secondary">
-                        Total Nodes
-                      </Typography>
-                      <Typography variant="h6">{neo4jStatus.total_nodes}</Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={4}>
-                    <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
-                      <Typography variant="caption" color="text.secondary">
-                        Files
-                      </Typography>
-                      <Typography variant="h6">{neo4jStatus.total_files}</Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={4}>
-                    <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
-                      <Typography variant="caption" color="text.secondary">
-                        Directories
-                      </Typography>
-                      <Typography variant="h6">{neo4jStatus.total_directories}</Typography>
-                    </Paper>
-                  </Grid>
-                </Grid>
-              )}
-
-              {neo4jStatus.sources && Array.isArray(neo4jStatus.sources) && neo4jStatus.sources.length > 0 && (
-                <Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    Sources:
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    {neo4jStatus.sources.map((source: string, index: number) => (
-                      <Chip key={index} label={source} size="small" variant="outlined" />
-                    ))}
-                  </Box>
-                </Box>
-              )}
+      {areActionsEnabled && (
+        <Card sx={{ mb: 3, }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">Neo4j Graph Database</Typography>
+              <Button
+                variant="outlined"
+                onClick={checkNeo4jConnection}
+                startIcon={<UploadIcon />}
+              >
+                Check Connection
+              </Button>
             </Box>
-          ) : (
-            <Typography variant="body2" color="text.secondary">
-              Click "Check Connection" to see Neo4j status
-            </Typography>
-          )}
-        </CardContent>
-      </Card>
+
+            {neo4jStatus ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box
+                    sx={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: '50%',
+                      bgcolor: neo4jStatus.neo4j_connected ? 'success.main' : 'error.main',
+                    }}
+                  />
+                  <Typography variant="body2" fontWeight="medium">
+                    {neo4jStatus.neo4j_connected ? 'Connected' : 'Disconnected'}
+                  </Typography>
+                </Box>
+
+                {neo4jStatus.total_nodes !== undefined && (
+                  <Grid container spacing={2}>
+                    <Grid item xs={4}>
+                      <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
+                        <Typography variant="caption" color="text.secondary">
+                          Total Nodes
+                        </Typography>
+                        <Typography variant="h6">{neo4jStatus.total_nodes}</Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
+                        <Typography variant="caption" color="text.secondary">
+                          Files
+                        </Typography>
+                        <Typography variant="h6">{neo4jStatus.total_files}</Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
+                        <Typography variant="caption" color="text.secondary">
+                          Directories
+                        </Typography>
+                        <Typography variant="h6">{neo4jStatus.total_directories}</Typography>
+                      </Paper>
+                    </Grid>
+                  </Grid>
+                )}
+
+                {neo4jStatus.sources && Array.isArray(neo4jStatus.sources) && neo4jStatus.sources.length > 0 && (
+                  <Box>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      Sources:
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {neo4jStatus.sources.map((source: string, index: number) => (
+                        <Chip key={index} label={source} size="small" variant="outlined" />
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+              </Box>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                Click "Check Connection" to see Neo4j status
+              </Typography>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
 
       {/* Action Buttons */}
-      {
-        areActionsEnabled && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 3 }}>
-            {onClearResults && (
-              <Button variant="outlined" onClick={onClearResults}>
-                Clear Results
-              </Button>
-            )}
-            {onScanAgain && (
-              <Button variant="contained" onClick={onScanAgain}>
-                Scan Again
-              </Button>
-            )}
-          </Box>
-        )
+      {areActionsEnabled && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 3 }}>
+          {onClearResults && (
+            <Button variant="outlined" onClick={onClearResults}>
+              Clear Results
+            </Button>
+          )}
+          {onScanAgain && (
+            <Button variant="contained" onClick={onScanAgain}>
+              Scan Again
+            </Button>
+          )}
+        </Box>
+      )
       }
     </Box >
   )
