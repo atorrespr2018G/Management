@@ -36,12 +36,15 @@ import {
   setIsCreatingRelationships,
   setRelationshipStatus,
   setRelationshipStatusForFile,
+  setDeleteStatus,
+  setHasEverCreatedGraph,
   clearStatusForDirectory,
 } from '../store/slices/neoSlice';
 import { useStoreDirectoryInNeo4j } from '@/hooks/useStoreDirectoryInNeo4j';
 import { ScanResultsDisplayProps } from '@/types/components';
 import ScannedDirectoryStructureCard from './DirectoryStructure/ScannedDirectoryStructureCard';
 import NeoDirectoryStructureCard from './DirectoryStructure/NeoDirectoryStructureCard';
+import { useEffect, useState } from 'react';
 
 
 const ScanResultsDisplay = ({
@@ -64,6 +67,9 @@ const ScanResultsDisplay = ({
     relationshipSettings,
     isCreatingRelationships,
     relationshipStatus,
+    hasEverCreatedGraph,
+    uploadStatus,
+    deleteStatus
   } = useSelector((state: any) => state.neo);
 
   const { fetchNeo4jStructure } = useNeo4jStructure({
@@ -84,6 +90,19 @@ const ScanResultsDisplay = ({
     onAfterStore: fetchNeo4jStructure,
   });
 
+
+  const [localDeleteMessage, setLocalDeleteMessage] = useState<string | null>(null);
+
+  const directoryKey = neo4jDirectoryStructure?.fullPath || neo4jDirectoryStructure?.id; // whatever node you're scoped to
+
+  useEffect(() => {
+    // Get the message for this directory from the Record<string, string>
+    const message = deleteStatus[directoryKey];
+
+    if (message) {
+      setLocalDeleteMessage(message);
+    }
+  }, [deleteStatus]);
 
   // Refresh relationship statuses for files in a directory
   const refreshRelationshipStatuses = async (node: FileStructure) => {
@@ -155,6 +174,7 @@ const ScanResultsDisplay = ({
     }
 
     try {
+      dispatch(setHasEverCreatedGraph(true));
       dispatch(setIsCreatingRelationships(true))
       const directoryPath = directoryNode.fullPath || directoryNode.id
 
@@ -241,6 +261,8 @@ const ScanResultsDisplay = ({
           [directoryNode.fullPath || directoryNode.id]: `Error: ${e.response?.data?.detail || e.message}`,
         })
       );
+      dispatch(setHasEverCreatedGraph(false));
+
     } finally {
       dispatch(setIsCreatingRelationships(false))
     }
@@ -349,7 +371,7 @@ const ScanResultsDisplay = ({
         neo4jDirectoryStructure && areActionsEnabled && (() => {
           // Check if any files are selected for graph creation
           const hasSelectedGraph = Object.values(selectedForGraph).some(selected => selected === true)
-          return hasSelectedGraph
+          return hasSelectedGraph || hasEverCreatedGraph
         })() && (
           <Card sx={{ mb: 3 }}>
             {/* <Card sx={{ mt: 0 }}> */}
@@ -370,6 +392,12 @@ const ScanResultsDisplay = ({
                 {relationshipStatus[neo4jDirectoryStructure.fullPath || neo4jDirectoryStructure.id] && (
                   <Alert severity="info" sx={{ width: '70%', ml: 2 }}>
                     {relationshipStatus[neo4jDirectoryStructure.fullPath || neo4jDirectoryStructure.id]}
+                  </Alert>
+                )}
+                {Object.keys(deleteStatus).length > 0 && deleteStatus[directoryKey].includes('relationships from') && (
+                  <Alert severity="error" sx={{ width: '70%', ml: 2 }}>
+                    {/* {deleteStatus[neo4jDirectoryStructure.fullPath || neo4jDirectoryStructure.id]} */}
+                    {localDeleteMessage}
                   </Alert>
                 )}
               </Box>
