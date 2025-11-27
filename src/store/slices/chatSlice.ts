@@ -1,0 +1,108 @@
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { ChatSession, ChatMessage, ChatSessionDetail, UserId } from '@/types/chat';
+
+interface ChatState {
+    sessions: ChatSession[];
+    activeSessionId: string | null;
+    activeSessionMessages: ChatMessage[];
+    isLoading: boolean;
+    error: string | null;
+}
+
+const initialState: ChatState = {
+    sessions: [],
+    activeSessionId: null,
+    activeSessionMessages: [],
+    isLoading: false,
+    error: null,
+};
+
+// Async Thunks
+export const fetchSessions = createAsyncThunk(
+    'chat/fetchSessions',
+    async (userId: UserId) => {
+        const response = await fetch(`/api/chat/sessions?user_id=${userId}`);
+        if (!response.ok) throw new Error('Failed to fetch sessions');
+        return await response.json() as ChatSession[];
+    }
+);
+
+export const createSession = createAsyncThunk(
+    'chat/createSession',
+    async (userId: UserId) => {
+        const response = await fetch('/api/chat/sessions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId }),
+        });
+        if (!response.ok) throw new Error('Failed to create session');
+        return await response.json() as ChatSessionDetail;
+    }
+);
+
+export const loadSession = createAsyncThunk(
+    'chat/loadSession',
+    async ({ sessionId, userId }: { sessionId: string; userId: UserId }) => {
+        const response = await fetch(`/api/chat/sessions/${sessionId}?user_id=${userId}`);
+        if (!response.ok) throw new Error('Failed to load session');
+        return await response.json() as ChatSessionDetail;
+    }
+);
+
+const chatSlice = createSlice({
+    name: 'chat',
+    initialState,
+    reducers: {
+        setActiveSession: (state, action: PayloadAction<string>) => {
+            state.activeSessionId = action.payload;
+        },
+        addMessage: (state, action: PayloadAction<ChatMessage>) => {
+            state.activeSessionMessages.push(action.payload);
+        },
+        clearActiveSession: (state) => {
+            state.activeSessionId = null;
+            state.activeSessionMessages = [];
+        },
+    },
+    extraReducers: (builder) => {
+        // Fetch Sessions
+        builder.addCase(fetchSessions.pending, (state) => {
+            state.isLoading = true;
+            state.error = null;
+        });
+        builder.addCase(fetchSessions.fulfilled, (state, action) => {
+            state.isLoading = false;
+            state.sessions = action.payload;
+        });
+        builder.addCase(fetchSessions.rejected, (state, action) => {
+            state.isLoading = false;
+            state.error = action.error.message || 'Failed to fetch sessions';
+        });
+
+        // Create Session
+        builder.addCase(createSession.fulfilled, (state, action) => {
+            state.sessions.unshift(action.payload);
+            state.activeSessionId = action.payload.id;
+            state.activeSessionMessages = [];
+        });
+
+        // Load Session
+        builder.addCase(loadSession.pending, (state) => {
+            state.isLoading = true;
+            state.error = null;
+            state.activeSessionMessages = []; // Clear previous messages while loading
+        });
+        builder.addCase(loadSession.fulfilled, (state, action) => {
+            state.isLoading = false;
+            state.activeSessionId = action.payload.id;
+            state.activeSessionMessages = action.payload.messages;
+        });
+        builder.addCase(loadSession.rejected, (state, action) => {
+            state.isLoading = false;
+            state.error = action.error.message || 'Failed to load session';
+        });
+    },
+});
+
+export const { setActiveSession, addMessage, clearActiveSession } = chatSlice.actions;
+export default chatSlice.reducer;
