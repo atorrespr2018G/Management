@@ -1,36 +1,9 @@
-export interface Source {
-  file_name?: string | null
-  file_path?: string | null
-  directory_name?: string | null
-  text?: string | null
-  similarity?: number | null
-  hybrid_score?: number | null
-  metadata?: {
-    vector_score?: number
-    keyword_score?: number
-    path_score?: number
-    hop_count?: number
-    hop_penalty?: number
-    chunk_index?: number
-    file_id?: string
-    chunk_size?: number
-  } | null
-}
-
-export interface ChatRequest {
-  query: string
-  conversation_id?: string
-}
-
-export interface ChatResponse {
-  response: string
-  sources: Source[]
-  conversation_id: string
-}
+import { ChatResponse } from "@/types/chat"
 
 export async function sendMessage(
   query: string,
-  conversationId?: string
+  conversationId?: string,
+  userId?: string
 ): Promise<ChatResponse> {
   try {
     const response = await fetch('/api/chat', {
@@ -41,6 +14,7 @@ export async function sendMessage(
       body: JSON.stringify({
         query,
         conversation_id: conversationId,
+        user_id: userId,
       }),
     })
 
@@ -55,6 +29,29 @@ export async function sendMessage(
       throw error
     }
     throw new Error('Failed to send message')
+  }
+}
+
+export async function updateSessionTitle(
+  sessionId: string,
+  title: string,
+  userId: string
+): Promise<void> {
+  try {
+    const response = await fetch(`/api/chat/sessions/${sessionId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ title, user_id: userId }),
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to update session title')
+    }
+  } catch (error) {
+    console.error('Failed to update session title:', error)
+    // Don't throw, just log error as this is a non-critical operation
   }
 }
 
