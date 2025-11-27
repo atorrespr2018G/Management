@@ -93,3 +93,17 @@ export const truncateFileName = (node: FileStructure, maxLength = 52): string =>
 
   return `${startPart} ... ${endPart}${ext}`;
 };
+
+export function truncateChatTitle(message: string): string {
+  if (!message) return 'New Chat';
+
+  // Take first 30 chars
+  let title = message.substring(0, 30);
+
+  // If message was longer than 30 chars, add ellipsis
+  if (message.length > 30) {
+    title += '...';
+  }
+
+  return title;
+}
