@@ -71,3 +71,40 @@ export async function PATCH(
         )
     }
 }
+
+export async function DELETE(
+    request: NextRequest,
+    { params }: { params: { id: string } }
+) {
+    const searchParams = request.nextUrl.searchParams;
+    const userId = searchParams.get('user_id');
+    const sessionId = params.id;
+
+    if (!userId) {
+        return NextResponse.json({ detail: 'User ID is required' }, { status: 400 });
+    }
+
+    try {
+        const response = await fetch(`${AGENT_API_URL}/api/sessions/${sessionId}?user_id=${userId}`, {
+            method: 'DELETE',
+        });
+
+        if (!response.ok) {
+            if (response.status === 404) {
+                return NextResponse.json({ detail: 'Session not found' }, { status: 404 });
+            }
+            return NextResponse.json(
+                { detail: 'Failed to delete session' },
+                { status: response.status }
+            )
+        }
+
+        return new NextResponse(null, { status: 204 });
+    } catch (error) {
+        console.error('Session delete error:', error);
+        return NextResponse.json(
+            { detail: 'Internal server error' },
+            { status: 500 }
+        )
+    }
+}

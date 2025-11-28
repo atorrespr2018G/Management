@@ -101,8 +101,28 @@ const chatSlice = createSlice({
             state.isLoading = false;
             state.error = action.error.message || 'Failed to load session';
         });
+
+        // Delete Session
+        builder.addCase(deleteSession.fulfilled, (state, action) => {
+            state.sessions = state.sessions.filter(session => session.id !== action.payload);
+            if (state.activeSessionId === action.payload) {
+                state.activeSessionId = null;
+                state.activeSessionMessages = [];
+            }
+        });
     },
 });
+
+export const deleteSession = createAsyncThunk(
+    'chat/deleteSession',
+    async ({ sessionId, userId }: { sessionId: string; userId: UserId }) => {
+        const response = await fetch(`/api/chat/sessions/${sessionId}?user_id=${userId}`, {
+            method: 'DELETE',
+        });
+        if (!response.ok) throw new Error('Failed to delete session');
+        return sessionId;
+    }
+);
 
 export const { setActiveSession, addMessage, clearActiveSession } = chatSlice.actions;
 export default chatSlice.reducer;
