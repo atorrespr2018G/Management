@@ -1,6 +1,6 @@
 
 import { useDispatch, useSelector } from 'react-redux';
-import { buildStableId } from '../../utils/treeHelpers'
+import { buildStableId } from '../../utils/treeUtils'
 import DatabaseIcon from '@mui/icons-material/Storage'
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import LoopIcon from '@mui/icons-material/Loop';

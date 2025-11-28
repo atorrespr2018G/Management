@@ -24,7 +24,7 @@ import UploadIcon from '@mui/icons-material/Upload'
 import NetworkIcon from '@mui/icons-material/AccountTree'
 import { useMachineId } from '@/hooks/useMachineId'
 import type { FileStructure } from '@/types/neo4j'
-import { buildStableId } from '@/utils/treeHelpers'
+import { buildStableId } from '@/utils/treeUtils'
 import {
   getFileRelationshipStatus,
   createSemanticRelationships,
@@ -268,8 +268,6 @@ const ScanResultsDisplay = ({
     }
   }
 
-  // }
-
   return (
     <Box sx={{ p: 1, bgcolor: 'background.default', borderRadius: 2, ...sx }} >
       {/* Header */}
@@ -279,7 +277,7 @@ const ScanResultsDisplay = ({
             Scan Results
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Source: {scanResults.source || 'local'}
+            Source: {scanResults.metadata?.source || 'local'}
           </Typography>
         </Box>
       </Box>
@@ -293,7 +291,7 @@ const ScanResultsDisplay = ({
                 Total Files
               </Typography>
               <Typography variant="h3" sx={{ fontWeight: 'bold', color: 'primary.700' }}>
-                {scanResults.totalFiles || 0}
+                {scanResults.metadata?.totalFiles || 0}
               </Typography>
             </CardContent>
           </Card>
@@ -305,7 +303,7 @@ const ScanResultsDisplay = ({
                 Total Folders
               </Typography>
               <Typography variant="h3" sx={{ fontWeight: 'bold', color: 'success.700' }}>
-                {scanResults.totalFolders || 0}
+                {scanResults.metadata?.totalFolders || 0}
               </Typography>
             </CardContent>
           </Card>
@@ -317,7 +315,7 @@ const ScanResultsDisplay = ({
                 Source Type
               </Typography>
               <Typography variant="h3" sx={{ fontWeight: 'bold', color: 'info.700', textTransform: 'capitalize' }}>
-                {scanResults.source || 'Local'}
+                {scanResults.metadata?.source || 'Local'}
               </Typography>
             </CardContent>
           </Card>
@@ -617,4 +615,5 @@ const ScanResultsDisplay = ({
     </Box >
   )
 }
+
 export default ScanResultsDisplay

@@ -1,20 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { FileStructure } from '@/types/neo4j';
-import { buildStableId } from '@/utils/treeHelpers';
+import { getDescendantFileIds } from '@/utils/treeUtils';
 
-// Get all descendant file IDs (recursive)
-const getDescendantFileIds = (node: FileStructure, machineId: string) => {
-    const ids = [];
-    if (node.type === 'file') {
-        ids.push(buildStableId(machineId, node));
-    }
-    if (node.children) {
-        node.children.forEach((child: FileStructure) => {
-            ids.push(...getDescendantFileIds(child, machineId));
-        });
-    }
-    return ids;
-};
+
 
 const initialState = {
     neo4jDirectoryStructure: null,

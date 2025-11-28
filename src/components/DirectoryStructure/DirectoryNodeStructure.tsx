@@ -1,7 +1,7 @@
 
 import { useDispatch, useSelector } from 'react-redux';
 import { formatBytes, truncateFileName } from '../../utils/formatters';
-import { buildStableId } from '../../utils/treeHelpers';
+import { buildStableId } from '../../utils/treeUtils';
 import {
     Box,
     Stack,
