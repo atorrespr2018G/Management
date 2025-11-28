@@ -77,18 +77,10 @@ export default function ChatPage() {
     }
   }, [dispatch, isLoading, sessions.length, activeSessionId])
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
   // Scroll page to top when component mounts
   useLayoutEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [])
-
-  useEffect(() => {
-    scrollToBottom()
-  }, [activeSessionMessages])
 
   const latestAssistantMessage = activeSessionMessages.filter(m => m.role === 'assistant').slice(-1)[0]
 
