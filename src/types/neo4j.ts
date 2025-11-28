@@ -33,6 +33,7 @@ export interface FileStructure {
   extension?: string;
   createdAt?: string;
   source?: string;
+  neo4jId?: string; // Neo4j node ID for tracking
 }
 
 export interface GraphStats {
