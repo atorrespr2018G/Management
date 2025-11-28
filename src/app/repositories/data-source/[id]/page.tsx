@@ -478,13 +478,13 @@ export default function ConnectorDetailPage() {
           open={confirmOpen}
           title="Delete Path"
           // message={`Are you sure you want to delete this path?`}
-          message={
+          content={
             pathToDelete
               ? `Are you sure you want to delete "${pathToDelete.name} path"?`
               : 'Are you sure you want to delete this path?'
           }
           // onCancel={() => setConfirmOpen(false)}
-          onCancel={handleCancelDelete}
+          onClose={handleCancelDelete}
           onConfirm={handleConfirmDeletePath}
         />
       </Box>

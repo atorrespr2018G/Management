@@ -19,6 +19,7 @@ import type {
   ConnectorPath,
   ConnectorPathRequest,
   DatabaseConfig,
+  // export DatabaseConfigRequest,
   DatabaseConfigRequest,
   TestConnectionResponse,
   SchemaInfo,
@@ -99,7 +100,7 @@ export const uploadDirectoryToNeo4j = async (
   });
   if (options.chunk_size) params.append('chunk_size', options.chunk_size.toString());
   if (options.chunk_overlap) params.append('chunk_overlap', options.chunk_overlap.toString());
-  
+
   return apiCall<UploadResponse>(`/api/graph/upload-directory?${params.toString()}`, {
     method: 'POST',
   });
@@ -169,7 +170,7 @@ export const createSemanticRelationships = async (
   if (options.scope_file_id !== undefined) {
     params.append('scope_file_id', options.scope_file_id);
   }
-  
+
   return apiCall(`/api/graph/create-semantic-relationships?${params.toString()}`, {
     method: 'POST',
   });
@@ -237,7 +238,7 @@ export const pruneRelationships = async (options: {
   if (options.max_relationships_per_chunk !== undefined) {
     params.append('max_relationships_per_chunk', options.max_relationships_per_chunk.toString());
   }
-  
+
   return apiCall(`/api/graph/prune-relationships?${params.toString()}`, {
     method: 'POST',
   });
@@ -266,7 +267,7 @@ export const searchRelationships = async (options: {
   if (options.limit !== undefined) {
     params.append('limit', options.limit.toString());
   }
-  
+
   return apiCall(`/api/graph/search-relationships?${params.toString()}`);
 };
 
