@@ -29,9 +29,11 @@ import { ChatMessage, ChatResponse, Source } from '@/types/chat'
 import { useDispatch, useSelector } from 'react-redux'
 import { AppDispatch, RootState } from '@/store/store'
 import { initSimulatedUser } from '@/store/slices/userSlice'
-import { fetchSessions, createSession, loadSession, addMessage, setActiveSession } from '@/store/slices/chatSlice'
+import { fetchSessions, createSession, loadSession, addMessage, setActiveSession, deleteSession } from '@/store/slices/chatSlice'
 import { ChatSidebar } from '@/components/Chat/ChatSidebar'
 import { truncateChatTitle } from '@/utils/formatters'
+import DeleteConfirmDialog from '@/components/DeleteConfirmDialog'
+// import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog'
 
 export default function ChatPage() {
   const dispatch = useDispatch<AppDispatch>()
@@ -41,6 +43,8 @@ export default function ChatPage() {
 
   const [inputValue, setInputValue] = useState('')
   const [isSending, setIsSending] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [sessionToDelete, setSessionToDelete] = useState<string | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -165,10 +169,10 @@ export default function ChatPage() {
     }
   }
 
-  const handleNewChat = async () => {
+  const handleNewChat = () => {
     const userId = localStorage.getItem('simulated_user_id')
     if (userId) {
-      await dispatch(createSession(userId))
+      dispatch(createSession(userId))
       if (isMobile) setMobileOpen(false)
     }
   }
@@ -181,6 +185,31 @@ export default function ChatPage() {
     }
   }
 
+  const handleDeleteSession = (sessionId: string) => {
+    setSessionToDelete(sessionId)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDeleteSession = async () => {
+    if (sessionToDelete) {
+      const userId = localStorage.getItem('simulated_user_id')
+      if (userId) {
+        await dispatch(deleteSession({ sessionId: sessionToDelete, userId }))
+        if (sessions.length <= 1) {
+          // Optional: auto-create new session
+        }
+      }
+      setDeleteDialogOpen(false)
+      setSessionToDelete(null)
+    }
+  }
+
+  const cancelDeleteSession = () => {
+    setDeleteDialogOpen(false)
+    setSessionToDelete(null)
+  }
+
+  // const latestAssistantMessage = activeSessionMessages.filter(m => m.role === 'assistant').slice(-1)[0]
   const allFilePaths = latestAssistantMessage?.sources
     ?.map(s => s.file_path)
     .filter((path): path is string => path !== null && path !== undefined && path.trim() !== '')
@@ -192,6 +221,7 @@ export default function ChatPage() {
       activeSessionId={activeSessionId}
       onNewChat={handleNewChat}
       onSelectSession={handleSelectSession}
+      onDeleteSession={handleDeleteSession}
     />
   )
 
@@ -421,38 +451,26 @@ export default function ChatPage() {
                       bgcolor: 'grey.100',
                       p: 2,
                       borderRadius: 2,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 2,
                     }}
                   >
                     <CircularProgress size={20} />
-                    <Typography variant="body2" color="text.secondary">
-                      Thinking...
-                    </Typography>
                   </Box>
                 </Box>
               )}
-
               <div ref={messagesEndRef} />
             </Box>
 
-            <Divider />
-
             {/* Input Area */}
-            <Box sx={{ p: 2 }}>
+            <Box sx={{ p: 2, bgcolor: 'background.paper', borderTop: 1, borderColor: 'divider' }}>
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <TextField
-                  inputRef={inputRef}
                   fullWidth
-                  multiline
-                  maxRows={4}
-                  placeholder="Type your message..."
+                  placeholder="Ask a question..."
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
                   disabled={isSending}
-                  variant="outlined"
+                  inputRef={inputRef}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: 2,
@@ -470,9 +488,12 @@ export default function ChatPage() {
                       bgcolor: 'primary.dark',
                     },
                     '&.Mui-disabled': {
-                      bgcolor: 'grey.300',
-                      color: 'grey.500',
+                      bgcolor: 'action.disabledBackground',
+                      color: 'action.disabled',
                     },
+                    width: 56,
+                    height: 56,
+                    borderRadius: 2,
                   }}
                 >
                   <SendIcon />
@@ -481,170 +502,70 @@ export default function ChatPage() {
             </Box>
           </Paper>
 
-          {/* Agent Data Card - Right Side */}
+          {/* Agent Data Panel (Desktop) */}
           <Paper
             elevation={3}
             sx={{
-              flex: '1 1 40%',
-              display: 'flex',
+              flex: '0 0 350px',
+              display: { xs: 'none', lg: 'flex' },
               flexDirection: 'column',
               overflow: 'hidden',
               borderRadius: 2,
             }}
           >
-            {/* Upper Section - Agent Data */}
-            <Box
-              ref={agentDataRef}
-              sx={{
-                flex: '1 1 50%',
-                overflowY: 'auto',
-                p: 2,
-                borderBottom: '1px solid',
-                borderColor: 'divider',
-              }}
-            >
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+            <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
                 Agent Data
               </Typography>
-              {latestAssistantMessage && latestAssistantMessage.sources && latestAssistantMessage.sources.length > 0 ? (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {latestAssistantMessage.sources.map((source, idx) => (
-                    <Box
-                      key={idx}
-                      sx={{
-                        p: 2,
-                        bgcolor: 'grey.50',
-                        borderRadius: 1,
-                        border: '1px solid',
-                        borderColor: 'grey.200',
-                      }}
-                    >
-                      {source.file_name && (
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                          {source.file_name}
-                        </Typography>
-                      )}
-                      {source.directory_name && (
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                          Directory: {source.directory_name}
-                        </Typography>
-                      )}
-                      <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-                        {source.similarity !== null && source.similarity !== undefined && (
-                          <Chip
-                            label={`Similarity: ${(source.similarity * 100).toFixed(1)}%`}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                          />
-                        )}
-                        {source.hybrid_score !== null && source.hybrid_score !== undefined && (
-                          <Chip
-                            label={`Score: ${source.hybrid_score.toFixed(2)}`}
-                            size="small"
-                            color="secondary"
-                            variant="outlined"
-                          />
-                        )}
-                      </Box>
-                      {source.text && (
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            color: 'text.secondary',
-                            fontStyle: 'italic',
-                            mt: 1,
-                            mb: 1,
-                            maxHeight: 100,
-                            overflow: 'auto',
-                          }}
-                        >
-                          {source.text}
-                        </Typography>
-                      )}
-                    </Box>
-                  ))}
-                </Box>
-              ) : (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    height: '100%',
-                    color: 'text.secondary',
-                  }}
-                >
-                  <Typography variant="body2">No agent data available</Typography>
-                </Box>
-              )}
             </Box>
-
-            {/* Bottom Section - File Paths */}
             <Box
-              sx={{
-                flex: '1 1 50%',
-                overflowY: 'auto',
-                p: 2,
-              }}
+              ref={agentDataRef}
+              sx={{ p: 2, overflowY: 'auto', flexGrow: 1 }}
             >
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-                File Paths
-                {allFilePaths.length > 0 && (
-                  <Typography component="span" variant="caption" sx={{ ml: 1, color: 'text.secondary', fontWeight: 400 }}>
-                    ({allFilePaths.length} {allFilePaths.length === 1 ? 'file' : 'files'})
+              {latestAssistantMessage?.sources && latestAssistantMessage.sources.length > 0 ? (
+                <Box>
+                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                    Sources Used
                   </Typography>
-                )}
-              </Typography>
-              {allFilePaths.length > 0 ? (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                   {allFilePaths.map((path, idx) => (
-                    <Box
+                    <Chip
                       key={idx}
-                      sx={{
-                        p: 1.5,
-                        bgcolor: 'grey.50',
-                        borderRadius: 1,
-                        border: '1px solid',
-                        borderColor: 'grey.200',
-                        '&:hover': {
-                          bgcolor: 'grey.100',
-                          borderColor: 'grey.300',
-                        },
-                      }}
-                    >
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          fontFamily: 'monospace',
-                          fontSize: '0.875rem',
-                          wordBreak: 'break-all',
-                          color: 'text.primary',
-                          lineHeight: 1.6,
-                        }}
-                      >
-                        {path}
-                      </Typography>
-                    </Box>
+                      label={path.split('/').pop()}
+                      size="small"
+                      sx={{ mr: 1, mb: 1 }}
+                      variant="outlined"
+                    />
                   ))}
+
+                  <Divider sx={{ my: 2 }} />
+
+                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                    Context Analysis
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    The agent found {latestAssistantMessage.sources.length} relevant chunks of information across {allFilePaths.length} files.
+                    The response was synthesized based on these sources with a similarity score threshold of 0.5.
+                  </Typography>
                 </Box>
               ) : (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    height: '100%',
-                    color: 'text.secondary',
-                  }}
-                >
-                  <Typography variant="body2">No file paths available</Typography>
-                </Box>
+                <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 4 }}>
+                  No agent data available for the current response.
+                </Typography>
               )}
             </Box>
           </Paper>
         </Box>
       </Container>
+
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onClose={cancelDeleteSession}
+        onConfirm={confirmDeleteSession}
+        title="Delete Chat Session"
+        content="Are you sure you want to delete this chat session? This action cannot be undone."
+      />
     </Box>
   )
 }
+
+

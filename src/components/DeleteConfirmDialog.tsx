@@ -3,26 +3,26 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography }
 interface DeleteConfirmDialogProps {
     open: boolean;
     title?: string;
-    message?: string;
+    content?: string;
     onConfirm: () => void;
-    onCancel: () => void;
+    onClose: () => void;
 }
 
 export default function DeleteConfirmDialog({
     open,
     title = "Delete",
-    message = "Are you sure you want to delete this item?",
-    onCancel,
+    content = "Are you sure you want to delete this item?",
+    onClose,
     onConfirm
 }: DeleteConfirmDialogProps) {
     return (
-        <Dialog open={open} onClose={onCancel}>
+        <Dialog open={open} onClose={onClose}>
             <DialogTitle>{title}</DialogTitle>
             <DialogContent>
-                <Typography>{message}</Typography>
+                <Typography>{content}</Typography>
             </DialogContent>
             <DialogActions>
-                <Button onClick={onCancel} color="inherit">Cancel</Button>
+                <Button onClick={onClose} color="inherit">Cancel</Button>
                 <Button onClick={onConfirm} color="error" variant="contained">Delete</Button>
             </DialogActions>
         </Dialog>

@@ -9,6 +9,7 @@ interface ChatSidebarProps {
     activeSessionId: string | null;
     onSelectSession: (sessionId: string) => void;
     onNewChat: () => void;
+    onDeleteSession: (sessionId: string) => void;
 }
 
 export const ChatSidebar = ({
@@ -16,6 +17,7 @@ export const ChatSidebar = ({
     activeSessionId,
     onSelectSession,
     onNewChat,
+    onDeleteSession,
 }: ChatSidebarProps) => {
     return (
         <Box
@@ -59,6 +61,10 @@ export const ChatSidebar = ({
                             session={session}
                             isActive={session.id === activeSessionId}
                             onClick={() => onSelectSession(session.id)}
+                            onDelete={(e) => {
+                                e.stopPropagation();
+                                onDeleteSession(session.id);
+                            }}
                         />
                     ))
                 )}
