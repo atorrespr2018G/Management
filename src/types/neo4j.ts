@@ -7,6 +7,8 @@ export interface UseNeo4jStructureOptions {
   node?: FileStructure | null;
 }
 
+export type ChangedReason = 'metadata' | 'content' | 'new';
+
 export interface UseStoreDirectoryInNeo4jOptions {
   scanData: FileStructure | null;
   metadata?: Record<string, any>;

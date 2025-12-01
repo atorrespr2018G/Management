@@ -3,7 +3,7 @@
 import { useCallback, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
-import type { FileStructure, UseNeo4jStructureOptions } from '@/types/neo4j';
+import type { ChangedReason, FileStructure, UseNeo4jStructureOptions } from '@/types/neo4j';
 import { buildStableId } from '@/utils/treeUtils';
 import {
     getDirectoryFromNeo4j,
@@ -19,9 +19,6 @@ import {
     setChangedFiles,
     setRelationshipStatusForFile,
 } from '@/store/slices/neoSlice';
-
-type ChangedReason = 'metadata' | 'content' | 'new';
-
 
 
 /**

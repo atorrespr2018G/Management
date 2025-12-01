@@ -4,13 +4,13 @@
  */
 
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import type { FileStructure } from '@/types/neo4j';
+import type { FileStructure, ChangedReason } from '@/types/neo4j';
 
 interface GraphDataState {
     neo4jDirectoryStructure: FileStructure | null;
     ragStatuses: Record<string, string>; // 'complete' | 'partial' | 'none'
     relationshipStatuses: Record<string, boolean>;
-    changedFiles: Record<string, { reason: 'metadata' | 'content' | 'new' }>;
+    changedFiles: Record<string, { reason: ChangedReason }>;
 }
 
 const initialState: GraphDataState = {
