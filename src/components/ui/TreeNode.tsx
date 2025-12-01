@@ -4,12 +4,12 @@
  */
 
 import React from 'react';
-import { Box, Stack, Typography, Checkbox, FormControlLabel, Chip } from '@mui/material';
+import { Box, Stack, Typography, Checkbox, FormControlLabel } from '@mui/material';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import type { FileStructure } from '@/types/neo4j';
 import { formatBytes, truncateFileName } from '@/utils/formatters';
+import { RagStatusBadge, GraphStatusBadge } from './StatusBadges';
 
 export interface TreeNodeProps {
     node: FileStructure;
@@ -56,55 +56,6 @@ export const TreeNode: React.FC<TreeNodeProps> = ({
     const Icon = isDirectory ? FolderOpenIcon : InsertDriveFileIcon;
     const bytes = node.size;
 
-    // RAG status badge
-    const getRagStatusBadge = () => {
-        if (ragStatus === 'complete') {
-            return <Chip label="Semantic" size="small" color="success" sx={{ ml: 1 }} />;
-        } else if (ragStatus === 'partial') {
-            return <Chip label="Semantic Partial" size="small" color="warning" />;
-        }
-        return null;
-    };
-
-    // Graph status badge
-    const getGraphStatusBadge = () => {
-        if (!showGraphBadge || ragStatus === 'none') return null;
-
-        const chipProps = {
-            label: 'Graph' as const,
-            size: 'small' as const,
-            icon: isSelectedForGraph ? <CheckCircleIcon sx={{ fontSize: 14 }} /> : undefined,
-            onClick: canSelectForGraph && onToggleGraphSelection
-                ? (e: React.MouseEvent) => {
-                    e.stopPropagation();
-                    onToggleGraphSelection();
-                }
-                : undefined,
-            sx: {
-                cursor: canSelectForGraph ? 'pointer' : 'default',
-                ...(isSelectedForGraph && {
-                    border: '2px solid',
-                    borderColor: 'primary.main',
-                    backgroundColor: 'action.selected',
-                    fontWeight: 'bold',
-                    '&:hover': { backgroundColor: 'action.hover' },
-                }),
-                ...(hasRelationships && { opacity: 0.9 }),
-                ...(canSelectForGraph && {
-                    '&:hover': { opacity: 0.8, transform: 'scale(1.05)' },
-                    transition: 'all 0.2s ease-in-out',
-                }),
-                ...(!canSelectForGraph && {
-                    '&:hover': { cursor: 'not-allowed' },
-                }),
-            },
-        };
-
-        return hasRelationships
-            ? <Chip {...chipProps} color="info" />
-            : <Chip {...chipProps} variant="outlined" />;
-    };
-
     return (
         <Box sx={{ ml: level ? 0.5 : 0, my: 0.5 }}>
             <Stack
@@ -149,8 +100,14 @@ export const TreeNode: React.FC<TreeNodeProps> = ({
 
                         {!isDirectory && (
                             <>
-                                {getRagStatusBadge()}
-                                {getGraphStatusBadge()}
+                                <RagStatusBadge status={ragStatus} />
+                                <GraphStatusBadge
+                                    isSelected={isSelectedForGraph}
+                                    hasRelationships={hasRelationships}
+                                    canSelect={canSelectForGraph}
+                                    showBadge={showGraphBadge && ragStatus !== 'none'}
+                                    onToggle={onToggleGraphSelection ? () => onToggleGraphSelection() : undefined}
+                                />
 
                                 {onToggleSelection && (
                                     <FormControlLabel

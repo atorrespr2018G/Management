@@ -1,23 +1,21 @@
-
 import { useDispatch, useSelector } from 'react-redux';
 import { formatBytes, truncateFileName } from '../../utils/formatters';
-import { buildStableId } from '../../utils/treeUtils';
+import { buildStableId, sortTreeChildren } from '../../utils/treeUtils';
 import {
     Box,
     Stack,
     Typography,
     Checkbox,
     FormControlLabel,
-    Chip,
 } from '@mui/material';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import {
     setSelectedForRag,
     toggleSelectedForGraph,
 } from '../../store/slices/neoSlice';
 import type { FileStructure } from '@/types/neo4j'
+import { RagStatusBadge, GraphStatusBadge } from '../../components/ui/StatusBadges';
 
 // Reusable Component replacing renderNeo4jNodeWithUpload
 const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActionsEnabled = true, fetchNeo4jStructure }: {
@@ -47,77 +45,10 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActi
     const isSelectedForRag = selectedForRag[stableId] || false;
     const ragStatus = ragStatuses[stableId] || 'none';
     const hasRelationships = relationshipStatuses[stableId] || false
-
-
-    // Get RAG status badge
-    const getRagStatusBadge = () => {
-        if (ragStatus === 'complete') {
-            return <Chip label="Semantic" size="small" color="success" sx={{ ml: 1 }} />
-        } else if (ragStatus === 'partial') {
-            return <Chip label="Semantic Partial" size="small" color="warning" />
-        } else {
-            return null
-        }
-    }
-
-    // Get Graph status badge (clickable to select for relationship creation)
-    // If relationships already exist, badge is not selectable
-    const getGraphStatusBadge = () => {
-        // 🚫 Hide Graph button for files that are not yet uploaded / embedded
-        if (ragStatus === 'none' || !areActionsEnabled)
-            return null;
-
-        const isSelectedForGraph = selectedForGraph[stableId] || false;
-        const canSelect = !hasRelationships; // Only allow selection if no relationships exist
-
-        const chipProps = {
-            label: 'Graph' as const,
-            size: 'small' as const,
-            icon: isSelectedForGraph ? <CheckCircleIcon sx={{ fontSize: 14 }} /> : undefined,
-            onClick: canSelect
-                ? (e: React.MouseEvent) => {
-                    e.stopPropagation();
-                    // dispatch(
-                    //   setSelectedForGraph({
-                    //     ...selectedForGraph,
-                    //     [stableId]: !selectedForGraph[stableId],
-                    //   })
-                    // );   
-                    dispatch(toggleSelectedForGraph({ stableId }));
-                } : undefined,
-            sx: {
-                cursor: canSelect ? 'pointer' : 'default',
-                ...(isSelectedForGraph && {
-                    border: '2px solid',
-                    borderColor: 'primary.main',
-                    backgroundColor: 'action.selected',
-                    fontWeight: 'bold',
-                    '&:hover': { backgroundColor: 'action.hover' },
-                }),
-                ...(hasRelationships && { opacity: 0.9 }),
-                ...(canSelect && {
-                    '&:hover': { opacity: 0.8, transform: 'scale(1.05)' },
-                    transition: 'all 0.2s ease-in-out',
-                }),
-                ...(!canSelect && {
-                    '&:hover': { cursor: 'not-allowed' },
-                }),
-            },
-        };
-
-        return hasRelationships
-            ? (<Chip {...chipProps} color="info" />)
-            : (<Chip {...chipProps} variant="outlined" />);
-    };
+    const isSelectedForGraph = selectedForGraph[stableId] || false;
 
     // Sort children: directories first, then files, both alphabetically (same as scanned tree)
-    const sortedChildren = children ? [...children].sort((a, b) => {
-        // Directories come before files
-        if (a.type === 'directory' && b.type === 'file') return 1
-        if (a.type === 'file' && b.type === 'directory') return -1
-        // Within same type, sort alphabetically by name
-        return a.name.localeCompare(b.name)
-    }) : []
+    const sortedChildren = children ? sortTreeChildren(children) : []
 
     // Toggle selection for a node (recursive for folders)
     const toggleSelection = (node: FileStructure, machineId: string) => {
@@ -173,10 +104,16 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActi
 
                         {!isDirectory && (
                             <>
-                                {getRagStatusBadge()}
+                                <RagStatusBadge status={ragStatus} />
                                 {areActionsEnabled && (
                                     <>
-                                        {getGraphStatusBadge()}
+                                        <GraphStatusBadge
+                                            isSelected={isSelectedForGraph}
+                                            hasRelationships={hasRelationships}
+                                            canSelect={!hasRelationships}
+                                            showBadge={ragStatus !== 'none'}
+                                            onToggle={() => dispatch(toggleSelectedForGraph({ stableId }))}
+                                        />
 
                                         {/* single checkbox that means "this file is selected for actions" */}
                                         <FormControlLabel
