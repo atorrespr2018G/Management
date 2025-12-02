@@ -43,7 +43,7 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
             onClick={onClick}
             disabled={disabled || loading}
             startIcon={loading ? undefined : icon}
-            sx={{ mr: 1, px: 1.3, ...sx }}
+            sx={{ px: 1.3, ...sx }}
         >
             {loading ? (
                 <Stack direction="row" spacing={1} alignItems="center">
@@ -53,7 +53,10 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
                     )}
                 </Stack>
             ) : (
-                displayLabel
+
+                <Typography sx={{ whiteSpace: 'nowrap' }}>
+                    {displayLabel}
+                </Typography>
             )}
         </Button>
     );
