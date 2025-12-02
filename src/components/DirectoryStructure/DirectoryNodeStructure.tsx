@@ -52,7 +52,7 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActi
     // Get RAG status badge
     const getRagStatusBadge = () => {
         if (ragStatus === 'complete') {
-            return <Chip label="Semantic" size="small" color="success" />
+            return <Chip label="Semantic" size="small" color="success" sx={{ ml: 1 }} />
         } else if (ragStatus === 'partial') {
             return <Chip label="Semantic Partial" size="small" color="warning" />
         } else {
@@ -134,24 +134,17 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActi
                 direction="row"
                 alignItems="center"
                 justifyContent="space-between"
-                sx={{ color: 'text.primary' }}
-                style={{ height: '1.8em' }}
+                sx={{ color: 'text.primary', height: '2.2em' }}
             >
                 {/* Left side: icon, name, size */}
                 <Stack direction="row" spacing={1} alignItems="center">
-                    <Icon
-                        fontSize="small"
-                        color={isDirectory ? 'primary' : 'action'}
-                    />
-                    <Typography variant="body2" fontWeight={500}>
+                    <Icon fontSize="small" color={isDirectory ? 'primary' : 'action'} />
+                    <Typography variant="body2" fontWeight={500} lineHeight='1.2'>
                         {`${truncateFileName(node, (isSelectable ? 48 : 68))}`}
-                        {/* {`
-                            ${truncateFileName(node, (isSelectable ? 48 : 68))} (${typeof bytes === 'number' ? formatBytes(bytes) : ''})
-                        `} */}
+                        {/* {`${truncateFileName(node, (isSelectable ? 48 : 68))} (${typeof bytes === 'number' ? formatBytes(bytes) : ''})`} */}
                     </Typography>
                     {typeof bytes === 'number' && (
-                        <Typography variant="caption" color="text.secondary" //sx={{ lineHeight: 0 }}
-                        >
+                        <Typography variant="caption" color="text.secondary" whiteSpace='nowrap'>
                             ({formatBytes(bytes)})
                         </Typography>
                     )}
@@ -171,10 +164,7 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActi
                                     />
                                 }
                                 label={
-                                    <Typography
-                                        variant="caption"
-                                        color="text.secondary"
-                                    >
+                                    <Typography variant="caption" color="text.secondary">
                                         Select All
                                     </Typography>
                                 }
@@ -183,23 +173,26 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActi
 
                         {!isDirectory && (
                             <>
-                                {/* status chips stay, but no extra checkboxes */}
                                 {getRagStatusBadge()}
-                                {getGraphStatusBadge()}
+                                {areActionsEnabled && (
+                                    <>
+                                        {getGraphStatusBadge()}
 
-                                {/* single checkbox that means "this file is selected for actions" */}
-                                <FormControlLabel
-                                    sx={{ m: 0 }}
-                                    control={
-                                        <Checkbox
-                                            size="small"
-                                            checked={isSelectedForRag}
-                                            color={ragStatus !== 'none' ? 'error' : 'info'}
-                                            onChange={() => toggleSelection(node, machineId)}
+                                        {/* single checkbox that means "this file is selected for actions" */}
+                                        <FormControlLabel
+                                            sx={{ m: 0 }}
+                                            control={
+                                                <Checkbox
+                                                    size="small"
+                                                    checked={isSelectedForRag}
+                                                    color={ragStatus !== 'none' ? 'error' : 'info'}
+                                                    onChange={() => toggleSelection(node, machineId)}
+                                                />
+                                            }
+                                            label={''}
                                         />
-                                    }
-                                    label={''}
-                                />
+                                    </>
+                                )}
                             </>
                         )}
                     </Stack>

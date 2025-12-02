@@ -34,6 +34,7 @@ import {
 import { TimedAlert } from '@/components/TimedAlert';
 import type { AlertColor } from '@mui/material/Alert';
 import { useMachineId } from '@/hooks/useMachineId';
+import { DirectoryStructureContainer } from './DirectoryStructureContainer';
 
 const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, areActionsEnabled, onResetNeoStatus }: {
     fetchNeo4jStructure: () => Promise<void>,
@@ -282,9 +283,9 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, ar
                     <>
                         {/* Upload Docs */}
                         <Button
-                            sx={{ mr: 1 }}
+                            sx={{ mr: 1, px: 1.3 }}
                             variant="contained"
-                            size="small"
+                            size="large"
                             startIcon={!isUploading && <FileUploadIcon fontSize="small" />}
                             onClick={() => handleUploadDirectory(directoryNode)}
                             disabled={uploadableCount === 0 || isUploading}
@@ -299,9 +300,9 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, ar
                             ) : (`Docs (${uploadableCount})`)}
                         </Button>
                         <Button
-                            sx={{ mr: 1 }}
+                            sx={{ mr: 1, px: 1.3 }}
                             variant="outlined"
-                            size="small"
+                            size="large"
                             color="error"
                             onClick={() => handleDeleteFiles(directoryNode)}
                             disabled={isUploading || (deleteFilesCount === 0 || isDeletingChunks[directoryPath])}
@@ -314,9 +315,9 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, ar
 
                         {/* Delete Graph (relationships only) */}
                         <Button
-                            sx={{ mr: 1 }}
+                            sx={{ mr: 1, px: 1.3 }}
                             variant="outlined"
-                            size="small"
+                            size="large"
                             color="error"
                             onClick={() => handleDeleteGraphs(directoryNode)}
                             disabled={deleteGraphsCount === 0 || isDeletingRelationships[directoryPath]}
@@ -477,7 +478,7 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, ar
 
     const getStatusSeverity = (msg: string): AlertColor => {
         const lower = msg.toLowerCase();
-        if (lower.startsWith('error') || lower.includes('error:')) return 'error';
+        if (lower.startsWith('error') || lower.includes('error:') || lower.includes('delete')) return 'error';
         if (lower.startsWith('no ') || lower.includes('no items deleted')) return 'warning';
         return 'success';
     };
@@ -491,43 +492,16 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, ar
                 </Paper>
             )}
             {!isLoadingNeo4jStructure && (
-                <Card sx={{ height: 700, display: 'flex', flexDirection: 'column' }}>
-                    <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                        <CardHeader
-                            sx={{ p: 0, pb: 2 }}
-                            title={
-                                <Stack direction="row" spacing={1} alignItems="center">
-                                    <Typography whiteSpace="nowrap" fontWeight={600}>
-                                        Directory Structure
-                                    </Typography>
-                                    <Chip
-                                        label="NEO4J DB"
-                                        size="small"
-                                        color="primary"
-                                        variant="outlined"
-                                    />
-                                    {isLoadingNeo4jStructure && !neo4jDirectoryStructure && (
-                                        <LoopIcon fontSize="small" />
-                                    )}
-                                </Stack>
-                            }
-                            action={handleButtons(neo4jDirectoryStructure || null)}
-                        />
-
-                        {/* {(
-                            // uploadStatus[node.fullPath || node.id] ||
-                            deleteStatus[neo4jDirectoryStructure?.fullPath || neo4jDirectoryStructure?.id]) && (
-                                <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                    sx={{ width: '100%' }}
-                                >
-                                    {uploadStatus[neo4jDirectoryStructure?.fullPath || neo4jDirectoryStructure?.id] ||
-                                        deleteStatus[neo4jDirectoryStructure?.fullPath || neo4jDirectoryStructure?.id]}
-                                </Typography>
-                        )} */}
-
-                        {statusKey && statusMessage && (
+                <DirectoryStructureContainer
+                    title="Directory Structure"
+                    chipLabel="NEO4J"
+                    chipColor="success"
+                    actions={handleButtons(neo4jDirectoryStructure)} // your existing buttons JSX
+                    alerts={
+                        statusKey &&
+                        statusMessage &&
+                        !statusMessage.includes('relationships from') && (
+                            // // {statusKey && statusMessage && (
                             <TimedAlert
                                 sx={{ mb: 2 }}
                                 message={statusMessage}
@@ -536,44 +510,36 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, ar
                                 // autoHide={!statusMessage.includes('Uploading...')}
                                 onClose={() => onResetNeoStatus?.(statusKey)}
                             />
-                        )}
-                        {neo4jDirectoryStructure ? (
-                            <Box sx={{ flex: 1, overflow: 'auto', mt: 1 }}>
-                                <Paper variant="outlined" sx={{ p: 1.5, minHeight: '100%', bgcolor: '#f8f8f8ff' }}>
-                                    {/* <Paper variant="outlined" sx={{ p: 1.5 }}> */}
-                                    <DirectoryNodeStructure
-                                        node={neo4jDirectoryStructure}
-                                        isSelectable={true}
-                                        fetchNeo4jStructure={fetchNeo4jStructure}
-                                        areActionsEnabled={areActionsEnabled}
-                                    />
-                                </Paper>
-                            </Box>
-                        ) : (
-                            // <Box sx={{ textAlign: 'center', py: 4 }} >
-                            <Box sx={{ flex: 1, overflow: 'auto', mt: 1 }}>
-                                {/* <Paper variant="outlined" sx={{ p: 1.5, minHeight: '100%' }}></Paper> */}
-                                <Paper
-                                    variant="outlined"
-                                    sx={{
-                                        p: 1.5,
-                                        flex: 1,
-                                        minHeight: '100%',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        justifyContent: 'center',
-                                        alignItems: 'center',
-                                    }}
-                                >
-                                    <DatabaseIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-                                    <Typography variant="body2" color="text.secondary">
-                                        No directory results have been scanned
-                                    </Typography>
-                                </Paper>
-                            </Box>
-                        )}
-                    </CardContent>
-                </Card>
+                        )}>
+                    {neo4jDirectoryStructure ? (
+                        <DirectoryNodeStructure
+                            node={neo4jDirectoryStructure}
+                            isSelectable={true}
+                            fetchNeo4jStructure={fetchNeo4jStructure}
+                            areActionsEnabled={areActionsEnabled}
+                        />
+                    ) : (
+                        <Box sx={{ flex: 1, mt: 1 }}>
+                            <Paper
+                                variant="outlined"
+                                sx={{
+                                    p: 1.5,
+                                    flex: 1,
+                                    minHeight: '100%',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                }}
+                            >
+                                <DatabaseIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                                <Typography variant="body2" color="text.secondary">
+                                    No directory results have been scanned
+                                </Typography>
+                            </Paper>
+                        </Box>
+                    )}
+                </DirectoryStructureContainer>
             )}
         </>
     )

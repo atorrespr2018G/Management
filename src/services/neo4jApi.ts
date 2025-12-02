@@ -500,3 +500,30 @@ export const deleteTable = async (
   });
 };
 
+export interface ExecuteSQLRequest {
+  query: string;
+}
+
+export interface ExecuteSQLResponse {
+  success: boolean;
+  query_type?: 'SELECT' | 'DML';
+  data?: {
+    columns?: string[];
+    rows?: Array<Record<string, any>>;
+    row_count?: number;
+    affected_rows?: number;
+    message?: string;
+  };
+  error?: string;
+}
+
+export const executeSQL = async (
+  dbId: string,
+  query: string
+): Promise<ExecuteSQLResponse> => {
+  return apiCall<ExecuteSQLResponse>(`/api/databases/${dbId}/execute`, {
+    method: 'POST',
+    body: JSON.stringify({ query }),
+  });
+};
+

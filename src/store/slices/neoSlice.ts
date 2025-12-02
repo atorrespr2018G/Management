@@ -25,6 +25,7 @@ const initialState = {
     uploadProgress: { done: 0, total: 0, totalChunks: 0 }, // Upload progress tracking
     isUploading: false,
     selectedForGraph: {} as Record<string, boolean>,
+    hasEverCreatedGraph: false,
     selectedForDelete: {} as Record<string, boolean>,
     selectedForDeleteRelationships: {} as Record<string, boolean>,
     relationshipStatuses: {} as Record<string, boolean>,
@@ -115,6 +116,9 @@ const neoSlice = createSlice({
             // payload: Record<string, boolean>
             state.selectedForGraph = action.payload;
         },
+        setHasEverCreatedGraph(state, action) {
+            state.hasEverCreatedGraph = action.payload;
+        },
         setSelectedForDelete: (state, action) => {
             // payload: Record<string, boolean>
             state.selectedForDelete = action.payload;
@@ -184,7 +188,7 @@ const neoSlice = createSlice({
             console.log('clearState key?', action.payload)
             const key = action.payload;
             delete state.uploadStatus[key];
-            delete state.deleteStatus[key];
+            // delete state.deleteStatus[key];
         },
         clearNeoResults: (state) => {
             state.selectedForRag = {};
@@ -223,6 +227,7 @@ export const {
     resetUploadProgress,
     setIsLoadingNeo4jStructure,
     setSelectedForGraph,
+    setHasEverCreatedGraph,
     setSelectedForDelete,
     setSelectedForDeleteRelationships,
     setRelationshipStatuses,

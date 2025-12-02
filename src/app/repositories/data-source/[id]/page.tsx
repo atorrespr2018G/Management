@@ -34,6 +34,9 @@ import type { ConnectorConfig, ConnectorPath } from '@/types/neo4j'
 import type { FileStructure } from '@/types/neo4j'
 import ScanResultsDisplay from '@/components/ScanResultsDisplay'
 import { TimedAlert } from '@/components/TimedAlert'
+import { ConnectorTabContent } from '@/components/ConnectorTabContent'
+import DeleteConfirmDialog from '@/components/DeleteConfirmDialog'
+
 
 export default function ConnectorDetailPage() {
   const router = useRouter()
@@ -54,6 +57,8 @@ export default function ConnectorDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [scanningAll, setScanningAll] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [pathToDelete, setPathToDelete] = useState<ConnectorPath | null>(null);
 
   useEffect(() => {
     if (configId) {
@@ -71,6 +76,31 @@ export default function ConnectorDetailPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTab])
+
+  const handleRequestDeletePath = (path: ConnectorPath) => {
+    setPathToDelete(path);
+    setConfirmOpen(true);
+  };
+
+  const handleConfirmDeletePath = async () => {
+    if (!pathToDelete) return;
+
+    await handleDeletePath(pathToDelete.id);   // your existing delete logic
+    setConfirmOpen(false);
+    setPathToDelete(null);
+  };
+
+  const handleCancelDelete = () => {
+    setConfirmOpen(false);
+    setPathToDelete(null);
+  };
+
+  // const handleDeleteClick = () => setConfirmOpen(true)
+
+  // const handleConfirmDelete = (pathId: string) => {
+  //   handleDeletePath(pathId);
+  //   setConfirmOpen(false);
+  // };
 
   const scanAllPaths = async () => {
     // Find paths that haven't been scanned yet
@@ -232,10 +262,6 @@ export default function ConnectorDetailPage() {
   }
 
   const handleDeletePath = async (pathId: string) => {
-    if (!confirm('Are you sure you want to delete this path?')) {
-      return
-    }
-
     try {
       await deleteConnectorPath(configId, pathId)
       // Reload paths to ensure we have the latest data
@@ -372,7 +398,7 @@ export default function ConnectorDetailPage() {
               <TimedAlert
                 message="Path added and scanned successfully!"
                 severity="success"
-                durationMs={40000}
+                durationMs={4000}
                 onClose={() => setSuccess(false)}
                 sx={{ mb: 0, px: 1.5, py: 0.25, '& .MuiAlert-message': { px: 0.5 } }}
               />
@@ -430,161 +456,37 @@ export default function ConnectorDetailPage() {
         <Paper sx={{ mb: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}>
           <Tabs value={currentTab} onChange={(e, newValue) => setCurrentTab(newValue)}>
             <Tab label={`Paths (${paths.length})`} />
-            <Tab label={`All Results ${(allPathResults?.size > 1) ? `(${allPathResults.size})` : ''}`} />
+            <Tab label={`All Results ${(allPathResults?.size >= paths.length) ? `(${allPathResults.size})` : ''}`} />
           </Tabs>
         </Paper>
 
         {/* Tab Content */}
-        {currentTab === 0 && (
-          <>
-            {/* Paths List */}
-            <Paper sx={{ p: 3, mb: 3, borderRadius: 0 }}>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-                Configured Paths ({paths.length})
-              </Typography>
-              {paths.length === 0 ? (
-                <Box sx={{ textAlign: 'center', py: 4 }}>
-                  <FolderIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-                  <Typography variant="body1" color="text.secondary">
-                    No paths configured yet. Add a path above to get started.
-                  </Typography>
-                </Box>
-              ) : (
-                <List>
-                  {paths.map((path, index) => (
-                    <Fragment key={path.id}>
-                      <ListItem
-                        disablePadding
-                        secondaryAction={
-                          <IconButton
-                            edge="end"
-                            aria-label="delete"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDeletePath(path.id)
-                            }}
-                            color="error"
-                            sx={{ mr: 1 }}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        }
-                      >
-                        <ListItemButton
-                          onClick={() => handlePathClick(path)}
-                          selected={selectedPathId === path.id}
-                          disabled={scanning}
-                        >
-                          <ListItemText
-                            primary={path.name}
-                            secondary={path.path}
-                            primaryTypographyProps={{ fontWeight: 500 }}
-                          />
-                          {scanning && selectedPathId === path.id && (
-                            <CircularProgress size={20} sx={{ ml: 2 }} />
-                          )}
-                        </ListItemButton>
-                      </ListItem>
-                      {index < paths.length - 1 && <Divider />}
-                    </Fragment>
-                  ))}
-                </List>
-              )}
-            </Paper>
+        <ConnectorTabContent
+          currentTab={currentTab}
+          paths={paths}
+          selectedPathId={selectedPathId}
+          scanning={scanning}
+          scanningAll={scanningAll}
+          allPathResults={allPathResults}
+          scanData={scanData}
+          scanResults={scanResults}
+          onPathClick={handlePathClick}
+          onRequestDeletePath={handleRequestDeletePath}
+        />
 
-            {/* Scan Results Section for Selected Path - Using RAG component */}
-            {scanData && scanResults && (
-              <Box sx={{ mt: 4 }}>
-                <ScanResultsDisplay
-                  scanResults={{
-                    data: scanData,
-                    totalFiles: scanResults.totalFiles,
-                    totalFolders: scanResults.totalFolders,
-                    source: scanResults.source || 'local',
-                    metadata: { source: scanResults.source || 'local' },
-                  }}
-                  showActionButtons={false}
-                />
-              </Box>
-            )}
-          </>
-        )}
-
-        {currentTab === 1 && (
-          <Box>
-            {scanningAll && (
-              <Paper sx={{ p: 4, textAlign: 'center', mb: 3 }}>
-                <CircularProgress sx={{ mb: 2 }} />
-                <Typography variant="body1" color="text.secondary">
-                  Scanning all paths...
-                </Typography>
-              </Paper>
-            )}
-            {!scanningAll && allPathResults.size === 0 && paths.length === 0 ? (
-              <Paper sx={{ p: 4, textAlign: 'center' }}>
-                <FolderIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-                  No paths configured
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Add a path above to get started
-                </Typography>
-              </Paper>
-            ) : !scanningAll && allPathResults.size === 0 ? (
-              <Paper sx={{ p: 4, textAlign: 'center' }}>
-                <FolderIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-                  No scan results yet
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Scanning paths...
-                </Typography>
-              </Paper>
-            ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', }}>
-                {Array.from(allPathResults.values()).map((pathResult, index) => (
-                  <Box key={pathResult.path.id}>
-                    <Paper sx={{ p: 2, borderRadius: 0, bgcolor: 'primary.dark', color: 'primary.contrastText' }}>
-                      <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                        {`${index + 1}. ${pathResult.path.name}`}
-                      </Typography>
-                      <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                        {pathResult.path.path}
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
-                        <Chip
-                          label={`Files: ${pathResult.results.totalFiles}`}
-                          size="small"
-                          sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
-                        />
-                        <Chip
-                          label={`Folders: ${pathResult.results.totalFolders}`}
-                          size="small"
-                          sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
-                        />
-                      </Box>
-                    </Paper>
-                    <ScanResultsDisplay
-                      scanResults={{
-                        data: pathResult.data,
-                        totalFiles: pathResult.results.totalFiles,
-                        totalFolders: pathResult.results.totalFolders,
-                        source: pathResult.results.source || 'local',
-                        metadata: { source: pathResult.results.source || 'local' },
-                      }}
-                      sx={(allPathResults?.size < index + 1)
-                        ? { borderRadius: 0 }
-                        : { borderRadius: 0, borderBottomLeftRadius: 4, borderBottomRightRadius: 4 }
-                      }
-                      areActionsEnabled={scanData?.fullPath === pathResult.data.fullPath}
-                    />
-                    {/* {index < allPathResults.size - 1 && <Divider sx={{ my: 4 }} />} */}
-                  </Box>
-                ))}
-              </Box>
-            )}
-          </Box>
-        )}
+        <DeleteConfirmDialog
+          open={confirmOpen}
+          title="Delete Path"
+          // message={`Are you sure you want to delete this path?`}
+          message={
+            pathToDelete
+              ? `Are you sure you want to delete "${pathToDelete.name} path"?`
+              : 'Are you sure you want to delete this path?'
+          }
+          // onCancel={() => setConfirmOpen(false)}
+          onCancel={handleCancelDelete}
+          onConfirm={handleConfirmDeletePath}
+        />
       </Box>
     </Box>
   )
