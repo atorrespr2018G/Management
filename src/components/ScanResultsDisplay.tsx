@@ -45,7 +45,7 @@ import { ScanResultsDisplayProps } from '@/types/components';
 import ScannedDirectoryStructureCard from './DirectoryStructure/ScannedDirectoryStructureCard';
 import NeoDirectoryStructureCard from './DirectoryStructure/NeoDirectoryStructureCard';
 import { useEffect, useState } from 'react';
-
+import { ActionButton } from './ui/ActionButton';
 
 const ScanResultsDisplay = ({
   scanResults,
@@ -365,14 +365,12 @@ const ScanResultsDisplay = ({
       }
 
       {/* Create Semantic Relationships Section - Only show when Graph badges are selected */}
-      {
-        neo4jDirectoryStructure && areActionsEnabled && (() => {
-          // Check if any files are selected for graph creation
-          const hasSelectedGraph = Object.values(selectedForGraph).some(selected => selected === true)
-          return hasSelectedGraph || hasEverCreatedGraph
-        })() && (
+      {neo4jDirectoryStructure && areActionsEnabled && (() => {
+        // Check if any files are selected for graph creation
+        const hasSelectedGraph = Object.values(selectedForGraph).some(selected => selected === true)
+        return hasSelectedGraph || hasEverCreatedGraph
+      })() && (
           <Card sx={{ mb: 3 }}>
-            {/* <Card sx={{ mt: 0 }}> */}
             <CardContent>
               <Box
                 sx={{
@@ -497,14 +495,21 @@ const ScanResultsDisplay = ({
                         Select a directory from the Neo4j structure above and create relationships
                       </Typography>
                     </Box>
-                    <Button
+                    {/* <Button
                       variant="contained"
                       onClick={() => handleCreateSemanticRelationships(neo4jDirectoryStructure)}
                       disabled={isCreatingRelationships}
                       startIcon={isCreatingRelationships ? <CircularProgress size={20} /> : <NetworkIcon />}
                     >
                       {isCreatingRelationships ? 'Creating...' : 'Create Graph'}
-                    </Button>
+                    </Button> */}
+                    <ActionButton
+                      label="Create Graph"
+                      loadingLabel="Creating..."
+                      loading={isCreatingRelationships}
+                      onClick={() => handleCreateSemanticRelationships(neo4jDirectoryStructure)}
+                      icon={<NetworkIcon />}
+                    />
                   </Box>
                 </Grid>
               </Grid>

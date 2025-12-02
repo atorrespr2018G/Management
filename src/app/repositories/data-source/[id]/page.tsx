@@ -36,6 +36,7 @@ import ScanResultsDisplay from '@/components/ScanResultsDisplay'
 import { TimedAlert } from '@/components/TimedAlert'
 import { ConnectorTabContent } from '@/components/ConnectorTabContent'
 import DeleteConfirmDialog from '@/components/DeleteConfirmDialog'
+import { ActionButton } from '@/components/ui/ActionButton'
 
 
 export default function ConnectorDetailPage() {
@@ -427,19 +428,16 @@ export default function ConnectorDetailPage() {
               }}
             />
 
-            <Button
+            <ActionButton
+              label="Add & Scan"
               variant="contained"
-              startIcon={saving || scanning ? <CircularProgress size={20} /> : <AddIcon />}
+              icon={<AddIcon />}
               onClick={handleAddPath}
-              disabled={saving || scanning || !newPath.trim()
-                // || !newPath.includes('C:\\') || !newPath.includes('D:\\')
-              }
+              disabled={saving || scanning || !newPath.trim()}
+              loading={saving || scanning}
+              loadingLabel={scanning ? 'Scanning...' : 'Adding...'}
               sx={{ minWidth: 120, ml: 2, alignSelf: 'stretch' }}
-            >
-              <Typography sx={{ whiteSpace: 'nowrap' }}>
-                {scanning ? 'Scanning...' : (saving ? 'Adding...' : 'Add & Scan')}
-              </Typography>
-            </Button>
+            />
           </Box>
 
           <Typography

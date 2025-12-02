@@ -35,6 +35,7 @@ import { TimedAlert } from '@/components/TimedAlert';
 import type { AlertColor } from '@mui/material/Alert';
 import { useMachineId } from '@/hooks/useMachineId';
 import { DirectoryStructureContainer } from './DirectoryStructureContainer';
+import { ActionButton } from '../ui/ActionButton';
 
 const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, areActionsEnabled, onResetNeoStatus }: {
     fetchNeo4jStructure: () => Promise<void>,
@@ -282,57 +283,48 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, ar
                 {areActionsEnabled && (
                     <>
                         {/* Upload Docs */}
-                        <Button
-                            sx={{ mr: 1, px: 1.3 }}
+                        <ActionButton
+                            label="Docs"
+                            count={uploadableCount}
                             variant="contained"
                             size="large"
-                            startIcon={!isUploading && <FileUploadIcon fontSize="small" />}
+                            icon={<FileUploadIcon fontSize="small" />}
                             onClick={() => handleUploadDirectory(directoryNode)}
                             disabled={uploadableCount === 0 || isUploading}
-                        >
-                            {isUploading ? (
-                                <Stack direction="row" spacing={1} alignItems="center">
-                                    <CircularProgress size={16} />
-                                    <Typography variant="caption">
-                                        Uploading… {uploadProgress.done}/{uploadProgress.total}
-                                    </Typography>
-                                </Stack>
-                            ) : (`Docs (${uploadableCount})`)}
-                        </Button>
-                        <Button
-                            sx={{ mr: 1, px: 1.3 }}
+                            loading={isUploading}
+                            loadingLabel={`Uploading… ${uploadProgress.done}/${uploadProgress.total}`}
+                            sx={{ mr: 1, }}
+                        />
+
+                        <ActionButton
+                            label="File"
+                            count={deleteFilesCount}
                             variant="outlined"
                             size="large"
                             color="error"
                             onClick={() => handleDeleteFiles(directoryNode)}
                             disabled={isUploading || (deleteFilesCount === 0 || isDeletingChunks[directoryPath])}
-                            startIcon={
-                                isDeletingChunks[directoryPath] ? <CircularProgress size={16} /> : <DeleteIcon />
-                            }
-                        >
-                            {isDeletingChunks[directoryPath] ? 'Deleting File…' : `File (${deleteFilesCount})`}
-                        </Button>
+                            loading={isDeletingChunks[directoryPath]}
+                            loadingLabel="Deleting File…"
+                            icon={<DeleteIcon />}
+                            sx={{ mr: 1, }}
+                        />
 
                         {/* Delete Graph (relationships only) */}
-                        <Button
-                            sx={{ mr: 1, px: 1.3 }}
+                        <ActionButton
+                            label="Graph"
+                            count={deleteGraphsCount}
                             variant="outlined"
                             size="large"
                             color="error"
                             onClick={() => handleDeleteGraphs(directoryNode)}
                             disabled={deleteGraphsCount === 0 || isDeletingRelationships[directoryPath]}
-                            startIcon={
-                                isDeletingRelationships[directoryPath] ? (
-                                    <CircularProgress size={16} />
-                                ) : (
-                                    <DeleteIcon />
-                                )
-                            }
-                        >
-                            {isDeletingRelationships[directoryPath]
-                                ? 'Deleting Graph…'
-                                : `Graph (${deleteGraphsCount})`}
-                        </Button>
+                            loading={isDeletingRelationships[directoryPath]}
+                            loadingLabel="Deleting Graph…"
+                            icon={<DeleteIcon />}
+                            sx={{ mr: 1, }}
+
+                        />
                     </>
                 )}
             </>
