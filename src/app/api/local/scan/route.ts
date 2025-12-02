@@ -3,6 +3,7 @@ import { promises as fs } from 'fs'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { createHash } from 'crypto'
+import { ScanResult } from '@/types/scanner';
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,8 +33,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ Scan completed! Found ${totalFiles} files and ${totalFolders} folders`)
 
-    return NextResponse.json({
-      success: true,
+    const result: ScanResult = {
       data: fileStructure,
       metadata: {
         source: 'local',
@@ -41,8 +41,11 @@ export async function POST(request: NextRequest) {
         totalFiles,
         totalFolders,
       },
-      totalFiles,
-      totalFolders,
+    }
+
+    return NextResponse.json({
+      success: true,
+      ...result
     })
   } catch (error) {
     console.error('Error scanning local directory:', error)
@@ -66,7 +69,7 @@ async function scanDirectory(dirPath: string, rootPath: string): Promise<any> {
 
   if (stats.isFile()) {
     const relativePath = path.relative(rootPath, dirPath)
-    
+
     // Calculate file hash (SHA256) for content identification
     let fileHash: string | undefined
     try {
@@ -76,7 +79,7 @@ async function scanDirectory(dirPath: string, rootPath: string): Promise<any> {
       console.warn(`⚠️ Could not calculate hash for ${dirPath}:`, error)
       // Continue without hash if file read fails (e.g., permission denied)
     }
-    
+
     return {
       id: uuidv4(),
       type: 'file',
@@ -135,4 +138,3 @@ function countFolders(node: any): number {
   if (node.type === 'file') return 0
   return node.children.reduce((sum: number, child: any) => sum + countFolders(child) + 1, 0)
 }
-

@@ -4,12 +4,12 @@ import React from 'react'
 import { Button, ButtonProps } from '@mui/material'
 import Link from 'next/link'
 
-interface ActionButtonProps extends ButtonProps {
+interface NavButtonProps extends ButtonProps {
   href?: string
   children: React.ReactNode
 }
 
-export default function ActionButton({ href, children, ...props }: ActionButtonProps) {
+export default function NavButton({ href, children, ...props }: NavButtonProps) {
   if (href) {
     return (
       <Button component={Link} href={href} variant="contained" size="large" {...props}>

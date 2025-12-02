@@ -3,8 +3,8 @@
 import { useCallback, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
-import type { FileStructure, UseNeo4jStructureOptions } from '@/types/neo4j';
-import { buildStableId } from '@/utils/treeHelpers';
+import type { ChangedReason, FileStructure, UseNeo4jStructureOptions } from '@/types/neo4j';
+import { buildStableId } from '@/utils/treeUtils';
 import {
     getDirectoryFromNeo4j,
     getFileRagStatus,
@@ -19,9 +19,6 @@ import {
     setChangedFiles,
     setRelationshipStatusForFile,
 } from '@/store/slices/neoSlice';
-
-type ChangedReason = 'metadata' | 'content' | 'new';
-
 
 
 /**
@@ -115,7 +112,14 @@ export const useNeo4jStructure = ({ machineId, node }: UseNeo4jStructureOptions)
                 };
 
                 compareStructures(node, result.structure);
-                dispatch(setChangedFiles(changedMap));
+
+                // dispatch(setChangedFiles(changedMap));
+                // Convert changedMap to boolean values for Redux state
+                const changedFilesBoolean: Record<string, boolean> = {};
+                Object.keys(changedMap).forEach(key => {
+                    changedFilesBoolean[key] = true;
+                });
+                dispatch(setChangedFiles(changedFilesBoolean));
 
                 // 3) Fetch RAG + relationship statuses for all files
                 const fetchRagAndRelationshipStatuses = async (node: FileStructure) => {

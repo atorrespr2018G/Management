@@ -1,5 +1,5 @@
 import type { FileStructure } from './neo4j';
-import type { ScanResult, ScanResults } from './scanner';
+import type { ScanResult } from './scanner';
 
 export interface ScannedDirectoryStructureCardProps {
     /** Root of the scanned directory tree */
@@ -17,7 +17,7 @@ export interface ScannedDirectoryStructureCardProps {
 }
 
 export interface ScanResultsDisplayProps {
-    scanResults: ScanResults
+    scanResults: ScanResult
     onClearResults?: () => void
     onScanAgain?: () => void
     sx?: {}

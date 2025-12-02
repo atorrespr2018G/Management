@@ -1,34 +1,77 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { FileStructure } from '@/types/neo4j';
-import { buildStableId } from '@/utils/treeHelpers';
+import { getDescendantFileIds } from '@/utils/treeUtils';
 
-// Get all descendant file IDs (recursive)
-const getDescendantFileIds = (node: FileStructure, machineId: string) => {
-    const ids = [];
-    if (node.type === 'file') {
-        ids.push(buildStableId(machineId, node));
-    }
-    if (node.children) {
-        node.children.forEach((child: FileStructure) => {
-            ids.push(...getDescendantFileIds(child, machineId));
-        });
-    }
-    return ids;
-};
+// ============================================================================
+// Type Definitions
+// ============================================================================
 
-const initialState = {
+export interface RelationshipSettings {
+    similarity_threshold: number;
+    top_k: number;
+    same_directory_only: boolean;
+    same_document_only: boolean;
+}
+
+export interface UploadProgress {
+    done: number;
+    total: number;
+    totalChunks: number;
+}
+
+export interface NeoState {
+    // Directory structure
+    neo4jDirectoryStructure: FileStructure | null;
+    isLoadingNeo4jStructure: boolean;
+
+    // RAG (Retrieval-Augmented Generation) state
+    selectedForRag: Record<string, boolean>; // key: machineId:fullPath -> boolean
+    ragStatuses: Record<string, string>; // key: machineId:fullPath -> 'complete' | 'partial' | 'none'
+
+    // Upload state
+    uploadStatus: Record<string, string>; // key: directory id/fullPath -> message
+    uploadProgress: UploadProgress;
+    isUploading: boolean;
+
+    // Graph relationship state
+    selectedForGraph: Record<string, boolean>;
+    hasEverCreatedGraph: boolean;
+    relationshipStatuses: Record<string, boolean>;
+    relationshipSettings: RelationshipSettings;
+    isCreatingRelationships: boolean;
+    relationshipStatus: Record<string, string>;
+
+    // Delete state
+    selectedForDelete: Record<string, boolean>;
+    selectedForDeleteRelationships: Record<string, boolean>;
+    isDeletingChunks: Record<string, boolean>;
+    isDeletingRelationships: Record<string, boolean>;
+    deleteStatus: Record<string, string>;
+
+    // File change tracking
+    changedFiles: Record<string, boolean>;
+
+    // Error state
+    error: string | null;
+}
+
+// ============================================================================
+// Initial State
+// ============================================================================
+
+const initialState: NeoState = {
     neo4jDirectoryStructure: null,
     isLoadingNeo4jStructure: false,
-    selectedForRag: {} as Record<string, boolean>, // key: machineId:fullPath -> boolean
-    ragStatuses: {} as Record<string, string>,    // key: machineId:fullPath -> 'complete' | 'partial' | 'none'
-    uploadStatus: {} as Record<string, string>,   // key: directory id/fullPath -> message
-    uploadProgress: { done: 0, total: 0, totalChunks: 0 }, // Upload progress tracking
+    selectedForRag: {},
+    ragStatuses: {},
+    uploadStatus: {},
+    uploadProgress: { done: 0, total: 0, totalChunks: 0 },
     isUploading: false,
-    selectedForGraph: {} as Record<string, boolean>,
+    selectedForGraph: {},
     hasEverCreatedGraph: false,
-    selectedForDelete: {} as Record<string, boolean>,
-    selectedForDeleteRelationships: {} as Record<string, boolean>,
-    relationshipStatuses: {} as Record<string, boolean>,
+    selectedForDelete: {},
+    selectedForDeleteRelationships: {},
+    relationshipStatuses: {},
     relationshipSettings: {
         similarity_threshold: 0.7,
         top_k: 10,
@@ -36,108 +79,115 @@ const initialState = {
         same_document_only: false,
     },
     isCreatingRelationships: false,
-    relationshipStatus: {} as Record<string, string>,
-    isDeletingChunks: {} as Record<string, boolean>,
-    isDeletingRelationships: {} as Record<string, boolean>,
-    deleteStatus: {} as Record<string, string>,
-    changedFiles: {} as Record<string, boolean>,
+    relationshipStatus: {},
+    isDeletingChunks: {},
+    isDeletingRelationships: {},
+    deleteStatus: {},
+    changedFiles: {},
     error: null,
 };
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Updates selection state for a node and its descendants (for directories)
+ */
+function updateNodeSelection(
+    state: NeoState,
+    node: FileStructure,
+    machineId: string,
+    stableId: string,
+    newSelected: boolean
+): void {
+    if (node.type === 'directory') {
+        // For folders, select/deselect all descendants
+        const descendantIds = getDescendantFileIds(node, machineId);
+        descendantIds.forEach(id => {
+            state.selectedForRag[id] = newSelected;
+        });
+        // Also select the folder itself
+        state.selectedForRag[stableId] = newSelected;
+    } else {
+        // For files, just toggle
+        state.selectedForRag[stableId] = newSelected;
+    }
+}
+
+// ============================================================================
+// Slice Definition
+// ============================================================================
 
 const neoSlice = createSlice({
     name: 'neo',
     initialState,
     reducers: {
-        setNeo4jDirectoryStructure: (state, action) => {
+        // Directory structure
+        setNeo4jDirectoryStructure: (state, action: PayloadAction<FileStructure | null>) => {
             state.neo4jDirectoryStructure = action.payload;
         },
-        setSelectedForRag: (state: any, action) => {
-            if (Object.keys(action.payload).length > 0) {
-                // console.log('action.payload', action.payload)
-                const { node, machineId, stableId, newSelected } = action.payload;
 
-                // console.log('\nsetSelectedForRag: node', node)
-                // return next;
-                if (node.type === 'directory') {
-                    // For folders, select/deselect all descendants
-                    const descendantIds = getDescendantFileIds(node, machineId);
-                    // console.log('descendantIds', descendantIds)
-                    descendantIds.forEach(id => {
-                        state.selectedForRag[id] = newSelected;
-                    });
-                    // Also select the folder itself
-                    state.selectedForRag[stableId] = newSelected;
-                } else {
-                    // For files, just toggle
-                    state.selectedForRag[stableId] = newSelected;
-                }
-
-                // console.log('state.selectedForRag', state.selectedForRag)
-                // state.selectedForRag = action.payload;
-            }
-            else state.selectedForRag = {}
+        setIsLoadingNeo4jStructure: (state, action: PayloadAction<boolean>) => {
+            state.isLoadingNeo4jStructure = action.payload;
         },
-        setRagStatuses: (state: any, action) => {
-            const { fileKey, status } = action.payload
+
+        // RAG selection
+        setSelectedForRag: (
+            state,
+            action: PayloadAction<{
+                node: FileStructure;
+                machineId: string;
+                stableId: string;
+                newSelected: boolean;
+            } | Record<string, never>>
+        ) => {
+            if (Object.keys(action.payload).length > 0) {
+                const { node, machineId, stableId, newSelected } = action.payload as {
+                    node: FileStructure;
+                    machineId: string;
+                    stableId: string;
+                    newSelected: boolean;
+                };
+                updateNodeSelection(state, node, machineId, stableId, newSelected);
+            } else {
+                state.selectedForRag = {};
+            }
+        },
+
+        setRagStatuses: (
+            state,
+            action: PayloadAction<{ fileKey: string; status: string }>
+        ) => {
+            const { fileKey, status } = action.payload;
             state.ragStatuses[fileKey] = status;
         },
-        setUploadStatus: (state, action) => {
-            // state.uploadStatus = action.payload;
+
+        // Upload state
+        setUploadStatus: (
+            state,
+            action: PayloadAction<{ directoryNode: FileStructure; status: string }>
+        ) => {
             const { directoryNode, status } = action.payload;
             const key = directoryNode.fullPath || directoryNode.id;
+            state.uploadStatus[key] = status;
+        },
 
-            state.uploadStatus = {
-                ...state.uploadStatus,
-                [key]: status,
-            };
+        setUploadProgress: (state, action: PayloadAction<UploadProgress>) => {
+            state.uploadProgress = action.payload;
         },
-        setUploadProgress: (state, action) => {
-            // state.uploadProgress = action.payload;
-            console.log('-payload', action.payload)
 
-            const { done, total, totalChunks } = action.payload;
-            state.uploadProgress = {
-                ...state.uploadProgress,
-                done,
-                total,
-                totalChunks,
-            };
+        setIsUploading: (state, action: PayloadAction<boolean>) => {
+            state.isUploading = action.payload;
         },
-        setIsUploading: (state, action) => {
-            state.isUploading = action.payload as boolean;
-        },
+
         resetUploadProgress: (state) => {
             state.uploadProgress = { done: 0, total: 0, totalChunks: 0 };
         },
-        setIsLoadingNeo4jStructure: (state, action) => {
-            state.isLoadingNeo4jStructure = action.payload;
-        },
-        setSelectedForGraph: (state, action) => {
-            // payload: Record<string, boolean>
+
+        // Graph selection
+        setSelectedForGraph: (state, action: PayloadAction<Record<string, boolean>>) => {
             state.selectedForGraph = action.payload;
-        },
-        setHasEverCreatedGraph(state, action) {
-            state.hasEverCreatedGraph = action.payload;
-        },
-        setSelectedForDelete: (state, action) => {
-            // payload: Record<string, boolean>
-            state.selectedForDelete = action.payload;
-        },
-        setSelectedForDeleteRelationships: (state, action) => {
-            // payload: Record<string, boolean>
-            state.selectedForDeleteRelationships = action.payload;
-        },
-        setRelationshipStatuses: (state, action) => {
-            // payload: Record<string, boolean>  (full map)
-            state.relationshipStatuses = action.payload;
-        },
-        // Better: update ONE key
-        setRelationshipStatusForFile: (
-            state,
-            action: PayloadAction<{ fileKey: string; hasRelationships: boolean }>
-        ) => {
-            const { fileKey, hasRelationships } = action.payload;
-            state.relationshipStatuses[fileKey] = hasRelationships;
         },
 
         toggleSelectedForGraph: (
@@ -148,48 +198,78 @@ const neoSlice = createSlice({
             state.selectedForGraph[stableId] = !state.selectedForGraph[stableId];
         },
 
-        setRelationshipSettings: (state, action) => {
-            // payload: Partial<typeof state.relationshipSettings>
+        setHasEverCreatedGraph: (state, action: PayloadAction<boolean>) => {
+            state.hasEverCreatedGraph = action.payload;
+        },
+
+        // Relationship state
+        setRelationshipStatuses: (state, action: PayloadAction<Record<string, boolean>>) => {
+            state.relationshipStatuses = action.payload;
+        },
+
+        setRelationshipStatusForFile: (
+            state,
+            action: PayloadAction<{ fileKey: string; hasRelationships: boolean }>
+        ) => {
+            const { fileKey, hasRelationships } = action.payload;
+            state.relationshipStatuses[fileKey] = hasRelationships;
+        },
+
+        setRelationshipSettings: (state, action: PayloadAction<Partial<RelationshipSettings>>) => {
             state.relationshipSettings = {
                 ...state.relationshipSettings,
                 ...action.payload,
             };
         },
-        setIsCreatingRelationships: (state, action) => {
-            // payload: boolean
+
+        setIsCreatingRelationships: (state, action: PayloadAction<boolean>) => {
             state.isCreatingRelationships = action.payload;
         },
-        setRelationshipStatus: (state, action) => {
-            // payload: Record<string, string> (full map)
+
+        setRelationshipStatus: (state, action: PayloadAction<Record<string, string>>) => {
             state.relationshipStatus = action.payload;
         },
-        setIsDeletingChunks: (state, action) => {
-            // payload: Record<string, boolean> (full map)
+
+        // Delete state
+        setSelectedForDelete: (state, action: PayloadAction<Record<string, boolean>>) => {
+            state.selectedForDelete = action.payload;
+        },
+
+        setSelectedForDeleteRelationships: (state, action: PayloadAction<Record<string, boolean>>) => {
+            state.selectedForDeleteRelationships = action.payload;
+        },
+
+        setIsDeletingChunks: (state, action: PayloadAction<Record<string, boolean>>) => {
             state.isDeletingChunks = action.payload;
         },
-        setIsDeletingRelationships: (state, action) => {
-            // payload: Record<string, boolean> (full map)
+
+        setIsDeletingRelationships: (state, action: PayloadAction<Record<string, boolean>>) => {
             state.isDeletingRelationships = action.payload;
         },
-        setDeleteStatus: (state, action) => {
-            // payload: Record<string, string> (full map)
+
+        setDeleteStatus: (state, action: PayloadAction<Record<string, string>>) => {
             state.deleteStatus = action.payload;
         },
-        setChangedFiles: (state, action) => {
+
+        // File change tracking
+        setChangedFiles: (state, action: PayloadAction<Record<string, boolean>>) => {
             state.changedFiles = action.payload;
         },
+
         removeChangedFiles: (state, action: PayloadAction<{ stableIds: string[] }>) => {
             const { stableIds } = action.payload;
             stableIds.forEach((id) => {
                 delete state.changedFiles[id];
             });
         },
+
+        // Status management
         clearStatusForDirectory: (state, action: PayloadAction<string>) => {
-            console.log('clearState key?', action.payload)
             const key = action.payload;
             delete state.uploadStatus[key];
-            // delete state.deleteStatus[key];
         },
+
+        // Reset state
         clearNeoResults: (state) => {
             state.selectedForRag = {};
             state.ragStatuses = {};
@@ -212,10 +292,13 @@ const neoSlice = createSlice({
             state.deleteStatus = {};
             state.changedFiles = {};
             state.error = null;
-
         },
     },
 });
+
+// ============================================================================
+// Exports
+// ============================================================================
 
 export const {
     setNeo4jDirectoryStructure,

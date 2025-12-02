@@ -1,22 +1,21 @@
 import { configureStore } from '@reduxjs/toolkit'
 import counterReducer from './slices/counterSlice'
-import userReducer from './slices/userSlice'
-import scannerReducer from './slices/scannerSlice'
 import machineReducer from './slices/machineSlice'
+import scannerReducer from './slices/scannerSlice'
 import neoReducer from './slices/neoSlice'
+import userReducer from './slices/userSlice'
+import chatReducer from './slices/chatSlice'
 
 export const store = configureStore({
   reducer: {
     counter: counterReducer,
-    user: userReducer,
-    scanner: scannerReducer,
     machine: machineReducer,
-    neo: neoReducer
+    scanner: scannerReducer,
+    neo: neoReducer,
+    user: userReducer,
+    chat: chatReducer,
   },
 })
 
 export type RootState = ReturnType<typeof store.getState>
 export type AppDispatch = typeof store.dispatch
-
-
-

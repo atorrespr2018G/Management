@@ -48,9 +48,8 @@ import {
   deleteTable,
   type SchemaMetadataUpdate,
   type MetricDefinitionRequest,
-  type DatabaseConfigRequest,
 } from '@/services/neo4jApi'
-import type { DatabaseConfig, SchemaInfo, TableInfo, ColumnInfo } from '@/types/neo4j'
+import type { DatabaseConfig, SchemaInfo, TableInfo, ColumnInfo, DatabaseConfigRequest } from '@/types/neo4j'
 
 export default function DatabaseDetailPage() {
   const router = useRouter()
@@ -70,7 +69,7 @@ export default function DatabaseDetailPage() {
   const [schemaInfo, setSchemaInfo] = useState<SchemaInfo | null>(null)
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
   const [jsonSchema, setJsonSchema] = useState('')
-  
+
   // Edit config dialog
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editUseEnv, setEditUseEnv] = useState(true) // Track which edit mode (.env or stored)
@@ -84,7 +83,7 @@ export default function DatabaseDetailPage() {
     password: '',
     schema_name: '',
   })
-  
+
   // Enrichment dialogs
   const [enrichmentDialogOpen, setEnrichmentDialogOpen] = useState(false)
   const [enrichmentElement, setEnrichmentElement] = useState<{ type: string; id: string; name: string } | null>(null)
@@ -93,7 +92,7 @@ export default function DatabaseDetailPage() {
     synonyms: [],
     domain: '',
   })
-  
+
   // Metric dialog
   const [metricDialogOpen, setMetricDialogOpen] = useState(false)
   const [metricData, setMetricData] = useState<{
@@ -122,7 +121,7 @@ export default function DatabaseDetailPage() {
       setError(null)
       const dbConfig = await getDatabaseConfig(dbId)
       setConfig(dbConfig)
-      
+
       // Also load existing schema if available
       try {
         const schema = await getDatabaseSchema(dbId)
@@ -150,7 +149,7 @@ export default function DatabaseDetailPage() {
     try {
       const result = await introspectDatabaseSchema(dbId, false)
       setSchemaInfo(result.schema_info)
-        alert(`Schema discovered successfully! Found ${result.schema_info.tables.length} tables.`)
+      alert(`Schema discovered successfully! Found ${result.schema_info.tables.length} tables.`)
     } catch (err: any) {
       console.error('Failed to discover schema:', err)
       setError('Failed to discover schema: ' + (err.message || 'Unknown error'))
@@ -208,7 +207,7 @@ export default function DatabaseDetailPage() {
       // Get schema elements to find the element ID
       const elements = await getSchemaElements(dbId, elementType)
       let element: any
-      
+
       if (elementType === 'column' && tableName) {
         // For columns, find by name and table name
         element = elements.elements.find((e: any) => e.name === elementName && e.table_name === tableName)
@@ -216,13 +215,13 @@ export default function DatabaseDetailPage() {
         // For tables, find by name
         element = elements.elements.find((e: any) => e.name === elementName)
       }
-      
+
       if (!element) {
         // If not found via API, construct ID based on backend format
         // This is a fallback - ideally the element should be in the API response
         const schemaName = schemaInfo.schema_name || 'public'
         let elementId: string
-        
+
         if (elementType === 'table') {
           // Table ID format: {db_node_id}_schema_{schema_name}_table_{table_name}
           // We'll need to construct this, but for now try to find it
@@ -271,7 +270,7 @@ export default function DatabaseDetailPage() {
       await updateSchemaMetadata(dbId, enrichmentElement.type, enrichmentElement.id, metadata)
       setEnrichmentDialogOpen(false)
       alert('Metadata updated successfully!')
-      
+
       // Reload schema elements to show updated data
       if (schemaInfo) {
         const elements = await getSchemaElements(dbId, enrichmentElement.type)
@@ -449,10 +448,10 @@ export default function DatabaseDetailPage() {
         ...editConfig,
         name: editConfig.name || 'Test Connection',
       }
-      
+
       // First create/update the config
       const updatedConfig = await updateDatabaseConfig(dbId, tempConfig)
-      
+
       // Then test the connection with the specified method
       const result = await testDatabaseConnection(updatedConfig.id, useEnv)
       if (result.success) {

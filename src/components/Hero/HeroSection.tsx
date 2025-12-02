@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { Box, Typography, Container, Grid, useTheme } from '@mui/material'
-import ActionButton from '../Buttons/ActionButton'
+import NavButton from '../Buttons/NavButton'
 
 interface HeroSectionProps {
   title: string
@@ -52,16 +52,16 @@ export default function HeroSection({
             </Typography>
             <Box sx={{ mt: 4, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               {primaryAction && (
-                <ActionButton href={primaryAction.href}>{primaryAction.label}</ActionButton>
+                <NavButton href={primaryAction.href}>{primaryAction.label}</NavButton>
               )}
               {secondaryAction && (
-                <ActionButton
+                <NavButton
                   href={secondaryAction.href}
                   variant="outlined"
                   color="primary"
                 >
                   {secondaryAction.label}
-                </ActionButton>
+                </NavButton>
               )}
             </Box>
           </Grid>

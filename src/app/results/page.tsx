@@ -38,13 +38,7 @@ export default function ResultsPage() {
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <ScanResultsDisplay
-        scanResults={{
-          data: scanResults.data,
-          totalFiles: scanResults.totalFiles,
-          totalFolders: scanResults.totalFolders,
-          source: scanResults.source,
-          metadata: scanResults.metadata,
-        }}
+        scanResults={scanResults}
         areActionsEnabled={true}
         onClearResults={() => dispatch(clearResults())}
         onScanAgain={() => router.push('/scanner')}

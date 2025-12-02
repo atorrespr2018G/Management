@@ -24,7 +24,7 @@ import UploadIcon from '@mui/icons-material/Upload'
 import NetworkIcon from '@mui/icons-material/AccountTree'
 import { useMachineId } from '@/hooks/useMachineId'
 import type { FileStructure } from '@/types/neo4j'
-import { buildStableId } from '@/utils/treeHelpers'
+import { buildStableId } from '@/utils/treeUtils'
 import {
   getFileRelationshipStatus,
   createSemanticRelationships,
@@ -45,7 +45,7 @@ import { ScanResultsDisplayProps } from '@/types/components';
 import ScannedDirectoryStructureCard from './DirectoryStructure/ScannedDirectoryStructureCard';
 import NeoDirectoryStructureCard from './DirectoryStructure/NeoDirectoryStructureCard';
 import { useEffect, useState } from 'react';
-
+import { ActionButton } from './ui/ActionButton';
 
 const ScanResultsDisplay = ({
   scanResults,
@@ -268,8 +268,6 @@ const ScanResultsDisplay = ({
     }
   }
 
-  // }
-
   return (
     <Box sx={{ p: 1, bgcolor: 'background.default', borderRadius: 2, ...sx }} >
       {/* Header */}
@@ -279,7 +277,7 @@ const ScanResultsDisplay = ({
             Scan Results
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Source: {scanResults.source || 'local'}
+            Source: {scanResults.metadata?.source || 'local'}
           </Typography>
         </Box>
       </Box>
@@ -293,7 +291,7 @@ const ScanResultsDisplay = ({
                 Total Files
               </Typography>
               <Typography variant="h3" sx={{ fontWeight: 'bold', color: 'primary.700' }}>
-                {scanResults.totalFiles || 0}
+                {scanResults.metadata?.totalFiles || 0}
               </Typography>
             </CardContent>
           </Card>
@@ -305,7 +303,7 @@ const ScanResultsDisplay = ({
                 Total Folders
               </Typography>
               <Typography variant="h3" sx={{ fontWeight: 'bold', color: 'success.700' }}>
-                {scanResults.totalFolders || 0}
+                {scanResults.metadata?.totalFolders || 0}
               </Typography>
             </CardContent>
           </Card>
@@ -317,7 +315,7 @@ const ScanResultsDisplay = ({
                 Source Type
               </Typography>
               <Typography variant="h3" sx={{ fontWeight: 'bold', color: 'info.700', textTransform: 'capitalize' }}>
-                {scanResults.source || 'Local'}
+                {scanResults.metadata?.source || 'Local'}
               </Typography>
             </CardContent>
           </Card>
@@ -367,14 +365,12 @@ const ScanResultsDisplay = ({
       }
 
       {/* Create Semantic Relationships Section - Only show when Graph badges are selected */}
-      {
-        neo4jDirectoryStructure && areActionsEnabled && (() => {
-          // Check if any files are selected for graph creation
-          const hasSelectedGraph = Object.values(selectedForGraph).some(selected => selected === true)
-          return hasSelectedGraph || hasEverCreatedGraph
-        })() && (
+      {neo4jDirectoryStructure && areActionsEnabled && (() => {
+        // Check if any files are selected for graph creation
+        const hasSelectedGraph = Object.values(selectedForGraph).some(selected => selected === true)
+        return hasSelectedGraph || hasEverCreatedGraph
+      })() && (
           <Card sx={{ mb: 3 }}>
-            {/* <Card sx={{ mt: 0 }}> */}
             <CardContent>
               <Box
                 sx={{
@@ -499,14 +495,21 @@ const ScanResultsDisplay = ({
                         Select a directory from the Neo4j structure above and create relationships
                       </Typography>
                     </Box>
-                    <Button
+                    {/* <Button
                       variant="contained"
                       onClick={() => handleCreateSemanticRelationships(neo4jDirectoryStructure)}
                       disabled={isCreatingRelationships}
                       startIcon={isCreatingRelationships ? <CircularProgress size={20} /> : <NetworkIcon />}
                     >
                       {isCreatingRelationships ? 'Creating...' : 'Create Graph'}
-                    </Button>
+                    </Button> */}
+                    <ActionButton
+                      label="Create Graph"
+                      loadingLabel="Creating..."
+                      loading={isCreatingRelationships}
+                      onClick={() => handleCreateSemanticRelationships(neo4jDirectoryStructure)}
+                      icon={<NetworkIcon />}
+                    />
                   </Box>
                 </Grid>
               </Grid>
@@ -617,4 +620,5 @@ const ScanResultsDisplay = ({
     </Box >
   )
 }
+
 export default ScanResultsDisplay

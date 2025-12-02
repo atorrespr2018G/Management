@@ -7,6 +7,8 @@ export interface UseNeo4jStructureOptions {
   node?: FileStructure | null;
 }
 
+export type ChangedReason = 'metadata' | 'content' | 'new';
+
 export interface UseStoreDirectoryInNeo4jOptions {
   scanData: FileStructure | null;
   metadata?: Record<string, any>;
@@ -33,6 +35,7 @@ export interface FileStructure {
   extension?: string;
   createdAt?: string;
   source?: string;
+  neo4jId?: string; // Neo4j node ID for tracking
 }
 
 export interface GraphStats {

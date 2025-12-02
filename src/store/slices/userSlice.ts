@@ -28,10 +28,22 @@ const userSlice = createSlice({
       state.currentUser = null
       state.isAuthenticated = false
     },
+    // Initialize a simulated user ID for chat sessions
+    initSimulatedUser: (state) => {
+      if (typeof window !== 'undefined') {
+        let userId = localStorage.getItem('simulated_user_id');
+        if (!userId) {
+          userId = crypto.randomUUID();
+          localStorage.setItem('simulated_user_id', userId);
+        }
+        // We can store this in a separate field if needed, but for now let's just ensure it exists
+        // or we could add a 'simulatedUserId' field to the state if we want to track it in Redux
+      }
+    }
   },
 })
 
-export const { setUser, clearUser } = userSlice.actions
+export const { setUser, clearUser, initSimulatedUser } = userSlice.actions
 export default userSlice.reducer
 
 
