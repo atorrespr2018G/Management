@@ -38,6 +38,7 @@ export const getFileIcon = (extension: string): string => {
   if (['.pdf'].includes(ext)) return 'pdf';
   if (['.doc', '.docx'].includes(ext)) return 'word';
   if (['.xls', '.xlsx'].includes(ext)) return 'excel';
+  if (['.pptx'].includes(ext)) return 'powerpoint';
   if (['.zip', '.rar', '.7z'].includes(ext)) return 'archive';
   if (['.mp4', '.avi', '.mov', '.wmv'].includes(ext)) return 'video';
   if (['.mp3', '.wav', '.flac'].includes(ext)) return 'audio';
