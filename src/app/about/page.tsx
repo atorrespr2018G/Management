@@ -14,7 +14,7 @@ export default function AboutPage() {
           About Us
         </Typography>
         <Typography variant="h6" color="text.secondary">
-          Learn more about our mission and values
+          Learn more about our mission, our history, and our values
         </Typography>
       </Box>
 
