@@ -87,7 +87,7 @@ export default function Header({ onMenuClick, sidebarOpen = false }: HeaderProps
           </Box>
           {sidebarOpen && (
             <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.5rem' }}>
-              RAG Management
+              RAG Management Tool
             </Typography>
           )}
         </Box>
