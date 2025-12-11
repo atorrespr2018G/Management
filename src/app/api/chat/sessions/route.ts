@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     try {
         // const sessions = await ChatService.getSessions(userId);
         // Proxy to Agent backend
-        const response = await fetch(`${AGENT_API_URL}/api/sessions?user_id=${userId}`);
+        const response = await fetch(`${AGENT_API_URL}/api/chat/sessions?user_id=${userId}`);
 
         if (!response.ok) {
             const error = await response.json().catch(() => ({ detail: 'Failed to fetch sessions' }));
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
         // const session = await ChatService.createSession(user_id);
         // Proxy to Agent backend
-        const response = await fetch(`${AGENT_API_URL}/api/sessions`, {
+        const response = await fetch(`${AGENT_API_URL}/api/chat/sessions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ user_id, title: title || 'New Chat' })

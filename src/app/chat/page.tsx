@@ -29,7 +29,7 @@ import { ChatMessage, ChatResponse, Source } from '@/types/chat'
 import { useDispatch, useSelector } from 'react-redux'
 import { AppDispatch, RootState } from '@/store/store'
 import { initSimulatedUser } from '@/store/slices/userSlice'
-import { fetchSessions, createSession, loadSession, addMessage, setActiveSession, deleteSession } from '@/store/slices/chatSlice'
+import { fetchSessions, createSession, loadSession, addMessage, setActiveSession, deleteSession, clearActiveSession } from '@/store/slices/chatSlice'
 import { ChatSidebar } from '@/components/Chat/ChatSidebar'
 import { truncateChatTitle } from '@/utils/formatters'
 import DeleteConfirmDialog from '@/components/DeleteConfirmDialog'
@@ -58,6 +58,11 @@ export default function ChatPage() {
 
   useEffect(() => {
     dispatch(initSimulatedUser())
+
+    // Cleanup function to clear active session when leaving the page
+    return () => {
+      dispatch(clearActiveSession())
+    }
   }, [dispatch])
 
   // Fetch sessions when we have a user ID (simulated)
@@ -316,7 +321,7 @@ export default function ChatPage() {
                   </Box>
                 )}
 
-              {activeSessionMessages.map((message) => (
+              {!isLoading && activeSessionMessages.map((message) => (
                 <Box
                   key={message.id}
                   sx={{

@@ -16,7 +16,7 @@ export async function GET(
 
     try {
         // Proxy to Agent backend
-        const response = await fetch(`${AGENT_API_URL}/api/sessions/${sessionId}?user_id=${userId}`);
+        const response = await fetch(`${AGENT_API_URL}/api/chat/sessions/${sessionId}?user_id=${userId}`);
 
         // if (!session) {
         if (!response.ok) {
@@ -46,7 +46,7 @@ export async function PATCH(
         const body = await request.json()
         const { title, user_id } = body
 
-        const response = await fetch(`${AGENT_API_URL}/api/sessions/${id}?user_id=${user_id}`, {
+        const response = await fetch(`${AGENT_API_URL}/api/chat/sessions/${id}?user_id=${user_id}`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
@@ -85,7 +85,7 @@ export async function DELETE(
     }
 
     try {
-        const response = await fetch(`${AGENT_API_URL}/api/sessions/${sessionId}?user_id=${userId}`, {
+        const response = await fetch(`${AGENT_API_URL}/api/chat/sessions/${sessionId}?user_id=${userId}`, {
             method: 'DELETE',
         });
 

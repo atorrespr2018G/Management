@@ -126,6 +126,7 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, ar
         }
 
         const selectedFilesWithIds = getSelectedFilesWithIds(directoryNode)
+        dispatch(setUploadStatus({ directoryNode, status: 'Uploading...' }));
         // const selectedFiles = selectedFilesWithIds.map(f => f.filePath)
 
         if (selectedFiles.length === 0) {
@@ -158,7 +159,6 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, ar
         }
 
         // setUploadStatus(prev => ({ ...prev, [directoryNode.fullPath || directoryNode.id]: 'Uploading...' }))
-        dispatch(setUploadStatus({ directoryNode, status: 'Uploading...' }));
 
         // Process files in batches (batch size: 7)
         const BATCH_SIZE = 7
@@ -491,8 +491,7 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, ar
                     actions={handleButtons(neo4jDirectoryStructure)} // your existing buttons JSX
                     alerts={
                         statusKey &&
-                        statusMessage &&
-                        !statusMessage.includes('relationships from') && (
+                        statusMessage && (
                             // // {statusKey && statusMessage && (
                             <TimedAlert
                                 sx={{ mb: 2 }}
