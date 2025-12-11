@@ -491,8 +491,7 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, ar
                     actions={handleButtons(neo4jDirectoryStructure)} // your existing buttons JSX
                     alerts={
                         statusKey &&
-                        statusMessage &&
-                        !statusMessage.includes('relationships from') && (
+                        statusMessage && (
                             // // {statusKey && statusMessage && (
                             <TimedAlert
                                 sx={{ mb: 2 }}
