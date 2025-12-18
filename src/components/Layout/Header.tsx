@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   AppBar,
   Toolbar,
@@ -10,10 +10,18 @@ import {
   IconButton,
   useTheme,
   useMediaQuery,
+  Avatar,
+  Menu,
+  MenuItem,
+  Divider,
 } from '@mui/material'
 import MenuIcon from '@mui/icons-material/Menu'
+import AccountCircleIcon from '@mui/icons-material/AccountCircle'
+import LogoutIcon from '@mui/icons-material/Logout'
 import Link from 'next/link'
-import { useAppSelector } from '@/store/hooks'
+import { useRouter } from 'next/navigation'
+import { useAppSelector, useAppDispatch } from '@/store/hooks'
+import { logoutUser, fetchCurrentUser } from '@/store/slices/userSlice'
 
 interface HeaderProps {
   onMenuClick?: () => void
@@ -23,8 +31,33 @@ interface HeaderProps {
 export default function Header({ onMenuClick, sidebarOpen = false }: HeaderProps) {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const dispatch = useAppDispatch()
+  const router = useRouter()
   const isAuthenticated = useAppSelector((state) => state.user.isAuthenticated)
   const user = useAppSelector((state) => state.user.currentUser)
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
+  const menuOpen = Boolean(anchorEl)
+
+  // Restore session on mount
+  useEffect(() => {
+    if (!isAuthenticated) {
+      dispatch(fetchCurrentUser())
+    }
+  }, [dispatch, isAuthenticated])
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget)
+  }
+
+  const handleMenuClose = () => {
+    setAnchorEl(null)
+  }
+
+  const handleLogout = async () => {
+    handleMenuClose()
+    await dispatch(logoutUser())
+    router.push('/login')
+  }
 
   return (
     <AppBar
@@ -114,9 +147,47 @@ export default function Header({ onMenuClick, sidebarOpen = false }: HeaderProps
             Retrieve
           </Button>
           {isAuthenticated ? (
-            <Typography variant="body2" sx={{ ml: 2, fontSize: '1.1rem' }}>
-              {user?.name}
-            </Typography>
+            <>
+              <IconButton
+                onClick={handleMenuOpen}
+                size="small"
+                sx={{ ml: 2 }}
+                aria-controls={menuOpen ? 'account-menu' : undefined}
+                aria-haspopup="true"
+                aria-expanded={menuOpen ? 'true' : undefined}
+              >
+                <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
+                  {user?.email?.[0]?.toUpperCase() || 'U'}
+                </Avatar>
+              </IconButton>
+              <Menu
+                anchorEl={anchorEl}
+                id="account-menu"
+                open={menuOpen}
+                onClose={handleMenuClose}
+                onClick={handleMenuClose}
+                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                PaperProps={{
+                  elevation: 3,
+                  sx: {
+                    mt: 1.5,
+                    minWidth: 200,
+                  },
+                }}
+              >
+                <Box sx={{ px: 2, py: 1.5 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                    {user?.email}
+                  </Typography>
+                </Box>
+                <Divider />
+                <MenuItem onClick={handleLogout}>
+                  <LogoutIcon fontSize="small" sx={{ mr: 1 }} />
+                  Logout
+                </MenuItem>
+              </Menu>
+            </>
           ) : (
             <Button color="primary" component={Link} href="/login" sx={{ fontSize: '1.1rem', py: 1 }}>
               Login
