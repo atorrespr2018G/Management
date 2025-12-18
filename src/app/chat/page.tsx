@@ -28,7 +28,6 @@ import { sendMessage, updateSessionTitle } from '@/services/chatApi'
 import { ChatMessage, ChatResponse, Source } from '@/types/chat'
 import { useDispatch, useSelector } from 'react-redux'
 import { AppDispatch, RootState } from '@/store/store'
-import { initSimulatedUser } from '@/store/slices/userSlice'
 import { fetchSessions, createSession, loadSession, addMessage, setActiveSession, deleteSession } from '@/store/slices/chatSlice'
 import { ChatSidebar } from '@/components/Chat/ChatSidebar'
 import { truncateChatTitle } from '@/utils/formatters'
@@ -53,12 +52,10 @@ export default function ChatPage() {
   // Redux State
   const { activeSessionId, activeSessionMessages, sessions, isLoading } = useSelector((state: RootState) => state.chat)
   const { currentUser } = useSelector((state: RootState) => state.user)
-  // We use localStorage directly for the simulated ID for now, or we could select it if we stored it in Redux state properly
-  // For simplicity, let's grab it from localStorage wrapper or just rely on the fact that initSimulatedUser ensures it exists
 
-  useEffect(() => {
-    dispatch(initSimulatedUser())
-  }, [dispatch])
+  // useEffect(() => {
+  //   dispatch(initSimulatedUser())
+  // }, [dispatch])
 
   // Fetch sessions when we have a user ID (simulated)
   useEffect(() => {
