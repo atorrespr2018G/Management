@@ -267,6 +267,7 @@ const neoSlice = createSlice({
         clearStatusForDirectory: (state, action: PayloadAction<string>) => {
             const key = action.payload;
             delete state.uploadStatus[key];
+            delete state.deleteStatus[key];
         },
 
         // Reset state

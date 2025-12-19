@@ -90,19 +90,12 @@ const ScanResultsDisplay = ({
     onAfterStore: fetchNeo4jStructure,
   });
 
-
-  const [localDeleteMessage, setLocalDeleteMessage] = useState<string | null>(null);
-
-  const directoryKey = neo4jDirectoryStructure?.fullPath || neo4jDirectoryStructure?.id; // whatever node you're scoped to
-
   useEffect(() => {
-    // Get the message for this directory from the Record<string, string>
-    const message = deleteStatus[directoryKey];
-
-    if (message) {
-      setLocalDeleteMessage(message);
-    }
-  }, [deleteStatus]);
+    return () => {
+      dispatch(setSelectedForGraph({}));
+      dispatch(setHasEverCreatedGraph(false));
+    };
+  }, [dispatch]);
 
   // Refresh relationship statuses for files in a directory
   const refreshRelationshipStatuses = async (node: FileStructure) => {
@@ -388,12 +381,6 @@ const ScanResultsDisplay = ({
                 {relationshipStatus[neo4jDirectoryStructure.fullPath || neo4jDirectoryStructure.id] && (
                   <Alert severity="info" sx={{ width: '70%', ml: 2 }}>
                     {relationshipStatus[neo4jDirectoryStructure.fullPath || neo4jDirectoryStructure.id]}
-                  </Alert>
-                )}
-                {Object.keys(deleteStatus).length > 0 && deleteStatus[directoryKey].includes('relationships from') && (
-                  <Alert severity="error" sx={{ width: '70%', ml: 2 }}>
-                    {/* {deleteStatus[neo4jDirectoryStructure.fullPath || neo4jDirectoryStructure.id]} */}
-                    {localDeleteMessage}
                   </Alert>
                 )}
               </Box>

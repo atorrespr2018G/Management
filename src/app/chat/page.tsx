@@ -184,10 +184,10 @@ export default function ChatPage() {
     <ChatSidebar
       sessions={sessions}
       activeSessionId={activeSessionId}
-      isLoading={isLoading}
       onNewChat={handleNewChat}
       onSelectSession={handleSelectSession}
       onDeleteSession={handleDeleteSession}
+      isLoading={isLoading}
     />
   )
 
@@ -257,7 +257,7 @@ export default function ChatPage() {
                 gap: 2,
               }}
             >
-              {activeSessionMessages.length === 0 && (
+              {isLoading ? (
                 <Box
                   sx={{
                     display: 'flex',
@@ -268,13 +268,28 @@ export default function ChatPage() {
                     color: 'text.secondary',
                   }}
                 >
-                  <SmartToyIcon sx={{ fontSize: 64, mb: 2, opacity: 0.5 }} />
-                  <Typography variant="h6">Start a conversation</Typography>
-                  <Typography variant="body2">Ask a question to get started</Typography>
+                  <CircularProgress size={40} sx={{ mb: 2 }} />
+                  <Typography variant="body2">Loading chat...</Typography>
                 </Box>
-              )}
+              ) : activeSessionMessages.length != 0 ? null
+                : (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: '100%',
+                      color: 'text.secondary',
+                    }}
+                  >
+                    <SmartToyIcon sx={{ fontSize: 64, mb: 2, opacity: 0.5 }} />
+                    <Typography variant="h6">Start a conversation</Typography>
+                    <Typography variant="body2">Ask a question to get started</Typography>
+                  </Box>
+                )}
 
-              {activeSessionMessages.map((message) => (
+              {!isLoading && activeSessionMessages.map((message) => (
                 <Box
                   key={message.id}
                   sx={{

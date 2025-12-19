@@ -27,10 +27,10 @@ export default function Footer({ sidebarOpen = false }: FooterProps) {
         <Grid container spacing={4}>
           <Grid item xs={12} sm={4}>
             <Typography variant="h6" gutterBottom>
-              NextJS App
+              DXC Technology App
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              A modern Next.js application with Redux, Material UI, and advanced routing.
+              A modern DXC Technology application with Redux, Material UI, and advanced routing.
             </Typography>
           </Grid>
           <Grid item xs={12} sm={4}>
@@ -63,7 +63,7 @@ export default function Footer({ sidebarOpen = false }: FooterProps) {
         </Grid>
         <Box sx={{ mt: 4, pt: 2, borderTop: 1, borderColor: 'divider', textAlign: 'center' }}>
           <Typography variant="body2" color="text.secondary">
-            © {new Date().getFullYear()} NextJS App. All rights reserved.
+            © {new Date().getFullYear()}  All rights reserved.
           </Typography>
         </Box>
       </Container>

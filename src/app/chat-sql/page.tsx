@@ -113,17 +113,44 @@ export default function ChatSQLPage() {
         0.7
       )
 
-      // If SQL was generated, execute it
+      // If SQL was generated, execute it (but skip if it's a placeholder)
       let executionResult: ExecuteSQLResponse | undefined = undefined
-      if (response.sql && !response.error) {
+      const sql = response.sql?.trim()
+      const isPlaceholder = sql === 'SELECT ...' || sql?.startsWith('SELECT ...') || !sql || sql.length < 10
+      
+      if (sql && !response.error && !isPlaceholder) {
         try {
-          executionResult = await executeSQL(selectedDatabase, response.sql)
+          executionResult = await executeSQL(selectedDatabase, sql)
+          // Log execution result for debugging
+          console.log('SQL execution result:', JSON.stringify(executionResult, null, 2))
+          if (!executionResult.success) {
+            console.error('SQL execution failed:', executionResult.error)
+          } else if (executionResult.query_type === 'SELECT') {
+            console.log('SELECT query results:', {
+              columns: executionResult.data?.columns,
+              rowCount: executionResult.data?.row_count,
+              rows: executionResult.data?.rows
+            })
+          }
         } catch (execError) {
+          console.error('SQL execution error:', execError)
+          // Provide more detailed error message
+          let errorMessage = 'Failed to execute SQL'
+          if (execError instanceof Error) {
+            errorMessage = execError.message
+            // Check for network errors
+            if (errorMessage.includes('fetch') || errorMessage.includes('network')) {
+              errorMessage = 'Network error: Could not connect to the database execution service. Please check if the backend is running.'
+            }
+          }
           executionResult = {
             success: false,
-            error: execError instanceof Error ? execError.message : 'Failed to execute SQL'
+            error: errorMessage
           }
         }
+      } else if (isPlaceholder && sql) {
+        // SQL is a placeholder, don't execute but note it
+        console.warn('Skipping SQL execution - placeholder detected:', sql)
       }
 
       // Add assistant message
@@ -134,7 +161,7 @@ export default function ChatSQLPage() {
         sql: response.sql,
         explanation: response.explanation,
         confidence: response.confidence,
-        schema_slice: response.schema_slice,
+        schema_slice: response.schema_slice || { tables: [] },  // Add fallback to prevent undefined
         error: response.error,
         execution_result: executionResult,
         timestamp: new Date(),
@@ -324,7 +351,9 @@ export default function ChatSQLPage() {
                     <Box sx={{ mb: 2 }}>
                       {message.execution_result.success ? (
                         <>
-                          {message.execution_result.query_type === 'SELECT' && message.execution_result.data?.rows && (
+                          {(message.execution_result.query_type?.toUpperCase() === 'SELECT' || 
+                            (message.execution_result.data?.rows && message.execution_result.data?.columns)) && 
+                           message.execution_result.data && (
                             <Box>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                                 <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
@@ -339,32 +368,38 @@ export default function ChatSQLPage() {
                                   />
                                 )}
                               </Box>
-                              <TableContainer component={Paper} sx={{ maxHeight: 400, overflow: 'auto' }}>
-                                <Table size="small" stickyHeader>
-                                  <TableHead>
-                                    <TableRow>
-                                      {message.execution_result.data.columns?.map((col, idx) => (
-                                        <TableCell key={idx} sx={{ fontWeight: 600, bgcolor: 'grey.100' }}>
-                                          {col}
-                                        </TableCell>
-                                      ))}
-                                    </TableRow>
-                                  </TableHead>
-                                  <TableBody>
-                                    {message.execution_result.data.rows?.map((row, rowIdx) => (
-                                      <TableRow key={rowIdx}>
-                                        {message.execution_result.data.columns?.map((col, colIdx) => (
-                                          <TableCell key={colIdx}>
-                                            {row[col] !== null && row[col] !== undefined
-                                              ? String(row[col])
-                                              : 'NULL'}
+                              {message.execution_result.data.rows && message.execution_result.data.rows.length > 0 ? (
+                                <TableContainer component={Paper} sx={{ maxHeight: 400, overflow: 'auto' }}>
+                                  <Table size="small" stickyHeader>
+                                    <TableHead>
+                                      <TableRow>
+                                        {message.execution_result.data.columns?.map((col, idx) => (
+                                          <TableCell key={idx} sx={{ fontWeight: 600, bgcolor: 'grey.100' }}>
+                                            {col}
                                           </TableCell>
                                         ))}
                                       </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                              </TableContainer>
+                                    </TableHead>
+                                    <TableBody>
+                                      {message.execution_result.data.rows.map((row, rowIdx) => (
+                                        <TableRow key={rowIdx}>
+                                          {message.execution_result.data.columns?.map((col, colIdx) => (
+                                            <TableCell key={colIdx}>
+                                              {row[col] !== null && row[col] !== undefined
+                                                ? String(row[col])
+                                                : 'NULL'}
+                                            </TableCell>
+                                          ))}
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </TableContainer>
+                              ) : (
+                                <Alert severity="info" sx={{ mt: 1 }}>
+                                  Query executed successfully but returned no rows.
+                                </Alert>
+                              )}
                             </Box>
                           )}
                           {message.execution_result.query_type === 'DML' && message.execution_result.data?.message && (
@@ -375,7 +410,15 @@ export default function ChatSQLPage() {
                         </>
                       ) : (
                         <Alert severity="error" sx={{ mt: 1 }}>
-                          Execution Error: {message.execution_result.error || 'Unknown error'}
+                          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                            Execution Error
+                          </Typography>
+                          {message.execution_result.error || 'Unknown error'}
+                          {message.sql && (
+                            <Typography variant="caption" sx={{ display: 'block', mt: 1, opacity: 0.8 }}>
+                              Query: {message.sql}
+                            </Typography>
+                          )}
                         </Alert>
                       )}
                     </Box>
@@ -394,7 +437,7 @@ export default function ChatSQLPage() {
                     </Typography>
                   )}
 
-                  {message.role === 'assistant' && message.schema_slice && message.schema_slice.tables && message.schema_slice.tables.length > 0 && (
+                  {message.role === 'assistant' && message.schema_slice?.tables && Array.isArray(message.schema_slice.tables) && message.schema_slice.tables.length > 0 && (
                     <Box sx={{ mt: 2 }}>
                       <Accordion
                         sx={{
