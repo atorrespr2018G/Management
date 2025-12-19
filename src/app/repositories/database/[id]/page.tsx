@@ -185,12 +185,14 @@ export default function DatabaseDetailPage() {
 
     try {
       const result = await embedDatabaseSchema(dbId)
+      // Handle both response formats for backward compatibility
+      const resultData = result.result || result
       alert(
         `Embeddings generated successfully!\n` +
-        `- Tables: ${result.result.tables}\n` +
-        `- Columns: ${result.result.columns}\n` +
-        `- Metrics: ${result.result.metrics}\n` +
-        `- Total embedded: ${result.result.embedded}`
+        `- Tables: ${resultData.tables || 0}\n` +
+        `- Columns: ${resultData.columns || 0}\n` +
+        `- Metrics: ${resultData.metrics || 0}\n` +
+        `- Total embedded: ${resultData.embedded || 0}`
       )
     } catch (err: any) {
       console.error('Failed to generate embeddings:', err)
