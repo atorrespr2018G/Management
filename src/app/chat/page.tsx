@@ -28,8 +28,7 @@ import { sendMessage, updateSessionTitle } from '@/services/chatApi'
 import { ChatMessage, ChatResponse, Source } from '@/types/chat'
 import { useDispatch, useSelector } from 'react-redux'
 import { AppDispatch, RootState } from '@/store/store'
-import { initSimulatedUser } from '@/store/slices/userSlice'
-import { fetchSessions, createSession, loadSession, addMessage, setActiveSession, deleteSession, clearActiveSession } from '@/store/slices/chatSlice'
+import { fetchSessions, createSession, loadSession, addMessage, setActiveSession, deleteSession } from '@/store/slices/chatSlice'
 import { ChatSidebar } from '@/components/Chat/ChatSidebar'
 import { truncateChatTitle } from '@/utils/formatters'
 import DeleteConfirmDialog from '@/components/DeleteConfirmDialog'
@@ -52,35 +51,17 @@ export default function ChatPage() {
 
   // Redux State
   const { activeSessionId, activeSessionMessages, sessions, isLoading } = useSelector((state: RootState) => state.chat)
-  const { currentUser } = useSelector((state: RootState) => state.user)
-  // We use localStorage directly for the simulated ID for now, or we could select it if we stored it in Redux state properly
-  // For simplicity, let's grab it from localStorage wrapper or just rely on the fact that initSimulatedUser ensures it exists
+  const { currentUser, isAuthenticated } = useSelector((state: RootState) => state.user)
+  const [hasFetchedSessions, setHasFetchedSessions] = useState(false)
 
+  // Fetch sessions on mount when user is authenticated
   useEffect(() => {
-    dispatch(initSimulatedUser())
-
-    // Cleanup function to clear active session when leaving the page
-    return () => {
-      dispatch(clearActiveSession())
+    if (isAuthenticated && !hasFetchedSessions && !isLoading) {
+      dispatch(fetchSessions())
+      setHasFetchedSessions(true)
     }
-  }, [dispatch])
+  }, [dispatch, isAuthenticated, hasFetchedSessions, isLoading])
 
-  // Fetch sessions when we have a user ID (simulated)
-  useEffect(() => {
-    const userId = localStorage.getItem('simulated_user_id')
-    if (userId) {
-      dispatch(fetchSessions(userId))
-    }
-  }, [dispatch])
-
-  // Load the most recent session if we have sessions but no active one
-  useEffect(() => {
-    const userId = localStorage.getItem('simulated_user_id') || ''
-    if (userId && !isLoading && sessions.length > 0 && !activeSessionId) {
-      // Load the most recent session
-      dispatch(loadSession({ sessionId: sessions[0].id, userId }))
-    }
-  }, [dispatch, isLoading, sessions.length, activeSessionId])
 
   // Scroll page to top when component mounts
   useLayoutEffect(() => {
@@ -97,15 +78,12 @@ export default function ChatPage() {
 
   const handleSend = async () => {
     const query = inputValue.trim()
-    if (!query || isSending) return
-
-    const userId = localStorage.getItem('simulated_user_id')
-    if (!userId) return
+    if (!query || isSending || !currentUser) return
 
     // If no active session, create one first
     let currentSessionId = activeSessionId
     if (!currentSessionId) {
-      const newSession = await dispatch(createSession(userId)).unwrap()
+      const newSession = await dispatch(createSession()).unwrap()
       currentSessionId = newSession.id
     }
 
@@ -114,14 +92,14 @@ export default function ChatPage() {
       id: Date.now().toString(),
       role: 'user',
       content: query,
-      timestamp: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     }
     dispatch(addMessage(userMessage))
     setInputValue('')
     setIsSending(true)
 
     try {
-      const response: ChatResponse = await sendMessage(query, currentSessionId!, userId)
+      const response: ChatResponse = await sendMessage(query, currentSessionId!)
 
       // Add assistant message
       const assistantMessage: ChatMessage = {
@@ -129,28 +107,25 @@ export default function ChatPage() {
         role: 'assistant',
         content: response.response,
         sources: response.sources,
-        timestamp: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
       }
       dispatch(addMessage(assistantMessage))
 
-      // Update session title if it's the first message (or title is "New Chat")
-      // We check activeSessionMessages length before adding the new ones, but here we already added user message
-      // So if length is 2 (user + assistant) it might be the first exchange. 
-      // Better: check if current session title is "New Chat"
+      // Update session title if it's the first message
       const currentSession = sessions.find(s => s.id === currentSessionId)
       if (currentSession && currentSession.title === 'New Chat') {
         const newTitle = truncateChatTitle(query)
-        await updateSessionTitle(currentSessionId!, newTitle, userId)
+        await updateSessionTitle(currentSessionId!, newTitle)
       }
 
       // Refresh sessions list to update preview/order
-      dispatch(fetchSessions(userId))
+      dispatch(fetchSessions())
     } catch (error) {
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: `Error: ${error instanceof Error ? error.message : 'Failed to get response'}`,
-        timestamp: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
       }
       dispatch(addMessage(errorMessage))
     } finally {
@@ -167,17 +142,15 @@ export default function ChatPage() {
   }
 
   const handleNewChat = () => {
-    const userId = localStorage.getItem('simulated_user_id')
-    if (userId) {
-      dispatch(createSession(userId))
+    if (currentUser) {
+      dispatch(createSession())
       if (isMobile) setMobileOpen(false)
     }
   }
 
   const handleSelectSession = (sessionId: string) => {
-    const userId = localStorage.getItem('simulated_user_id')
-    if (userId) {
-      dispatch(loadSession({ sessionId, userId }))
+    if (currentUser) {
+      dispatch(loadSession(sessionId))
       if (isMobile) setMobileOpen(false)
     }
   }
@@ -188,14 +161,9 @@ export default function ChatPage() {
   }
 
   const confirmDeleteSession = async () => {
-    if (sessionToDelete) {
-      const userId = localStorage.getItem('simulated_user_id')
-      if (userId) {
-        await dispatch(deleteSession({ sessionId: sessionToDelete, userId }))
-        if (sessions.length <= 1) {
-          // Optional: auto-create new session
-        }
-      }
+    if (sessionToDelete && currentUser) {
+      await dispatch(deleteSession(sessionToDelete))
+      // if (sessions.length <= 1) {} // Optional: auto-create new session
       setDeleteDialogOpen(false)
       setSessionToDelete(null)
     }
@@ -436,7 +404,14 @@ export default function ChatPage() {
                         color: message.role === 'user' ? 'rgba(255,255,255,0.7)' : 'text.secondary',
                       }}
                     >
-                      {new Date(message.timestamp).toLocaleTimeString()}
+                      {new Date(message.createdAt).toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                      })}
                     </Typography>
                   </Box>
                 </Box>

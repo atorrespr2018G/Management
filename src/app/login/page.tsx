@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Box,
   Container,
@@ -10,37 +10,51 @@ import {
   Button,
   Stack,
   Alert,
+  Link as MuiLink,
+  CircularProgress,
+  InputAdornment,
+  IconButton,
 } from '@mui/material'
-import { useAppDispatch } from '@/store/hooks'
-import { setUser } from '@/store/slices/userSlice'
+import { Visibility, VisibilityOff } from '@mui/icons-material'
+// import { setUser } from '@/store/slices/userSlice'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { loginUser, clearError } from '@/store/slices/userSlice'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
-  const [name, setName] = useState('')
-  const [error, setError] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  // const [name, setName] = useState('')
+
   const dispatch = useAppDispatch()
   const router = useRouter()
+  const { loading, error, isAuthenticated } = useAppSelector((state) => state.user)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push('/')
+    }
+  }, [isAuthenticated, router])
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
+    dispatch(clearError())
 
-    if (!email || !name) {
-      setError('Please fill in all fields')
+    if (!email || !password) {
       return
     }
 
-    // Simulate login
-    dispatch(
-      setUser({
-        id: '1',
-        name,
-        email,
-      })
-    )
-
-    router.push('/')
+    try {
+      await dispatch(loginUser({ email, password })).unwrap()
+      console.log('dispatch login')
+      // Login successful
+      router.push('/chat')
+    } catch (err) {
+      // Error is handled by Redux state
+    }
   }
 
   return (
@@ -62,14 +76,6 @@ export default function LoginPage() {
         <Box component="form" onSubmit={handleSubmit}>
           <Stack spacing={3}>
             <TextField
-              label="Name"
-              variant="outlined"
-              fullWidth
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-            <TextField
               label="Email"
               type="email"
               variant="outlined"
@@ -77,22 +83,53 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={loading}
             />
-            <Button type="submit" variant="contained" size="large" fullWidth>
-              Sign In
+            <TextField
+              label="Password"
+              type={showPassword ? 'text' : 'password'}
+              variant="outlined"
+              fullWidth
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={loading}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={() => setShowPassword(!showPassword)}
+                      onMouseDown={(e) => e.preventDefault()}
+                      edge="end"
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Button
+              type="submit"
+              variant="contained"
+              size="large"
+              fullWidth
+              disabled={loading}
+            >
+              {loading ? <CircularProgress size={24} /> : 'Sign In'}
             </Button>
           </Stack>
         </Box>
 
         <Box sx={{ mt: 3, textAlign: 'center' }}>
           <Typography variant="body2" color="text.secondary">
-            Demo: Enter any name and email to login
+            Don't have an account?{' '}
+            <Link href="/register" passHref legacyBehavior>
+              <MuiLink>Create one</MuiLink>
+            </Link>
           </Typography>
         </Box>
       </Paper>
     </Container>
   )
 }
-
-
-

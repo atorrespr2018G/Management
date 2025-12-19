@@ -7,19 +7,19 @@ import { ChatSession } from '@/types/chat';
 interface ChatSidebarProps {
     sessions: ChatSession[];
     activeSessionId: string | null;
+    isLoading?: boolean;
     onSelectSession: (sessionId: string) => void;
     onNewChat: () => void;
     onDeleteSession: (sessionId: string) => void;
-    isLoading?: boolean;
 }
 
 export const ChatSidebar = ({
     sessions,
     activeSessionId,
+    isLoading = false,
     onSelectSession,
     onNewChat,
     onDeleteSession,
-    isLoading = false,
 }: ChatSidebarProps) => {
     return (
         <Box
@@ -53,8 +53,8 @@ export const ChatSidebar = ({
                 </Typography>
 
                 {isLoading ? (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-                        <CircularProgress size={24} />
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: 4 }}>
+                        <CircularProgress size={32} />
                     </Box>
                 ) : sessions.length === 0 ? (
                     <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 4 }}>
