@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Button, Typography, Divider, List } from '@mui/material';
+import { Box, Button, Typography, Divider, List, CircularProgress } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { SessionItem } from './SessionItem';
 import { ChatSession } from '@/types/chat';
@@ -7,6 +7,7 @@ import { ChatSession } from '@/types/chat';
 interface ChatSidebarProps {
     sessions: ChatSession[];
     activeSessionId: string | null;
+    isLoading?: boolean;
     onSelectSession: (sessionId: string) => void;
     onNewChat: () => void;
     onDeleteSession: (sessionId: string) => void;
@@ -15,6 +16,7 @@ interface ChatSidebarProps {
 export const ChatSidebar = ({
     sessions,
     activeSessionId,
+    isLoading = false,
     onSelectSession,
     onNewChat,
     onDeleteSession,
@@ -50,7 +52,11 @@ export const ChatSidebar = ({
                     Recent Chats
                 </Typography>
 
-                {sessions.length === 0 ? (
+                {isLoading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: 4 }}>
+                        <CircularProgress size={32} />
+                    </Box>
+                ) : sessions.length === 0 ? (
                     <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 4 }}>
                         No chat history
                     </Typography>

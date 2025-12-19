@@ -30,8 +30,8 @@ export interface ChatMessage {
     id: string;
     role: 'user' | 'assistant';
     content: string;
+    createdAt: string; // ISO string for serialization
     sources?: Source[];
-    timestamp: string; // ISO string for serialization
 }
 
 export interface ChatSession {
