@@ -38,12 +38,12 @@ export default function Header({ onMenuClick, sidebarOpen = false }: HeaderProps
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const menuOpen = Boolean(anchorEl)
 
-  // Restore session on mount
+  // Restore session on mount (only once)
   useEffect(() => {
     if (!isAuthenticated) {
       dispatch(fetchCurrentUser())
     }
-  }, [dispatch, isAuthenticated])
+  }, [])
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget)

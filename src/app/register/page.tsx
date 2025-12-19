@@ -12,7 +12,10 @@ import {
     Alert,
     Link as MuiLink,
     CircularProgress,
+    InputAdornment,
+    IconButton,
 } from '@mui/material'
+import { Visibility, VisibilityOff } from '@mui/icons-material'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { registerUser, clearError } from '@/store/slices/userSlice'
 import { useRouter } from 'next/navigation'
@@ -22,6 +25,8 @@ export default function RegisterPage() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
+    const [showPassword, setShowPassword] = useState(false)
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false)
     const [localError, setLocalError] = useState('')
 
     const dispatch = useAppDispatch()
@@ -97,7 +102,7 @@ export default function RegisterPage() {
                         />
                         <TextField
                             label="Password"
-                            type="password"
+                            type={showPassword ? 'text' : 'password'}
                             variant="outlined"
                             fullWidth
                             value={password}
@@ -105,16 +110,44 @@ export default function RegisterPage() {
                             required
                             disabled={loading}
                             helperText="Minimum 8 characters"
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            aria-label="toggle password visibility"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            edge="end"
+                                        >
+                                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                                        </IconButton>
+                                    </InputAdornment>
+                                ),
+                            }}
                         />
                         <TextField
                             label="Confirm Password"
-                            type="password"
+                            type={showConfirmPassword ? 'text' : 'password'}
                             variant="outlined"
                             fullWidth
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             required
                             disabled={loading}
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            aria-label="toggle confirm password visibility"
+                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            edge="end"
+                                        >
+                                            {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                                        </IconButton>
+                                    </InputAdornment>
+                                ),
+                            }}
                         />
                         <Button
                             type="submit"
