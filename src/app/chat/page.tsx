@@ -62,6 +62,13 @@ export default function ChatPage() {
     }
   }, [dispatch, isAuthenticated, hasFetchedSessions, isLoading])
 
+  // Select a default session after sessions load
+  useEffect(() => {
+    if (isAuthenticated && !isLoading && !activeSessionId && sessions.length > 0) {
+      const defaultSessionId = sessions[0].id  // sessions are already sorted by updatedAt desc
+      dispatch(loadSession(defaultSessionId))
+    }
+  }, [isAuthenticated, isLoading, activeSessionId])
 
   // Scroll page to top when component mounts
   useLayoutEffect(() => {
