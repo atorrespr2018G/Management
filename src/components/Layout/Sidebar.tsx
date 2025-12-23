@@ -23,6 +23,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import HomeIcon from '@mui/icons-material/Home'
 import AppsIcon from '@mui/icons-material/Apps'
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline'
+import SchemaIcon from '@mui/icons-material/Schema';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import CodeIcon from '@mui/icons-material/Code'
 import TuneIcon from '@mui/icons-material/Tune'
@@ -109,6 +110,7 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
         { text: 'Overview', icon: <HomeIcon />, href: '/' },
         { text: 'Chat', icon: <ChatBubbleOutlineIcon />, href: '/chat' },
         { text: 'Chat SQL', icon: <DataObjectIcon />, href: '/chat-sql' },
+        { text: 'Workflow', icon: <SchemaIcon />, href: '/workflow' },
         { text: 'Playgrounds', icon: <ChatBubbleOutlineIcon />, href: '/playgrounds' },
       ],
     },
@@ -348,32 +350,32 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
                                   bgcolor: 'action.selected',
                                 },
                               },
-                            '&:hover': {
-                              bgcolor: 'action.hover',
-                            },
-                          }}
-                        >
-                          {item.icon && (
-                            <ListItemIcon
-                              sx={{
-                                minWidth: isOpen ? 32 : 'auto',
-                                justifyContent: 'center',
-                                color: selected ? 'primary.main' : 'text.secondary',
-                              }}
-                            >
-                              {item.icon}
-                            </ListItemIcon>
-                          )}
-                          {isOpen && (
-                            <ListItemText
-                              primary={item.text}
-                              primaryTypographyProps={{
-                                fontSize: '1.3125rem',
-                                fontWeight: selected ? 600 : 400,
-                              }}
-                              sx={{ pl: 2 }}
-                            />
-                          )}
+                              '&:hover': {
+                                bgcolor: 'action.hover',
+                              },
+                            }}
+                          >
+                            {item.icon && (
+                              <ListItemIcon
+                                sx={{
+                                  minWidth: isOpen ? 32 : 'auto',
+                                  justifyContent: 'center',
+                                  color: selected ? 'primary.main' : 'text.secondary',
+                                }}
+                              >
+                                {item.icon}
+                              </ListItemIcon>
+                            )}
+                            {isOpen && (
+                              <ListItemText
+                                primary={item.text}
+                                primaryTypographyProps={{
+                                  fontSize: '1.3125rem',
+                                  fontWeight: selected ? 600 : 400,
+                                }}
+                                sx={{ pl: 2 }}
+                              />
+                            )}
                             {isOpen && item.badge && (
                               <Chip
                                 label={item.badge}
@@ -439,7 +441,7 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
                                   <Box sx={{ py: 0.5, px: isOpen ? 1 : 0.5 }}>
                                     {isOpen && (
                                       <Typography variant="body2" sx={{ fontSize: '1.3125rem', color: 'text.secondary', fontWeight: 500 }}>
-                                      404
+                                        404
                                       </Typography>
                                     )}
                                   </Box>
