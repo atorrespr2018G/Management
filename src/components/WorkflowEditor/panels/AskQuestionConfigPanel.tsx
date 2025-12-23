@@ -1,11 +1,9 @@
 import React from 'react'
 import {
-    Typography,
     TextField,
-    Box,
-    Divider,
 } from '@mui/material'
-import { AskQuestionNodeData } from './AskQuestionNode'
+import { AskQuestionNodeData } from '../nodes/AskQuestionNode'
+import WorkflowConfigPanel from './WorkflowConfigPanel'
 
 interface AskQuestionConfigPanelProps {
     data: AskQuestionNodeData
@@ -19,33 +17,7 @@ const AskQuestionConfigPanel = ({ data, onUpdate }: AskQuestionConfigPanelProps)
     }
 
     return (
-        <Box sx={{ p: 2 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                Ask a Question Configuration
-            </Typography>
-
-            <Divider sx={{ mb: 2 }} />
-
-            {/* Action ID - Read-only */}
-            <Box sx={{ mb: 2 }}>
-                <Typography variant="caption" sx={{ color: 'text.secondary', mb: 0.5, display: 'block' }}>
-                    Action ID
-                </Typography>
-                <TextField
-                    fullWidth
-                    size="small"
-                    value={data.actionId}
-                    disabled
-                    sx={{
-                        '& .MuiInputBase-input.Mui-disabled': {
-                            WebkitTextFillColor: 'text.secondary',
-                        },
-                    }}
-                />
-                <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
-                    (auto-generated)
-                </Typography>
-            </Box>
+        <WorkflowConfigPanel title="Ask a Question Configuration" actionId={data.actionId}>
 
             {/* Question */}
             <TextField
@@ -69,7 +41,7 @@ const AskQuestionConfigPanel = ({ data, onUpdate }: AskQuestionConfigPanelProps)
                 onChange={(e) => handleChange('variableName', e.target.value)}
                 helperText="The user's input will be stored in this variable"
             />
-        </Box>
+        </WorkflowConfigPanel>
     )
 }
 

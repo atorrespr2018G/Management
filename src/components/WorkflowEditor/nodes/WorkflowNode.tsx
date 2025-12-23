@@ -1,37 +1,49 @@
 'use client'
 
-import { memo } from 'react'
+import { memo, ReactNode } from 'react'
 import { Handle, Position, NodeProps } from '@xyflow/react'
 import { Card, CardContent, Typography, Box } from '@mui/material'
-import QuestionAnswerIcon from '@mui/icons-material/QuestionAnswer'
 
-export interface AskQuestionNodeData extends Record<string, unknown> {
-    actionId: string
-    question: string
-    variableName: string
+interface WorkflowNodeCustomProps {
+    title: string
+    icon: ReactNode
+    children?: ReactNode
+    inputHandle?: boolean
+    outputHandle?: boolean
 }
 
-const AskQuestionNode = ({ data }: NodeProps) => {
+const WorkflowNode = ({
+    title,
+    icon,
+    children,
+    selected,
+    inputHandle = true,
+    outputHandle = true
+}: NodeProps & WorkflowNodeCustomProps) => {
     return (
         <>
-            <Handle type="target" position={Position.Left} />
+            {inputHandle && <Handle type="target" position={Position.Left} />}
 
             <Card
                 sx={{
                     minWidth: 220,
                     maxWidth: 300,
                     borderRadius: 2,
-                    boxShadow: 2,
+                    boxShadow: selected ? 4 : 2,
                     border: '2px solid',
-                    borderColor: 'info.main',
+                    borderColor: selected ? 'primary.main' : 'info.main',
+                    bgcolor: 'background.paper',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease-in-out',
                     '&:hover': {
                         boxShadow: 4,
-                        borderColor: 'info.dark',
+                        borderColor: selected ? 'primary.main' : 'info.dark',
                     },
                 }}
             >
                 <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                    {/* Header */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: children ? 1 : 0 }}>
                         <Box
                             sx={{
                                 width: 32,
@@ -44,22 +56,25 @@ const AskQuestionNode = ({ data }: NodeProps) => {
                                 justifyContent: 'center',
                             }}
                         >
-                            <QuestionAnswerIcon fontSize="small" />
+                            {icon}
                         </Box>
                         <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                            Ask a Question
+                            {title}
                         </Typography>
                     </Box>
 
-                    {/* <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                        Question
-                    </Typography> */}
+                    {/* Content */}
+                    {children && (
+                        <Box>
+                            {children}
+                        </Box>
+                    )}
                 </CardContent>
             </Card>
 
-            <Handle type="source" position={Position.Right} />
+            {outputHandle && <Handle type="source" position={Position.Right} />}
         </>
     )
 }
 
-export default memo(AskQuestionNode)
+export default memo(WorkflowNode)

@@ -19,8 +19,10 @@ import {
     Alert,
 } from '@mui/material'
 import { inputVariableOptions } from '@/constants/agents'
-import { InvokeAgentNodeData } from './InvokeAgentNodeData'
+import { InvokeAgentNodeData } from '../nodes/InvokeAgentNodeData'
 import { invokeTool } from '@/utils/foundry'
+
+import WorkflowConfigPanel from './WorkflowConfigPanel'
 
 interface Agent {
     id: string
@@ -135,33 +137,7 @@ const InvokeAgentConfigPanel = ({ data, onUpdate }: InvokeAgentConfigPanelProps)
     }
 
     return (
-        <Box sx={{ p: 2 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                Configuration
-            </Typography>
-
-            <Divider sx={{ mb: 2 }} />
-
-            {/* Action ID - Read-only */}
-            <Box sx={{ mb: 2 }}>
-                <Typography variant="caption" sx={{ color: 'text.secondary', mb: 0.5, display: 'block' }}>
-                    Action ID
-                </Typography>
-                <TextField
-                    fullWidth
-                    size="small"
-                    value={data.actionId}
-                    disabled
-                    sx={{
-                        '& .MuiInputBase-input.Mui-disabled': {
-                            WebkitTextFillColor: 'text.secondary',
-                        },
-                    }}
-                />
-                <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
-                    (auto-generated)
-                </Typography>
-            </Box>
+        <WorkflowConfigPanel title="Configuration" actionId={data.actionId}>
 
             {/* Select an Agent */}
             <FormControl fullWidth size="small" sx={{ mb: 2 }}>
@@ -329,7 +305,7 @@ const InvokeAgentConfigPanel = ({ data, onUpdate }: InvokeAgentConfigPanelProps)
                     </Button>
                 </DialogActions>
             </Dialog>
-        </Box>
+        </WorkflowConfigPanel>
     )
 }
 

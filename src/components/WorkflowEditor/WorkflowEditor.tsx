@@ -19,13 +19,13 @@ import {
 import '@xyflow/react/dist/style.css'
 import { Box, Button, Paper, Typography } from '@mui/material'
 import { PlayArrow as PlayArrowIcon } from '@mui/icons-material'
-import InvokeAgentConfigPanel from './InvokeAgentConfigPanel'
-import InvokeAgentNode, { InvokeAgentNodeData } from './InvokeAgentNodeData'
-import StartNode, { StartNodeData } from './StartNode'
-import AddActionNode from './AddActionNode'
-import AskQuestionNode, { AskQuestionNodeData } from './AskQuestionNode'
-import AskQuestionConfigPanel from './AskQuestionConfigPanel'
-import ActionSelectionPanel from './ActionSelectionPanel'
+import InvokeAgentConfigPanel from './panels/InvokeAgentConfigPanel'
+import InvokeAgentNode, { InvokeAgentNodeData } from './nodes/InvokeAgentNodeData'
+import StartNode, { StartNodeData } from './nodes/StartNode'
+import AddActionNode from './nodes/AddActionNode'
+import AskQuestionNode, { AskQuestionNodeData } from './nodes/AskQuestionNode'
+import AskQuestionConfigPanel from './panels/AskQuestionConfigPanel'
+import ActionSelectionPanel from './panels/ActionSelectionPanel'
 
 const nodeTypes = {
     start: StartNode,
@@ -41,13 +41,13 @@ const initialNodes: Node[] = [
         type: 'start',
         position: { x: 100, y: 150 },
         data: { label: 'Start' }
-    },
+    } as Node,
     {
         id: 'add-1',
         type: 'add_action',
         position: { x: 400, y: 165 }, // centered vertically relative to start (height diff)
         data: { label: '+' }
-    }
+    } as Node
 ]
 
 const initialEdges: Edge[] = [
@@ -131,7 +131,7 @@ const WorkflowEditorContent = () => {
                     question: '',
                     variableName: '',
                 } as AskQuestionNodeData,
-            }
+            } as Node
         } else {
             // Default to invoke_agent
             newNode = {
@@ -146,7 +146,7 @@ const WorkflowEditorContent = () => {
                     outputMessageVar: '',
                     outputJsonVar: '',
                 } as InvokeAgentNodeData,
-            }
+            } as Node
         }
 
         // 4. Create a NEW Placeholder node to the right
@@ -159,7 +159,7 @@ const WorkflowEditorContent = () => {
                 y: placeholderNode.position.y // Keep original Y for straight line
             },
             data: { label: '+' }
-        }
+        } as Node
 
         // 5. Update Edges
         // Find edge connected to insertion placeholder
