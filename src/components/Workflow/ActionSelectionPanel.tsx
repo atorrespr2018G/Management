@@ -18,7 +18,6 @@ import {
 import SearchIcon from '@mui/icons-material/Search'
 import CloseIcon from '@mui/icons-material/Close'
 import CodeIcon from '@mui/icons-material/Code'
-import DataObjectIcon from '@mui/icons-material/DataObject'
 import QuestionAnswerIcon from '@mui/icons-material/QuestionAnswer'
 
 interface ActionType {
@@ -41,16 +40,9 @@ const AVAILABLE_ACTIONS: ActionType[] = [
         id: 'ask_question',
         label: 'Ask a question',
         description: 'Allow agent to get information from users. The system waits for the user\'s reply before continuing',
-        icon: <DataObjectIcon />,
+        icon: <QuestionAnswerIcon />,
         category: 'Basics',
-    },
-    // {
-    //     id: 'ask_question',
-    //     label: 'Ask a question',
-    //     description: 'Prompt the user for input during execution...',
-    //     icon: <QuestionAnswerIcon />,
-    //     category: 'Invoke',
-    // },
+    }
 ]
 
 interface ActionSelectionPanelProps {

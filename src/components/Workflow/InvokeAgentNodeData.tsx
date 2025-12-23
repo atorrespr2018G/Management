@@ -24,6 +24,7 @@ import {
     Alert,
 } from '@mui/material'
 import { inputVariableOptions } from '@/constants/agents'
+import CodeIcon from '@mui/icons-material/Code'
 
 export interface InvokeAgentNodeData extends Record<string, unknown> {
     actionId: string
@@ -63,10 +64,25 @@ const InvokeAgentNode = ({ data, id }: NodeProps) => {
             >
                 <CardContent>
                     {/* Header */}
-                    < Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }
-                    }>
-                        Invoke Agent
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <Box
+                            sx={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: 1,
+                                bgcolor: 'info.main',
+                                color: 'white',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}
+                        >
+                            <CodeIcon fontSize="small" />
+                        </Box>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                            Invoke Agent
+                        </Typography>
+                    </Box>
                     {/* <Typography variant="body2" color="text.secondary">
                         {data?.actionId as string}
                     </Typography> */}
