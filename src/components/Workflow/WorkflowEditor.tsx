@@ -23,11 +23,14 @@ import InvokeAgentConfigPanel from './InvokeAgentConfigPanel'
 import InvokeAgentNode, { InvokeAgentNodeData } from './InvokeAgentNodeData'
 import StartNode, { StartNodeData } from './StartNode'
 import AddActionNode from './AddActionNode'
+import AskQuestionNode, { AskQuestionNodeData } from './AskQuestionNode'
+import AskQuestionConfigPanel from './AskQuestionConfigPanel'
 import ActionSelectionPanel from './ActionSelectionPanel'
 
 const nodeTypes = {
     start: StartNode,
     invoke_agent: InvokeAgentNode,
+    ask_question: AskQuestionNode,
     add_action: AddActionNode,
 }
 
@@ -83,7 +86,7 @@ const WorkflowEditorContent = () => {
         setInsertionNodeId(null)
     }, [])
 
-    const handleNodeUpdate = useCallback((nodeId: string, newData: InvokeAgentNodeData) => {
+    const handleNodeUpdate = useCallback((nodeId: string, newData: InvokeAgentNodeData | AskQuestionNodeData) => {
         setNodes((nds) =>
             nds.map((node) => {
                 if (node.id === nodeId) {
@@ -112,20 +115,38 @@ const WorkflowEditorContent = () => {
             y: placeholderNode.position.y - 30 // Shift up slightly to center larger card
         }
 
-        // 3. Create the new Action Node
+        // 3. Create the new Action Node based on actionId
         const newNodeId = `node-${Date.now()}`
-        const newNode: Node = {
-            id: newNodeId,
-            type: 'invoke_agent', // currently all map to this, easy to extend
-            position,
-            data: {
-                actionId: `action-${Date.now()}`,
-                selectedAgent: '',
-                inputMessage: 'System.LastMessage',
-                autoIncludeResponse: true,
-                outputMessageVar: '',
-                outputJsonVar: '',
-            } as InvokeAgentNodeData,
+        let newNode: Node
+
+        console.log('Creating node. actionId:', actionId, 'matches ask_question?', actionId === 'ask_question')
+
+        if (actionId === 'ask_question') {
+            newNode = {
+                id: newNodeId,
+                type: 'ask_question',
+                position,
+                data: {
+                    actionId: `action-${Date.now()}`,
+                    question: '',
+                    variableName: '',
+                } as AskQuestionNodeData,
+            }
+        } else {
+            // Default to invoke_agent
+            newNode = {
+                id: newNodeId,
+                type: 'invoke_agent',
+                position,
+                data: {
+                    actionId: `action-${Date.now()}`,
+                    selectedAgent: '',
+                    inputMessage: 'System.LastMessage',
+                    autoIncludeResponse: true,
+                    outputMessageVar: '',
+                    outputJsonVar: '',
+                } as InvokeAgentNodeData,
+            }
         }
 
         // 4. Create a NEW Placeholder node to the right
@@ -204,7 +225,7 @@ const WorkflowEditorContent = () => {
                 <Typography variant="h5" sx={{ fontWeight: 600 }}>
                     Workflow Editor
                 </Typography>
-                <Button
+                {/* <Button
                     variant="contained"
                     startIcon={<PlayArrowIcon />}
                     onClick={runWorkflow}
@@ -212,7 +233,7 @@ const WorkflowEditorContent = () => {
                     sx={{ textTransform: 'none' }}
                 >
                     {isRunning ? 'Running...' : 'Run Workflow'}
-                </Button>
+                </Button> */}
             </Paper>
 
             {/* Main Content Area */}
@@ -258,6 +279,26 @@ const WorkflowEditorContent = () => {
                     </Paper>
                 )}
 
+                {/* Case 1b: Ask Question Configuration Panel */}
+                {selectedNode && selectedNode.type === 'ask_question' && (
+                    <Paper
+                        elevation={4}
+                        sx={{
+                            width: 400,
+                            borderLeft: '1px solid',
+                            borderColor: 'divider',
+                            overflowY: 'auto',
+                            bgcolor: 'background.paper',
+                            zIndex: 5,
+                        }}
+                    >
+                        <AskQuestionConfigPanel
+                            data={selectedNode.data as AskQuestionNodeData}
+                            onUpdate={(newData) => handleNodeUpdate(selectedNode.id, newData)}
+                        />
+                    </Paper>
+                )}
+
                 {/* Case 2: Action Selection Panel (Insertion Mode) */}
                 {insertionNodeId && (
                     <Paper
@@ -278,7 +319,7 @@ const WorkflowEditorContent = () => {
                     </Paper>
                 )}
             </Box>
-        </Box>
+        </Box >
     )
 }
 
