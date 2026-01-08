@@ -1,17 +1,15 @@
 import React from 'react'
-import {
-    TextField,
-} from '@mui/material'
-import { AskQuestionNodeData } from '../nodes/AskQuestionNode'
+import { TextField } from '@mui/material'
+import { SendMessageNodeData } from '../nodes/SendMessageNode'
 import WorkflowConfigPanel from './WorkflowConfigPanel'
 
-interface AskQuestionConfigPanelProps {
-    data: AskQuestionNodeData
-    onUpdate: (data: AskQuestionNodeData) => void
+interface SendMessageConfigPanelProps {
+    data: SendMessageNodeData
+    onUpdate: (data: SendMessageNodeData) => void
 }
 
-const AskQuestionConfigPanel = ({ data, onUpdate }: AskQuestionConfigPanelProps) => {
-    const handleChange = (field: keyof AskQuestionNodeData, value: any) => {
+const SendMessageConfigPanel = ({ data, onUpdate }: SendMessageConfigPanelProps) => {
+    const handleChange = (field: keyof SendMessageNodeData, value: any) => {
         const newData = { ...data, [field]: value }
         onUpdate(newData)
     }
@@ -24,10 +22,10 @@ const AskQuestionConfigPanel = ({ data, onUpdate }: AskQuestionConfigPanelProps)
                 fullWidth
                 multiline
                 rows={3}
-                label="Question to ask user"
-                placeholder="What would you like to know?"
-                value={data.question || ''}
-                onChange={(e) => handleChange('question', e.target.value)}
+                label="Send message to user"
+                placeholder="Enter message to send to user"
+                value={data.message || ''}
+                onChange={(e) => handleChange('message', e.target.value)}
                 sx={{ mb: 2 }}
             />
 
@@ -45,4 +43,4 @@ const AskQuestionConfigPanel = ({ data, onUpdate }: AskQuestionConfigPanelProps)
     )
 }
 
-export default AskQuestionConfigPanel
+export default SendMessageConfigPanel

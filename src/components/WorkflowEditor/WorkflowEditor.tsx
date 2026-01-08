@@ -23,14 +23,14 @@ import InvokeAgentConfigPanel from './panels/InvokeAgentConfigPanel'
 import InvokeAgentNode, { InvokeAgentNodeData } from './nodes/InvokeAgentNodeData'
 import StartNode, { StartNodeData } from './nodes/StartNode'
 import AddActionNode from './nodes/AddActionNode'
-import AskQuestionNode, { AskQuestionNodeData } from './nodes/AskQuestionNode'
-import AskQuestionConfigPanel from './panels/AskQuestionConfigPanel'
+import SendMessageNode, { SendMessageNodeData } from './nodes/SendMessageNode'
+import SendMessageConfigPanel from './panels/SendMessageConfigPanel'
 import ActionSelectionPanel from './panels/ActionSelectionPanel'
 
 const nodeTypes = {
     start: StartNode,
     invoke_agent: InvokeAgentNode,
-    ask_question: AskQuestionNode,
+    send_message: SendMessageNode,
     add_action: AddActionNode,
 }
 
@@ -86,7 +86,7 @@ const WorkflowEditorContent = () => {
         setInsertionNodeId(null)
     }, [])
 
-    const handleNodeUpdate = useCallback((nodeId: string, newData: InvokeAgentNodeData | AskQuestionNodeData) => {
+    const handleNodeUpdate = useCallback((nodeId: string, newData: InvokeAgentNodeData | SendMessageNodeData) => {
         setNodes((nds) =>
             nds.map((node) => {
                 if (node.id === nodeId) {
@@ -119,18 +119,18 @@ const WorkflowEditorContent = () => {
         const newNodeId = `node-${Date.now()}`
         let newNode: Node
 
-        console.log('Creating node. actionId:', actionId, 'matches ask_question?', actionId === 'ask_question')
+        // console.log('Creating node. actionId:', actionId, 'matches send_message?', actionId === 'send_message')
 
-        if (actionId === 'ask_question') {
+        if (actionId === 'send_message') {
             newNode = {
                 id: newNodeId,
-                type: 'ask_question',
+                type: 'send_message',
                 position,
                 data: {
                     actionId: `action-${Date.now()}`,
-                    question: '',
+                    message: '',
                     variableName: '',
-                } as AskQuestionNodeData,
+                } as SendMessageNodeData,
             } as Node
         } else {
             // Default to invoke_agent
@@ -292,8 +292,8 @@ const WorkflowEditorContent = () => {
                             zIndex: 5,
                         }}
                     >
-                        <AskQuestionConfigPanel
-                            data={selectedNode.data as AskQuestionNodeData}
+                        <SendMessageConfigPanel
+                            data={selectedNode.data as SendMessageNodeData}
                             onUpdate={(newData) => handleNodeUpdate(selectedNode.id, newData)}
                         />
                     </Paper>

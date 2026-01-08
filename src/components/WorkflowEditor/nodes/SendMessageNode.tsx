@@ -5,20 +5,20 @@ import { NodeProps } from '@xyflow/react'
 import QuestionAnswerIcon from '@mui/icons-material/QuestionAnswer'
 import WorkflowNode from './WorkflowNode'
 
-export interface AskQuestionNodeData extends Record<string, unknown> {
+export interface SendMessageNodeData extends Record<string, unknown> {
     actionId: string
-    question: string
+    message: string
     variableName: string
 }
 
-const AskQuestionNode = (props: NodeProps) => {
+const SendMessageNode = (props: NodeProps) => {
     return (
         <WorkflowNode
             {...props}
-            title="Ask a Question"
+            title="Send Message"
             icon={<QuestionAnswerIcon fontSize="small" />}
         />
     )
 }
 
-export default memo(AskQuestionNode)
+export default memo(SendMessageNode)
