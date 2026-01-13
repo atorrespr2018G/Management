@@ -110,7 +110,7 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
         { text: 'Overview', icon: <HomeIcon />, href: '/' },
         { text: 'Chat', icon: <ChatBubbleOutlineIcon />, href: '/chat' },
         { text: 'Chat SQL', icon: <DataObjectIcon />, href: '/chat-sql' },
-        { text: 'Workflow', icon: <SchemaIcon />, href: '/workflow' },
+        { text: 'Workflows', icon: <SchemaIcon />, href: '/workflows' },
         { text: 'Playgrounds', icon: <ChatBubbleOutlineIcon />, href: '/playgrounds' },
       ],
     },
