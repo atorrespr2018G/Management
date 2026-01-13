@@ -37,12 +37,19 @@ const AVAILABLE_ACTIONS: ActionType[] = [
         category: 'Invoke',
     },
     {
-        id: 'ask_question',
-        label: 'Ask a question',
-        description: 'Allow agent to get information from users. The system waits for the user\'s reply before continuing',
+        id: 'send_message',
+        label: 'Send message',
+        description: 'Send a message to the user',
         icon: <QuestionAnswerIcon />,
         category: 'Basics',
-    }
+    },
+    // {
+    //     id: 'ask_question',
+    //     label: 'Ask a question',
+    //     description: 'Allow agent to get information from users. The system waits for the user\'s reply before continuing',
+    //     icon: <QuestionAnswerIcon />,
+    //     category: 'Basics',
+    // }
 ]
 
 interface ActionSelectionPanelProps {

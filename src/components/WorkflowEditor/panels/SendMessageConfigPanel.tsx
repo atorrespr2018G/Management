@@ -15,7 +15,7 @@ const SendMessageConfigPanel = ({ data, onUpdate }: SendMessageConfigPanelProps)
     }
 
     return (
-        <WorkflowConfigPanel title="Ask a Question Configuration" actionId={data.actionId}>
+        <WorkflowConfigPanel title="Send Message Configuration" actionId={data.actionId}>
 
             {/* Question */}
             <TextField
