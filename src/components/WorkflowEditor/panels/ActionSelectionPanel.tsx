@@ -14,11 +14,21 @@ import {
     Paper,
     Divider,
     IconButton,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Button,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
 } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import CloseIcon from '@mui/icons-material/Close'
 import CodeIcon from '@mui/icons-material/Code'
 import QuestionAnswerIcon from '@mui/icons-material/QuestionAnswer'
+import CallSplitIcon from '@mui/icons-material/CallSplit'
 
 interface ActionType {
     id: string
@@ -50,15 +60,38 @@ const AVAILABLE_ACTIONS: ActionType[] = [
     //     icon: <QuestionAnswerIcon />,
     //     category: 'Basics',
     // }
+
+    {
+        id: 'parallel',
+        label: 'Parallel (Fan-out)',
+        description: 'Execute multiple agents in parallel branches',
+        icon: <CallSplitIcon />,
+        category: 'Flow',
+    }
 ]
 
 interface ActionSelectionPanelProps {
-    onSelect: (actionId: string) => void
+    onSelect: (actionId: string, config?: any) => void
     onClose: () => void
 }
 
 export default function ActionSelectionPanel({ onSelect, onClose }: ActionSelectionPanelProps) {
     const [searchTerm, setSearchTerm] = useState('')
+    const [wizardOpen, setWizardOpen] = useState(false)
+    const [branchCount, setBranchCount] = useState(3)
+
+    const handleActionClick = (actionId: string) => {
+        if (actionId === 'parallel') {
+            setWizardOpen(true)
+        } else {
+            onSelect(actionId)
+        }
+    }
+
+    const handleWizardConfirm = () => {
+        setWizardOpen(false)
+        onSelect('parallel', { branches: branchCount })
+    }
 
     const filteredActions = AVAILABLE_ACTIONS.filter((action) =>
         action.label.toLowerCase().includes(searchTerm.toLowerCase())
@@ -81,9 +114,6 @@ export default function ActionSelectionPanel({ onSelect, onClose }: ActionSelect
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     Add a workflow action
                 </Typography>
-                {/* <IconButton onClick={onClose} size="small">
-                    <CloseIcon />
-                </IconButton> */}
             </Box>
 
             {/* Search */}
@@ -136,7 +166,7 @@ export default function ActionSelectionPanel({ onSelect, onClose }: ActionSelect
                             {actions.map((action) => (
                                 <ListItem key={action.id} disablePadding sx={{ px: 2, mb: 1 }}>
                                     <ListItemButton
-                                        onClick={() => onSelect(action.id)}
+                                        onClick={() => handleActionClick(action.id)}
                                         sx={{
                                             border: '1px solid',
                                             borderColor: 'divider',
@@ -193,6 +223,37 @@ export default function ActionSelectionPanel({ onSelect, onClose }: ActionSelect
                     </Box>
                 )}
             </Box>
+
+            {/* Parallel Wizard Dialog */}
+            <Dialog open={wizardOpen} onClose={() => setWizardOpen(false)}>
+                <DialogTitle>Parallel Execution</DialogTitle>
+                <DialogContent>
+                    <Box sx={{ pt: 1, minWidth: 300 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            Run multiple agents in parallel branches. Results will be aggregated automatically.
+                        </Typography>
+                        <FormControl fullWidth>
+                            <InputLabel id="branch-select-label">Number of Branches</InputLabel>
+                            <Select
+                                labelId="branch-select-label"
+                                value={branchCount}
+                                label="Number of Branches"
+                                onChange={(e) => setBranchCount(Number(e.target.value))}
+                            >
+                                <MenuItem value={2}>2 Branches</MenuItem>
+                                <MenuItem value={3}>3 Branches</MenuItem>
+                                <MenuItem value={4}>4 Branches</MenuItem>
+                            </Select>
+                        </FormControl>
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setWizardOpen(false)}>Cancel</Button>
+                    <Button onClick={handleWizardConfirm} variant="contained" autoFocus>
+                        Create Branches
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     )
 }
