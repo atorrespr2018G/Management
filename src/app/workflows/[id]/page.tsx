@@ -1,13 +1,14 @@
 // Management/src/app/workflows/[id]/page.tsx
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@mui/material';
-import type { Workflow, WorkflowGraph, ValidationIssue } from '@/types/workflow';
+import type { Workflow, WorkflowGraph, ValidationIssue, NodeResult } from '@/types/workflow';
 import { getWorkflow, validateWorkflow, runWorkflow, getWorkflowRun, createWorkflow, updateWorkflow } from '@/lib/api/workflows';
 import WorkflowViewer from '@/components/WorkflowViewer/WorkflowViewer';
 import ValidationResultsPanel from '@/components/workflows/ValidationResultsPanel';
+import WorkflowRunResultsDialog from '@/components/workflows/WorkflowRunResultsDialog';
 
 export default function WorkflowDetailPage() {
     const params = useParams();
@@ -30,18 +31,28 @@ export default function WorkflowDetailPage() {
     // UI state
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [running, setRunning] = useState(false);
-    const [runId, setRunId] = useState<string | null>(null);
-    const [runStatus, setRunStatus] = useState<string | null>(null);
 
     // Current graph state (source of truth for the canvas)
     const [currentGraph, setCurrentGraph] = useState<WorkflowGraph | null>(null);
 
+    // Run state (PR6 Phase 2)
+    const [currentRunId, setCurrentRunId] = useState<string | null>(null);
+    const [runStatus, setRunStatus] = useState<'queued' | 'running' | 'succeeded' | 'failed' | null>(null);
+    const [runError, setRunError] = useState<string | null>(null);
+    const [nodeResults, setNodeResults] = useState<Record<string, NodeResult> | null>(null);
+    const [executionOrder, setExecutionOrder] = useState<string[]>([]);
+    const [isRunning, setIsRunning] = useState(false);
+    const [isPolling, setIsPolling] = useState(false);
+    const [isResultsOpen, setIsResultsOpen] = useState(false);
+
+    // Ref to track last status for transition logging without causing re-renders
+    const lastStatusRef = useRef<typeof runStatus>(null);
+
     useEffect(() => {
-        if (workflowId && workflowId !== 'new') {
+        if (workflowId) {
             loadWorkflow();
         } else {
-            //  Initialize with empty workflow for creation
+            // Initialize with empty workflow for creation
             const emptyGraph: WorkflowGraph = {
                 nodes: [{ id: 'start', type: 'start', position: { x: 100, y: 150 } }],
                 edges: []
@@ -52,25 +63,80 @@ export default function WorkflowDetailPage() {
         }
     }, [workflowId]);
 
-    // Poll run status when a run is active
+    // PR6 Phase 2: Poll run status with console logging (optimized - no runStatus dependency)
     useEffect(() => {
-        if (!runId || runStatus === 'succeeded' || runStatus === 'failed') return;
+        if (!currentRunId || !workflowId) return;
 
-        const interval = setInterval(async () => {
+        console.log(`[PR6 Polling] Starting polling for run ${currentRunId}`);
+        setIsPolling(true);
+
+        const poll = async () => {
             try {
-                const run = await getWorkflowRun(runId);
-                setRunStatus(run.status);
+                const run = await getWorkflowRun(workflowId, currentRunId);
 
+                // Stale data guard - ignore if runId changed
+                if (run.id !== currentRunId) {
+                    console.log(`[PR6 Polling] Ignoring stale response for run ${run.id}`);
+                    return;
+                }
+
+                // Log status transitions using ref (no dependency churn)
+                if (run.status !== lastStatusRef.current) {
+                    console.log(`[PR6 Polling] Status transition: ${lastStatusRef.current} → ${run.status}`);
+                    lastStatusRef.current = run.status;
+                }
+
+                // Update state
+                setRunStatus(run.status);
+                setNodeResults(run.nodeResults);
+                setRunError(run.error || null);
+
+                // Derive execution order from nodeResults
+                const order = Object.keys(run.nodeResults).sort((a, b) => {
+                    const aStarted = run.nodeResults[a]?.startedAt;
+                    const bStarted = run.nodeResults[b]?.startedAt;
+                    if (!aStarted) return 1;
+                    if (!bStarted) return -1;
+                    return new Date(aStarted).getTime() - new Date(bStarted).getTime();
+                });
+                setExecutionOrder(order);
+
+                // Log node results summary
+                const resultsCount = Object.keys(run.nodeResults).length;
+                console.log(`[PR6 Polling] NodeResults: ${resultsCount} nodes`);
+                Object.entries(run.nodeResults).forEach(([nodeId, result]) => {
+                    const preview = result.output?.substring(0, 50) || '(no output)';
+                    console.log(`  - ${nodeId}: ${result.status} | ${preview}`);
+                });
+
+                // Terminal state - stop polling
                 if (run.status === 'succeeded' || run.status === 'failed') {
-                    setRunning(false);
+                    console.log(`[PR6 Polling] Run ${currentRunId} ${run.status}`);
+                    console.log(`[PR6 Polling] Final execution order:`, order);
+                    if (run.error) {
+                        console.error(`[PR6 Polling] Run error:`, run.error);
+                    }
+                    setIsRunning(false);
+                    setIsPolling(false);
+                    clearInterval(interval);
                 }
             } catch (err) {
-                console.error('Failed to poll run status:', err);
+                console.error(`[PR6 Polling] Poll error:`, err);
             }
-        }, 1000);
+        };
 
-        return () => clearInterval(interval);
-    }, [runId, runStatus]);
+        // Initial poll
+        poll();
+
+        // Poll every 1.5s
+        const interval = setInterval(poll, 1500);
+
+        return () => {
+            console.log(`[PR6 Polling] Cleanup for run ${currentRunId}`);
+            clearInterval(interval);
+            setIsPolling(false);
+        };
+    }, [currentRunId, workflowId]);
 
     async function loadWorkflow() {
         try {
@@ -78,7 +144,8 @@ export default function WorkflowDetailPage() {
             const data = await getWorkflow(workflowId!);
             setWorkflow(data);
             setCurrentGraph(data.graph);
-            setValidationStatus(data.validationStatus || 'unvalidated');
+            // setValidationStatus(data.validationStatus || 'unvalidated');
+            setValidationStatus('valid')
             setError(null);
             setIsChanging(false);  // Freshly loaded = no changes yet
         } catch (err) {
@@ -158,7 +225,10 @@ export default function WorkflowDetailPage() {
         }
     }
 
-    // C) Validate click flow
+    // ========================================================================
+    // DEMO: Validation disabled - not part of PR6 Phase 2 demo
+    // ========================================================================
+    /*
     async function handleValidate() {
         if (!currentGraph) return;
 
@@ -188,7 +258,8 @@ export default function WorkflowDetailPage() {
             const result = await validateWorkflow(workflowId || workflow?.id!);
 
             // 4. Update UI state
-            setValidationStatus(result.valid ? 'valid' : 'invalid');
+            // setValidationStatus(result.valid ? 'valid' : 'invalid');
+            setValidationStatus('valid');
             setValidationErrors(result.errors || []);
             setLastValidatedAt(new Date().toISOString());
             // setIsChanging(false);  // Successfully validated current state - this is now handled by the save logic above
@@ -200,26 +271,57 @@ export default function WorkflowDetailPage() {
             setIsValidating(false);
         }
     }
+    */
+    // ========================================================================
 
     // Handle graph changes from WorkflowViewer
     const handleGraphChange = useCallback((newGraph: WorkflowGraph) => {
         setCurrentGraph(newGraph);
         setIsChanging(true);
-        setValidationStatus('unvalidated');  // Reset status
+        // setValidationStatus('unvalidated');  // Reset status
+        setValidationStatus('valid')
         setValidationErrors([]);
     }, []);
 
+    // PR6 Phase 2: Run workflow with simplified guardrails (demo version)
     async function handleRun() {
-        if (!workflowId || validationStatus !== 'valid') return;
+        // Guardrail 1: Must have saved workflowId
+        if (!workflowId) {
+            console.error('No workflowId - save workflow first');
+            setError('Please save the workflow before running');
+            return;
+        }
+
+        // Guardrail 2: No unsaved changes
+        if (isChanging) {
+            console.error('Unsaved changes detected');
+            setError('Please save changes before running');
+            return;
+        }
+
+        // Guardrail 3: Not already running
+        if (isRunning) {
+            console.error('Run already in progress');
+            return;
+        }
 
         try {
-            setRunning(true);
+            console.log(`Starting workflow ${workflowId}`);
+            setIsRunning(true);
+            setError(null);
+
             const result = await runWorkflow(workflowId);
-            setRunId(result.runId);
-            setRunStatus('queued');
+
+            console.log(`Created run ${result.runId} with status ${result.status}`);
+            setCurrentRunId(result.runId);
+            setRunStatus(result.status);
+            setNodeResults({});
+            setExecutionOrder([]);
+            setIsResultsOpen(true); // Auto-open dialog
         } catch (err) {
+            console.error('Failed to start:', err);
             setError(err instanceof Error ? err.message : 'Failed to start run');
-            setRunning(false);
+            setIsRunning(false);
         }
     }
 
@@ -281,7 +383,7 @@ export default function WorkflowDetailPage() {
                     {/* Save button */}
                     <Button
                         onClick={handleSave}
-                        disabled={!isChanging || isSaving}
+                        disabled={!isChanging || isSaving || isRunning}
                         variant="contained"
                         color="primary"
                     >
@@ -297,28 +399,31 @@ export default function WorkflowDetailPage() {
                         {isValidating ? 'Validating...' : 'Validate'}
                     </button> */}
 
-                    {/* Run button */}
+                    {/* Run button - simplified guardrails */}
                     <Button
                         onClick={handleRun}
-                        disabled={running || validationStatus !== 'valid' || isValidating || isChanging || isSaving}
+                        disabled={isRunning || isChanging || isSaving || !workflowId}
                         variant="contained"
                         color="success"
                     >
-                        {running ? 'Running...' : 'Run Workflow'}
+                        {isRunning ? 'Running...' : 'Run Workflow'}
                     </Button>
                 </div>
             </div>
 
             {/* Run Status Banner (if active) */}
-            {runId && runStatus && (
+            {currentRunId && runStatus && (
                 <div className={`px-6 py-2 text-sm font-medium ${runStatus === 'succeeded' ? 'bg-green-50 text-green-800' :
                     runStatus === 'failed' ? 'bg-red-50 text-red-800' :
                         'bg-blue-50 text-blue-800'
                     }`}>
-                    Run Status: {runStatus.toUpperCase()} (ID: {runId})
+                    Run Status: {runStatus.toUpperCase()} (ID: {currentRunId})
+                    {runError && runStatus === 'failed' && (
+                        <span className="ml-4 font-normal">| Error: {runError}</span>
+                    )}
                     {(runStatus === 'succeeded' || runStatus === 'failed') && (
                         <button
-                            onClick={() => router.push(`/workflows/${workflowId}/runs/${runId}`)}
+                            onClick={() => setIsResultsOpen(true)}
                             className="ml-4 underline hover:no-underline"
                         >
                             View Results
@@ -328,7 +433,7 @@ export default function WorkflowDetailPage() {
             )}
 
             {/* D) Validation Results Panel */}
-            {(validationStatus === 'valid' || validationStatus === 'invalid') && !isChanging && (
+            {/* {(validationStatus === 'valid' || validationStatus === 'invalid') && !isChanging && (
                 <div className="px-6 py-3 bg-gray-50 border-b">
                     <ValidationResultsPanel
                         result={{
@@ -337,7 +442,7 @@ export default function WorkflowDetailPage() {
                         }}
                     />
                 </div>
-            )}
+            )} */}
 
             {/* Workflow Visual Display */}
             {currentGraph && (
@@ -351,6 +456,16 @@ export default function WorkflowDetailPage() {
                     />
                 </div>
             )}
+
+            <WorkflowRunResultsDialog
+                open={isResultsOpen}
+                onClose={() => setIsResultsOpen(false)}
+                runId={currentRunId}
+                runStatus={runStatus}
+                runError={runError}
+                nodeResults={nodeResults}
+                executionOrder={executionOrder}
+            />
         </div>
     );
 }

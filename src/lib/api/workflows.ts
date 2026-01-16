@@ -13,7 +13,7 @@ import type {
 } from '@/types/workflow';
 
 const API_BASE = '/api/workflows';
-const USE_MOCKS = false; // Disabled for PR5 - using real backend
+const USE_MOCKS = false;
 
 // FIX 2: Normalize MongoDB _id to id for consistent UI handling
 function normalizeWorkflow(workflow: any): Workflow {
@@ -50,7 +50,7 @@ const MOCK_WORKFLOW: Workflow = {
             // { source: 'c_send', target: 'd_invoke' },
         ],
     },
-    validationStatus: 'invalid',
+    validationStatus: 'valid',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     schemaVersion: 1,
@@ -69,7 +69,6 @@ export async function createWorkflow(data: WorkflowCreateRequest): Promise<Workf
         };
     }
 
-    // TODO: Wire to POST /api/workflows when PR5 endpoints land
     const response = await fetch(API_BASE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -92,7 +91,6 @@ export async function listWorkflows(): Promise<Workflow[]> {
         return [MOCK_WORKFLOW];
     }
 
-    // TODO: Wire to GET /api/workflows when PR5 endpoints land
     const response = await fetch(API_BASE, {
         credentials: 'include',
     });
@@ -113,7 +111,6 @@ export async function getWorkflow(id: string): Promise<Workflow> {
         return { ...MOCK_WORKFLOW, id };
     }
 
-    // TODO: Wire to GET /api/workflows/{id} when PR5 endpoints land
     const response = await fetch(`${API_BASE}/${id}`, {
         credentials: 'include',
     });
@@ -137,7 +134,6 @@ export async function validateWorkflow(id: string): Promise<ValidationResult> {
         };
     }
 
-    // TODO: Wire to POST /api/workflows/{id}/validate when PR5 endpoints land
     const response = await fetch(`${API_BASE}/${id}/validate`, {
         method: 'POST',
         credentials: 'include',
@@ -184,11 +180,14 @@ export async function updateWorkflow(id: string, data: WorkflowCreateRequest): P
  */
 export async function runWorkflow(id: string): Promise<WorkflowRunCreateResponse> {
     if (USE_MOCKS) {
-        return { runId: `mock-run-${Date.now()}` };
+        return {
+            runId: `mock-run-${Date.now()}`,
+            status: 'queued',
+            workflowId: id
+        };
     }
 
-    // TODO: Wire to POST /api/workflows/{id}/run when PR5 endpoints land
-    const response = await fetch(`${API_BASE}/${id}/run`, {
+    const response = await fetch(`${API_BASE}/${id}/runs`, {
         method: 'POST',
         credentials: 'include',
     });
@@ -203,11 +202,11 @@ export async function runWorkflow(id: string): Promise<WorkflowRunCreateResponse
 /**
  * Get workflow run status and results
  */
-export async function getWorkflowRun(runId: string): Promise<WorkflowRun> {
+export async function getWorkflowRun(workflowId: string, runId: string): Promise<WorkflowRun> {
     if (USE_MOCKS) {
         return {
             id: runId,
-            workflowId: 'mock-workflow-1',
+            workflowId: workflowId,
             userId: 'test-user',
             status: 'succeeded',
             createdAt: new Date().toISOString(),
@@ -258,8 +257,7 @@ export async function getWorkflowRun(runId: string): Promise<WorkflowRun> {
         };
     }
 
-    // TODO: Wire to GET /api/workflows/runs/{runId} when PR5 endpoints land
-    const response = await fetch(`${API_BASE}/runs/${runId}`, {
+    const response = await fetch(`${API_BASE}/${workflowId}/runs/${runId}`, {
         credentials: 'include',
     });
 

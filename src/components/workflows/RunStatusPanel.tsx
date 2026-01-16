@@ -119,7 +119,12 @@ export default function RunStatusPanel({ run }: RunStatusPanelProps) {
                                                     {expandedOutputs.has(nodeId) ? (
                                                         <div>
                                                             <pre className="text-xs bg-gray-50 p-2 rounded overflow-auto max-h-40">
-                                                                {result.output}
+                                                                {result.output ? result.output : (
+                                                                    <span className="text-gray-500 italic">
+                                                                        Full output not available; showing preview only.<br />
+                                                                        {result.outputPreview}
+                                                                    </span>
+                                                                )}
                                                             </pre>
                                                             <button
                                                                 onClick={() => toggleOutput(nodeId)}
@@ -131,7 +136,7 @@ export default function RunStatusPanel({ run }: RunStatusPanelProps) {
                                                     ) : (
                                                         <div>
                                                             <pre className="text-xs bg-yellow-50 p-2 rounded">
-                                                                {result.outputPreview || result.output.slice(0, 100)}...
+                                                                {result.outputPreview || (result.output ? result.output.slice(0, 100) + '...' : '(no preview)')}
                                                             </pre>
                                                             <button
                                                                 onClick={() => toggleOutput(nodeId)}
@@ -150,7 +155,7 @@ export default function RunStatusPanel({ run }: RunStatusPanelProps) {
 
                                             {result.error && (
                                                 <div className="mt-2 text-xs text-red-600">
-                                                    <strong>Error:</strong> {result.error.message}
+                                                    <strong>Error:</strong> {result.error}
                                                 </div>
                                             )}
                                         </td>
