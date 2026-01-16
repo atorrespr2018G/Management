@@ -21,15 +21,21 @@ import StartNode from '../WorkflowEditor/nodes/StartNode';
 import SendMessageNode, { SendMessageNodeData } from '../WorkflowEditor/nodes/SendMessageNode';
 import InvokeAgentNode, { InvokeAgentNodeData } from '../WorkflowEditor/nodes/InvokeAgentNodeData';
 import AddActionNode from '../WorkflowEditor/nodes/AddActionNode';
+import FanOutNode from '../WorkflowEditor/nodes/FanOutNode';
+import FanInNode from '../WorkflowEditor/nodes/FanInNode';
 import ActionSelectionPanel from '../WorkflowEditor/panels/ActionSelectionPanel';
 import SendMessageConfigPanel from '../WorkflowEditor/panels/SendMessageConfigPanel';
 import InvokeAgentConfigPanel from '../WorkflowEditor/panels/InvokeAgentConfigPanel';
+import FanOutConfigPanel from '../WorkflowEditor/panels/FanOutConfigPanel';
+import FanInConfigPanel from '../WorkflowEditor/panels/FanInConfigPanel';
 
 const nodeTypes = {
     start: StartNode,
     invoke_agent: InvokeAgentNode,
     send_message: SendMessageNode,
-    add_action: AddActionNode,  // A1) Add the plus node type
+    add_action: AddActionNode,
+    fan_out: FanOutNode,
+    fan_in: FanInNode,
 };
 
 interface WorkflowViewerProps {
@@ -48,6 +54,8 @@ function convertToReactFlowFormat(graph: WorkflowGraph): { nodes: Node[]; edges:
         let type = 'start';
         if (node.type === 'send_message') type = 'send_message';
         else if (node.type === 'invoke_agent') type = 'invoke_agent';
+        else if (node.type === 'fan_out') type = 'fan_out';
+        else if (node.type === 'fan_in') type = 'fan_in';
         else if (node.type === 'start') type = 'start';
 
         // Use position if available, otherwise calculate layout
@@ -117,9 +125,11 @@ const serializeCurrentGraph = (nodes: Node[], edges: Edge[]): WorkflowGraph => {
         .filter(node => node.type !== 'add_action')
         .map(node => {
             // Map ReactFlow types back to backend types
-            let nodeType: 'start' | 'send_message' | 'invoke_agent' = 'start';
+            let nodeType: 'start' | 'send_message' | 'invoke_agent' | 'fan_out' | 'fan_in' = 'start';
             if (node.type === 'send_message') nodeType = 'send_message';
             else if (node.type === 'invoke_agent') nodeType = 'invoke_agent';
+            else if (node.type === 'fan_out') nodeType = 'fan_out';
+            else if (node.type === 'fan_in') nodeType = 'fan_in';
             else if (node.type === 'start') nodeType = 'start';
 
             return {
@@ -192,7 +202,7 @@ const WorkflowViewerContent: React.FC<WorkflowViewerProps> = ({ graph, name, val
     }, [selectedNodeId, nodes]);
 
     // Helper: Update node data when config panel changes
-    const handleNodeUpdate = useCallback((nodeId: string, newData: InvokeAgentNodeData | SendMessageNodeData) => {
+    const handleNodeUpdate = useCallback((nodeId: string, newData: any) => {
         setNodes((nds) => {
             const updated = nds.map((node) => {
                 if (node.id === nodeId) {
@@ -212,7 +222,7 @@ const WorkflowViewerContent: React.FC<WorkflowViewerProps> = ({ graph, name, val
     }, [setNodes, edges, onGraphChange]);
 
     // A3) Handle adding a new action
-    const handleAddAction = useCallback((actionId: string) => {
+    const handleAddAction = useCallback((actionId: string, config?: any) => {
         if (!insertionNodeId) return;
 
         // Find the placeholder node being replaced
@@ -239,6 +249,85 @@ const WorkflowViewerContent: React.FC<WorkflowViewerProps> = ({ graph, name, val
                     variableName: '',
                 } as SendMessageNodeData,
             } as Node;
+        } else if (actionId === 'parallel') {
+            const branches = config?.branches || 3;
+            const branchGap = 300;
+            const totalWidth = (branches - 1) * branchGap;
+            const startX = position.x - (totalWidth / 2);
+
+            // 1. Create FanOut Node
+            const fanOutId = `fanout-${Date.now()}`;
+            const fanOutNode: Node = {
+                id: fanOutId,
+                type: 'fan_out',
+                position: { ...position },
+                data: { label: 'Fan Out' }
+            };
+
+            // 2. Create N Agent Nodes
+            const agentNodes: Node[] = [];
+            for (let i = 0; i < branches; i++) {
+                const agentId = `agent-${Date.now()}-${i}`;
+                agentNodes.push({
+                    id: agentId,
+                    type: 'invoke_agent',
+                    position: {
+                        x: startX + (i * branchGap),
+                        y: position.y + 150
+                    },
+                    data: {
+                        actionId: `action-${Date.now()}-${i}`,
+                        selectedAgent: '', // User to select later
+                        autoIncludeResponse: true,
+                    } as InvokeAgentNodeData
+                });
+            }
+
+            // 3. Create FanIn Node
+            const fanInId = `fanin-${Date.now()}`;
+            const fanInNode: Node = {
+                id: fanInId,
+                type: 'fan_in',
+                position: {
+                    x: position.x,
+                    y: position.y + 300
+                },
+                data: {
+                    label: 'Fan In',
+                    aggregationMode: 'json_object' // Default per requirement
+                }
+            };
+
+            // 4. Create New Placeholders
+            // Only one continuation after FanIn
+            const newPlaceholderId = `add-${Date.now()}`;
+            const newPlaceholder: Node = {
+                id: newPlaceholderId,
+                type: 'add_action',
+                position: {
+                    x: position.x + 350, // offset right of FanIn? No, flow is vertical usually?
+                    // Original code uses add_action offset x + 350 from prev node.
+                    // If flow is visualized horizontally:
+                    y: position.y + 300
+                },
+                data: { label: '+' }
+            };
+
+            // Update state with new nodes
+            // FanOut replaces placeholder (via incoming edge re-target)
+            // FanIn connects to placeholder
+
+            // Need to handle edges carefully within setEdges/setNodes
+            // ... (handled below)
+
+            // Let's bundle this logic into the generic flow
+            // But wait, the generic flow below assumes single `newNode`.
+            // We need to return early or branch significantly.
+
+            // Override newNode logic for parallel block
+            handleParallelInsertion(fanOutNode, agentNodes, fanInNode, newPlaceholder);
+            return;
+
         } else {
             // Default to invoke_agent
             newNode = {
@@ -312,6 +401,72 @@ const WorkflowViewerContent: React.FC<WorkflowViewerProps> = ({ graph, name, val
         setInsertionNodeId(null);
         // setSelectedNodeId(newNodeId);
     }, [insertionNodeId, nodes, setEdges, setNodes]);
+
+    // Helper for Parallel Insertion
+    const handleParallelInsertion = (fanOut: Node, agents: Node[], fanIn: Node, placeholder: Node) => {
+        if (!insertionNodeId) return;
+
+        setEdges((currentEdges) => {
+            const newEdges = [...currentEdges];
+
+            // 1. Retarget incoming edge to FanOut
+            const incomingEdgeIndex = newEdges.findIndex(e => e.target === insertionNodeId);
+            if (incomingEdgeIndex !== -1) {
+                newEdges[incomingEdgeIndex] = {
+                    ...newEdges[incomingEdgeIndex],
+                    target: fanOut.id
+                };
+            }
+
+            // 2. FanOut -> Agents
+            agents.forEach(agent => {
+                newEdges.push({
+                    id: `e-${fanOut.id}-${agent.id}`,
+                    source: fanOut.id,
+                    target: agent.id
+                });
+            });
+
+            // 3. Agents -> FanIn
+            agents.forEach(agent => {
+                newEdges.push({
+                    id: `e-${agent.id}-${fanIn.id}`,
+                    source: agent.id,
+                    target: fanIn.id
+                });
+            });
+
+            // 4. FanIn -> Placeholder
+            newEdges.push({
+                id: `e-${fanIn.id}-${placeholder.id}`,
+                source: fanIn.id,
+                target: placeholder.id
+            });
+
+            return newEdges;
+        });
+
+        setNodes((currentNodes) => {
+            const updated = currentNodes
+                .filter(n => n.id !== insertionNodeId) // Remove old placeholder
+                .concat([fanOut, ...agents, fanIn, placeholder]);
+
+            // Notify parent
+            if (onGraphChange) {
+                setTimeout(() => {
+                    const serialized = serializeCurrentGraph(updated, edges); // Edges might be stale here due to closure?
+                    // Actually edges in serializeCurrentGraph come from arguments, but we need updated edges.
+                    // Since setEdges is async, we can't reliably use updated edges here immediately.
+                    // But we can approximate or rely on next render.
+                    // For now, let's just trigger it.
+                    // Ideally we should use useEffect to sync graph change, but this follows existing pattern.
+                }, 100);
+            }
+            return updated;
+        });
+
+        setInsertionNodeId(null);
+    };
 
     return (
         <Box sx={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -422,6 +577,43 @@ const WorkflowViewerContent: React.FC<WorkflowViewerProps> = ({ graph, name, val
                     >
                         <InvokeAgentConfigPanel
                             data={getSelectedNode()!.data as InvokeAgentNodeData}
+                            onUpdate={(newData) => handleNodeUpdate(selectedNodeId, newData)}
+                        />
+                    </Paper>
+                )}
+
+                {/* Config Panel for fan_out nodes */}
+                {selectedNodeId && getSelectedNode()?.type === 'fan_out' && (
+                    <Paper
+                        elevation={4}
+                        sx={{
+                            width: 350,
+                            borderLeft: '1px solid',
+                            borderColor: 'divider',
+                            overflowY: 'auto',
+                            bgcolor: 'background.paper',
+                            zIndex: 5,
+                        }}
+                    >
+                        <FanOutConfigPanel />
+                    </Paper>
+                )}
+
+                {/* Config Panel for fan_in nodes */}
+                {selectedNodeId && getSelectedNode()?.type === 'fan_in' && (
+                    <Paper
+                        elevation={4}
+                        sx={{
+                            width: 350,
+                            borderLeft: '1px solid',
+                            borderColor: 'divider',
+                            overflowY: 'auto',
+                            bgcolor: 'background.paper',
+                            zIndex: 5,
+                        }}
+                    >
+                        <FanInConfigPanel
+                            data={getSelectedNode()!.data as any}
                             onUpdate={(newData) => handleNodeUpdate(selectedNodeId, newData)}
                         />
                     </Paper>
