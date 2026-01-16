@@ -85,7 +85,14 @@ const InvokeAgentConfigPanel = ({ data, onUpdate }: InvokeAgentConfigPanelProps)
         if (value === CREATE_NEW_AGENT_VALUE) {
             setDialogOpen(true)
         } else {
-            handleChange('selectedAgent', value)
+            // FIX: Persist both agentId and mode for backend compatibility
+            const newData = {
+                ...data,
+                selectedAgent: value,
+                agentId: value,
+                mode: 'foundry_agent'
+            }
+            onUpdate(newData)
         }
     }
 
@@ -110,7 +117,14 @@ const InvokeAgentConfigPanel = ({ data, onUpdate }: InvokeAgentConfigPanelProps)
             await fetchAgents()
 
             // Select the newly created agent
-            handleChange('selectedAgent', newAgent.id)
+            // FIX: Persist extended fields
+            const newData = {
+                ...data,
+                selectedAgent: newAgent.id,
+                agentId: newAgent.id,
+                mode: 'foundry_agent'
+            }
+            onUpdate(newData)
 
             // Close dialog and reset
             setDialogOpen(false)

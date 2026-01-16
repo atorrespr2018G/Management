@@ -34,6 +34,8 @@ export interface InvokeAgentNodeData extends Record<string, unknown> {
     autoIncludeResponse: boolean
     outputMessageVar: string
     outputJsonVar: string
+    mode?: string
+    agentId?: string
 }
 
 interface Agent {
