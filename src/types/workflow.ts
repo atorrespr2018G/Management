@@ -24,17 +24,23 @@ export interface WorkflowGraph {
 
 export interface WorkflowNode {
     id: string;
-    type: 'start' | 'add_action' | 'send_message' | 'invoke_agent';
+    type: 'start' | 'add_action' | 'send_message' | 'invoke_agent' | 'fan_out' | 'fan_in';
     position?: { x: number; y: number };
     data?: {
         message?: string;
         agentId?: string;
         input?: string;
+        // Aggregator config
+        aggregationMode?: 'json_object' | 'concat';
+        separator?: string;
     };
     config?: {
         message?: string;
         agentId?: string;
         input?: string;
+        // Aggregator config
+        aggregationMode?: 'json_object' | 'concat';
+        separator?: string;
     };
 }
 
