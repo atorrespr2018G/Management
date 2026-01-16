@@ -10,10 +10,15 @@
  * @param args The arguments to pass to the tool
  * @returns The result of the tool invocation
  */
+// Use direct backend URL for long-running agent requests (bypasses Next.js 30-60s proxy timeout)
+const AGENT_BACKEND_URL = process.env.NEXT_PUBLIC_AGENT_URL || 'http://localhost:8787';
+
 export const invokeTool = async (toolName: string, args: Record<string, any> = {}) => {
     // Map 'list-agents' to the existing endpoint
     if (toolName === 'list-agents') {
-        const response = await fetch('/api/workflows/agent/list');
+        const response = await fetch(`${AGENT_BACKEND_URL}/api/workflows/agent/list`, {
+            credentials: 'include'
+        });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.detail || 'Failed to invoke tool list-agents');
@@ -23,11 +28,12 @@ export const invokeTool = async (toolName: string, args: Record<string, any> = {
 
     // Map 'create-agent' to the POST endpoint
     if (toolName === 'create-agent') {
-        const response = await fetch('/api/workflows/agent', {
+        const response = await fetch(`${AGENT_BACKEND_URL}/api/workflows/agent`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
+            credentials: 'include',
             body: JSON.stringify(args),
         });
 
