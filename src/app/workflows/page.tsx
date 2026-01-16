@@ -107,7 +107,7 @@ export default function WorkflowsPage() {
                                             <div className="text-sm text-gray-500">{workflow.description}</div>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
+                                    {/* <td className="px-6 py-4 whitespace-nowrap">
                                         <span
                                             className={`px-2 py-1 text-xs font-semibold rounded ${workflow.validationStatus === 'valid'
                                                 ? 'bg-green-100 text-green-800'
@@ -116,7 +116,7 @@ export default function WorkflowsPage() {
                                         >
                                             {workflow.validationStatus}
                                         </span>
-                                    </td>
+                                    </td> */}
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         {new Date(workflow.updatedAt).toLocaleDateString()}
                                     </td>
