@@ -3,20 +3,51 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button } from '@mui/material';
+import { Button, Alert, Box, Typography } from '@mui/material';
 import type { Workflow } from '@/types/workflow';
 import { listWorkflows, createWorkflow, createDefaultWorkflowTemplate } from '@/lib/api/workflows';
 
+type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
+
 export default function WorkflowsPage() {
     const router = useRouter();
+    const [authStatus, setAuthStatus] = useState<AuthStatus>('loading');
     const [workflows, setWorkflows] = useState<Workflow[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Check auth status on mount
     useEffect(() => {
-        loadWorkflows();
+        checkAuth();
     }, []);
+
+    // Fetch workflows when authenticated
+    useEffect(() => {
+        if (authStatus === 'authenticated') {
+            loadWorkflows();
+        }
+    }, [authStatus]);
+
+    async function checkAuth() {
+        try {
+            const response = await fetch('/api/auth/me', {
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (response.ok) {
+                setAuthStatus('authenticated');
+            } else if (response.status === 401) {
+                setAuthStatus('unauthenticated');
+            } else {
+                setAuthStatus('unauthenticated');
+            }
+        } catch (err) {
+            console.error('Auth check failed:', err);
+            setAuthStatus('unauthenticated');
+        }
+    }
 
     async function loadWorkflows() {
         try {
@@ -25,13 +56,20 @@ export default function WorkflowsPage() {
             setWorkflows(data);
             setError(null);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to load workflows');
+            // Only show error if it's NOT a 401 (auth errors handled separately)
+            if (err instanceof Error && !err.message.includes('401')) {
+                setError(err.message);
+            }
         } finally {
             setLoading(false);
         }
     }
 
     async function handleCreate() {
+        if (authStatus !== 'authenticated') {
+            return;
+        }
+
         try {
             setCreating(true);
             const template = createDefaultWorkflowTemplate();
@@ -43,6 +81,47 @@ export default function WorkflowsPage() {
         }
     }
 
+    // Loading state
+    if (authStatus === 'loading') {
+        return (
+            <div className="container mx-auto p-6 max-w-6xl">
+                <div className="text-center py-12">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <p className="mt-2 text-gray-600">Loading...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Not authenticated state
+    if (authStatus === 'unauthenticated') {
+        return (
+            <div className="container mx-auto p-6 max-w-6xl">
+                <div className="px-4 py-5 sm:px-6">
+                    <h1 className="text-3xl font-bold leading-6 text-gray-900">Workflows</h1>
+                    <p className="mt-1 max-w-2xl text-sm text-gray-500">Manage and execute your workflows</p>
+                </div>
+
+                <Box sx={{ textAlign: 'center', py: 8 }}>
+                    <Typography variant="h6" color="text.secondary" gutterBottom>
+                        Please log in to access workflows
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                        You need to be logged in to view and create workflows.
+                    </Typography>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={() => router.push('/login')}
+                    >
+                        Go to Login
+                    </Button>
+                </Box>
+            </div>
+        );
+    }
+
+    // Authenticated state - show full workflows UI
     return (
         <div className="container mx-auto p-6 max-w-6xl">
             <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
@@ -51,37 +130,28 @@ export default function WorkflowsPage() {
                     <p className="mt-1 max-w-2xl text-sm text-gray-500">Manage and execute your workflows</p>
                 </div>
                 <Button
-                    onClick={() => router.push('/workflows/new')}
+                    onClick={handleCreate}
                     variant="contained"
                     color="primary"
+                    disabled={creating}
                 >
                     + Create Workflow
                 </Button>
             </div>
 
             {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+                <Alert severity="error" sx={{ mb: 2 }}>
                     {error}
-                </div>
+                </Alert>
             )}
 
-            {loading ? (
+            {loading && (
                 <div className="text-center py-12">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                     <p className="mt-2 text-gray-600">Loading workflows...</p>
                 </div>
-            ) : workflows.length === 0 ? (
-                <div className="text-center py-12 bg-gray-50 rounded-lg">
-                    <p className="text-gray-600 mb-4">No workflows yet</p>
-                    <Button
-                        onClick={() => router.push('/workflows/new')}
-                        variant="text"
-                        color="primary"
-                    >
-                        Create your first workflow →
-                    </Button>
-                </div>
-            ) : (
+            )}
+            {(!loading && workflows.length > 0) && (
                 <div className="bg-white rounded-lg shadow overflow-hidden">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -107,26 +177,18 @@ export default function WorkflowsPage() {
                                             <div className="text-sm text-gray-500">{workflow.description}</div>
                                         )}
                                     </td>
-                                    {/* <td className="px-6 py-4 whitespace-nowrap">
-                                        <span
-                                            className={`px-2 py-1 text-xs font-semibold rounded ${workflow.validationStatus === 'valid'
-                                                ? 'bg-green-100 text-green-800'
-                                                : 'bg-yellow-100 text-yellow-800'
-                                                }`}
-                                        >
-                                            {workflow.validationStatus}
-                                        </span>
-                                    </td> */}
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         {new Date(workflow.updatedAt).toLocaleDateString()}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <button
+                                        <Button
                                             onClick={() => router.push(`/workflows/${workflow.id}`)}
-                                            className="text-blue-600 hover:text-blue-900 mr-4"
+                                            variant="text"
+                                            color="primary"
+                                            size="small"
                                         >
                                             View
-                                        </button>
+                                        </Button>
                                     </td>
                                 </tr>
                             ))}
