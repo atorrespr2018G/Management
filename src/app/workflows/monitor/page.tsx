@@ -27,6 +27,7 @@ import {
 } from '@mui/icons-material'
 import WorkflowGraphEditor from '@/components/Workflow/WorkflowGraphEditor'
 import { getExecutionStatus, getWorkflowDefinition, cancelWorkflowExecution } from '@/services/workflowApi'
+import { useWorkflowExecution } from '@/hooks/useWorkflowExecution'
 import type { ExecutionStatusResponse, WorkflowDefinition } from '@/types/workflow'
 
 export default function WorkflowMonitorPage() {
@@ -76,7 +77,7 @@ export default function WorkflowMonitorPage() {
     if (!runId) return
     try {
       await cancelWorkflowExecution(runId)
-      await loadStatus()
+      loadStatus()
     } catch (error) {
       console.error('Failed to cancel execution:', error)
     }

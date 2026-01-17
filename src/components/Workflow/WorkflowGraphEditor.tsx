@@ -25,6 +25,7 @@ import 'reactflow/dist/style.css'
 import { Box } from '@mui/material'
 import { nodeTypes } from './nodes/NodeFactory'
 import ConditionalEdge from './edges/ConditionalEdge'
+import { calculateLayout } from '@/utils/workflowLayout'
 import type { WorkflowDefinition, WorkflowNode, WorkflowEdge } from '@/types/workflow'
 
 interface WorkflowGraphEditorProps {
@@ -43,19 +44,25 @@ function workflowToReactFlow(workflow: WorkflowDefinition | null) {
     return { nodes: [], edges: [] }
   }
 
-  // Calculate positions using a simple layout algorithm
+  // Create nodes with initial positions (from params if available, otherwise simple grid)
   const nodes: Node[] = workflow.nodes.map((node, index) => {
-    // Simple grid layout - can be improved with dagre later
-    const cols = Math.ceil(Math.sqrt(workflow.nodes.length))
-    const row = Math.floor(index / cols)
-    const col = index % cols
-    const x = col * 250 + 100
-    const y = row * 150 + 100
+    let position = { x: 0, y: 0 }
+    
+    // Try to get position from params
+    if (node.params?.position) {
+      position = node.params.position
+    } else {
+      // Simple grid layout fallback
+      const cols = Math.ceil(Math.sqrt(workflow.nodes.length))
+      const row = Math.floor(index / cols)
+      const col = index % cols
+      position = { x: col * 250 + 100, y: row * 150 + 100 }
+    }
 
     return {
       id: node.id,
       type: node.type,
-      position: { x, y },
+      position,
       data: {
         ...node,
         label: node.id,
@@ -73,6 +80,13 @@ function workflowToReactFlow(workflow: WorkflowDefinition | null) {
     },
     animated: false,
   }))
+
+  // Apply auto-layout if nodes don't have positions
+  const hasPositions = nodes.some((n) => n.position.x !== 0 || n.position.y !== 0)
+  if (!hasPositions && nodes.length > 0 && edges.length > 0) {
+    const laidOutNodes = calculateLayout(nodes, edges)
+    return { nodes: laidOutNodes, edges }
+  }
 
   return { nodes, edges }
 }
