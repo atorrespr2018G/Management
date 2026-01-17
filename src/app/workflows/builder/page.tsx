@@ -47,7 +47,9 @@ import {
   executeWorkflow,
   getWorkflowDefinition,
 } from '@/services/workflowApi'
+import { getAgents } from '@/services/agentApi'
 import type { WorkflowDefinition, NodeType } from '@/types/workflow'
+import type { Agent } from '@/services/agentApi'
 import { v4 as uuidv4 } from 'uuid'
 
 export default function WorkflowBuilderPage() {
@@ -116,6 +118,18 @@ export default function WorkflowBuilderPage() {
       return
     }
 
+    // Client-side validation first
+    const clientErrors = validateWorkflowClient(currentWorkflow)
+    if (clientErrors.length > 0) {
+      setSnackbar({
+        open: true,
+        message: `Validation errors: ${clientErrors.map((e) => e.message).join(', ')}`,
+        severity: 'error',
+      })
+      return
+    }
+
+    // Backend validation
     try {
       const result = await validateWorkflowDefinition(currentWorkflow)
       if (result.valid) {
@@ -288,6 +302,7 @@ export default function WorkflowBuilderPage() {
         <Box sx={{ width: 350, borderLeft: 1, borderColor: 'divider' }}>
           <NodePropertyPanel
             node={selectedNode}
+            availableAgents={availableAgents}
             onUpdate={(nodeId, updates) => {
               // Update node in workflow
               if (currentWorkflow) {
