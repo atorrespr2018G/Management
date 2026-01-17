@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@mui/material';
 import type { Workflow, WorkflowGraph, ValidationIssue, NodeResult } from '@/types/workflow';
 import { getWorkflow, validateWorkflow, runWorkflow, getWorkflowRun, createWorkflow, updateWorkflow } from '@/lib/api/workflows';
-import WorkflowViewer from '@/components/WorkflowViewer/WorkflowViewer';
+import WorkflowEditor from '@/components/WorkflowEditor/WorkflowEditor';
 import ValidationResultsPanel from '@/components/workflows/ValidationResultsPanel';
 import WorkflowRunResultsDialog from '@/components/workflows/WorkflowRunResultsDialog';
 
@@ -236,11 +236,11 @@ export default function WorkflowDetailPage() {
             setIsValidating(true);
             setValidationErrors([]);  // Clear previous errors
 
-            // currentGraph is already in backend format thanks to WorkflowViewer's onGraphChange
+            // currentGraph is already in backend format thanks to WorkflowEditor's onGraphChange
             const workflowData = {
                 name: workflow?.name || 'New Workflow',
                 description: workflow?.description || 'Created from viewer',
-                graph: currentGraph  // Already serialized by WorkflowViewer!
+                graph: currentGraph  // Already serialized by WorkflowEditor!
             };
 
             // Save before validating if needed
@@ -274,7 +274,7 @@ export default function WorkflowDetailPage() {
     */
     // ========================================================================
 
-    // Handle graph changes from WorkflowViewer
+    // Handle graph changes from WorkflowEditor
     const handleGraphChange = useCallback((newGraph: WorkflowGraph) => {
         setCurrentGraph(newGraph);
         setIsChanging(true);
@@ -447,7 +447,7 @@ export default function WorkflowDetailPage() {
             {/* Workflow Visual Display */}
             {currentGraph && (
                 <div className="flex-1">
-                    <WorkflowViewer
+                    <WorkflowEditor
                         graph={currentGraph}
                         name={workflow?.name || 'New Workflow'}
                         validationStatus={validationStatus}
