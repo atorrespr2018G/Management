@@ -17,6 +17,8 @@ const SendMessageNode = (props: NodeProps) => {
             {...props}
             title="Send Message"
             icon={<QuestionAnswerIcon fontSize="small" />}
+            showDeleteButton={props.data.showDeleteButton as boolean}
+            onDelete={props.data.onDelete as (() => void) | undefined}
         />
     )
 }
