@@ -123,31 +123,40 @@ export default function WorkflowGraphEditor({
   const initialFlow = useMemo(() => workflowToReactFlow(workflow), [workflow])
   const [nodes, setNodes, onNodesChange] = useNodesState(initialFlow.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialFlow.edges)
-  const [isInternalUpdate, setIsInternalUpdate] = React.useState(false)
+  const workflowRef = React.useRef<WorkflowDefinition | null>(workflow)
+  const isUpdatingFromProps = React.useRef(false)
 
-  // Update nodes/edges when workflow prop changes (only if not from internal update)
+  // Update nodes/edges when workflow prop changes (only if it's actually different)
   React.useEffect(() => {
-    if (!isInternalUpdate) {
+    if (workflow !== workflowRef.current) {
+      isUpdatingFromProps.current = true
       const newFlow = workflowToReactFlow(workflow)
       setNodes(newFlow.nodes)
       setEdges(newFlow.edges)
+      workflowRef.current = workflow
+      // Reset flag after update completes
+      setTimeout(() => {
+        isUpdatingFromProps.current = false
+      }, 100)
     }
-  }, [workflow, setNodes, setEdges, isInternalUpdate])
+  }, [workflow, setNodes, setEdges])
 
-  // Notify parent of changes (debounced to prevent infinite loops)
+  // Notify parent of changes (only when user makes changes, not when syncing from props)
   React.useEffect(() => {
-    if (onWorkflowChange && !isInternalUpdate) {
+    if (onWorkflowChange && !isUpdatingFromProps.current && !readOnly) {
       const timeoutId = setTimeout(() => {
         const updatedWorkflow = reactFlowToWorkflow(nodes, edges, workflow)
-        setIsInternalUpdate(true)
-        onWorkflowChange(updatedWorkflow)
-        // Reset flag after a short delay
-        setTimeout(() => setIsInternalUpdate(false), 100)
-      }, 300) // Debounce for 300ms
+        // Only call if workflow actually changed
+        const workflowStr = JSON.stringify(updatedWorkflow)
+        const currentWorkflowStr = JSON.stringify(workflow)
+        if (workflowStr !== currentWorkflowStr) {
+          onWorkflowChange(updatedWorkflow)
+        }
+      }, 500) // Debounce for 500ms
 
       return () => clearTimeout(timeoutId)
     }
-  }, [nodes, edges, onWorkflowChange, workflow, isInternalUpdate])
+  }, [nodes, edges, onWorkflowChange, workflow, readOnly])
 
   const onConnect = useCallback(
     (params: Connection) => {
