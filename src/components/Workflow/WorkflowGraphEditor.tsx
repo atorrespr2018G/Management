@@ -123,21 +123,31 @@ export default function WorkflowGraphEditor({
   const initialFlow = useMemo(() => workflowToReactFlow(workflow), [workflow])
   const [nodes, setNodes, onNodesChange] = useNodesState(initialFlow.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialFlow.edges)
+  const [isInternalUpdate, setIsInternalUpdate] = React.useState(false)
 
-  // Update nodes/edges when workflow prop changes
+  // Update nodes/edges when workflow prop changes (only if not from internal update)
   React.useEffect(() => {
-    const newFlow = workflowToReactFlow(workflow)
-    setNodes(newFlow.nodes)
-    setEdges(newFlow.edges)
-  }, [workflow, setNodes, setEdges])
-
-  // Notify parent of changes
-  React.useEffect(() => {
-    if (onWorkflowChange) {
-      const updatedWorkflow = reactFlowToWorkflow(nodes, edges, workflow)
-      onWorkflowChange(updatedWorkflow)
+    if (!isInternalUpdate) {
+      const newFlow = workflowToReactFlow(workflow)
+      setNodes(newFlow.nodes)
+      setEdges(newFlow.edges)
     }
-  }, [nodes, edges, onWorkflowChange, workflow])
+  }, [workflow, setNodes, setEdges, isInternalUpdate])
+
+  // Notify parent of changes (debounced to prevent infinite loops)
+  React.useEffect(() => {
+    if (onWorkflowChange && !isInternalUpdate) {
+      const timeoutId = setTimeout(() => {
+        const updatedWorkflow = reactFlowToWorkflow(nodes, edges, workflow)
+        setIsInternalUpdate(true)
+        onWorkflowChange(updatedWorkflow)
+        // Reset flag after a short delay
+        setTimeout(() => setIsInternalUpdate(false), 100)
+      }, 300) // Debounce for 300ms
+
+      return () => clearTimeout(timeoutId)
+    }
+  }, [nodes, edges, onWorkflowChange, workflow, isInternalUpdate])
 
   const onConnect = useCallback(
     (params: Connection) => {
