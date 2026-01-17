@@ -21,7 +21,12 @@
     "next-themes": "^0.2.1",
     "vis-network": "^10.0.2",
     "vis-data": "^8.0.3",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "reactflow": "^11.10.0",
+    "@reactflow/background": "^11.3.14",
+    "@reactflow/controls": "^11.2.14",
+    "dagre": "^0.8.5",
+    "zod": "^3.22.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
