@@ -3,28 +3,9 @@
 import React, { memo } from 'react'
 import { NodeProps } from '@xyflow/react'
 import {
-    Card,
-    CardContent,
     Typography,
-    TextField,
-    Select,
-    MenuItem,
-    FormControl,
-    InputLabel,
-    Switch,
-    FormControlLabel,
-    Box,
-    Divider,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    Button,
-    CircularProgress,
-    Alert,
 } from '@mui/material'
-import { inputVariableOptions } from '@/constants/agents'
-import CodeIcon from '@mui/icons-material/Code'
+import SmartToyIcon from '@mui/icons-material/SmartToy'
 import WorkflowNode from './WorkflowNode'
 
 export interface InvokeAgentNodeData extends Record<string, unknown> {
@@ -38,29 +19,23 @@ export interface InvokeAgentNodeData extends Record<string, unknown> {
     agentId?: string
 }
 
-interface Agent {
-    id: string
-    name: string
-    model: string
-    description?: string
-}
-
-const CREATE_NEW_AGENT_VALUE = '__CREATE_NEW__'
-
-// const InvokeAgentNode = ({ data, selected, id }: NodeProps) => {
 const InvokeAgentNode = (props: NodeProps) => {
-    // const { selected } = props
+    const agentId = props.data.agentId || props.data.selectedAgent || 'Not configured';
+    const displayName = typeof agentId === 'string' ? agentId : 'Not configured';
 
     return (
         <WorkflowNode
             {...props}
-            // id={id}
-            // data={data}
             title="Invoke Agent"
-            icon={<CodeIcon fontSize="small" />}
-        // selected={selected}
-        />
-    )
-}
+            icon={<SmartToyIcon fontSize="small" />}
+            showDeleteButton={props.data.showDeleteButton as boolean}
+            onDelete={props.data.onDelete as (() => void) | undefined}
+        >
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                Agent: {displayName}
+            </Typography>
+        </WorkflowNode>
+    );
+};
 
 export default memo(InvokeAgentNode)
