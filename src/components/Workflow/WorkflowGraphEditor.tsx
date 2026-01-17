@@ -19,8 +19,6 @@ import {
   NodeTypes,
   EdgeTypes,
 } from 'reactflow'
-import '@reactflow/background/dist/style.css'
-import '@reactflow/controls/dist/style.css'
 import 'reactflow/dist/style.css'
 import { Box } from '@mui/material'
 import { nodeTypes } from './nodes/NodeFactory'
