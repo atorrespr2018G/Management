@@ -5,6 +5,7 @@ import scannerReducer from './slices/scannerSlice'
 import neoReducer from './slices/neoSlice'
 import userReducer from './slices/userSlice'
 import chatReducer from './slices/chatSlice'
+import workflowReducer from './slices/workflowSlice'
 
 export const store = configureStore({
   reducer: {
@@ -14,6 +15,7 @@ export const store = configureStore({
     neo: neoReducer,
     user: userReducer,
     chat: chatReducer,
+    workflow: workflowReducer,
   },
 })
 
