@@ -39,9 +39,9 @@ const MOCK_WORKFLOW: Workflow = {
     graph: {
         nodes: [
             { id: 'start', type: 'start' },
-            { id: 'b_send', type: 'send_message', data: { message: 'Tell me about Kevin' } },
+            { id: 'b_send', type: 'send_message', data: { message: '' } },
             // { id: 'c_send', type: 'SendMessage', data: { message: 'If not, then tell me about Quantum' } },
-            { id: 'd_invoke', type: 'invoke_agent', data: { agentId: 'TRIAGE' } },
+            { id: 'd_invoke', type: 'invoke_agent', data: {} },
         ],
         edges: [
             { source: 'start', target: 'b_send' },
@@ -299,7 +299,7 @@ export function createDefaultWorkflowTemplate(): WorkflowCreateRequest {
                     id: 'd_invoke',
                     type: 'invoke_agent',
                     position: { x: 250, y: 300 },
-                    data: { agentId: 'TRIAGE', input: 'Question:' },
+                    data: {},
                 },
             ],
             edges: [
