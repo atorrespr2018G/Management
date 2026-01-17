@@ -48,6 +48,8 @@ export interface WorkflowDefinition {
 export interface WorkflowRequest {
   goal: string
   graph_path?: string
+  workflow_definition?: WorkflowDefinition
+  workflow_id?: string
   use_graph?: boolean
   checkpoint_dir?: string
 }

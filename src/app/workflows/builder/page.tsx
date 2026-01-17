@@ -171,6 +171,7 @@ export default function WorkflowBuilderPage() {
       const result = await executeWorkflow({
         goal: executeGoal,
         use_graph: true,
+        workflow_definition: currentWorkflow, // Pass the workflow definition directly
       })
       setSnackbar({
         open: true,

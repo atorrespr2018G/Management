@@ -63,20 +63,38 @@ export async function getExecutionHistory(limit = 50): Promise<WorkflowExecution
   }
 
   const data = await response.json()
-  return Array.isArray(data) ? data : data.executions || []
+  // Backend returns array directly
+  if (Array.isArray(data)) {
+    return data.map((exec: any) => ({
+      run_id: exec.run_id || exec.execution_id,
+      goal: exec.goal || '',
+      status: exec.status?.value || exec.status || 'completed',
+      result: exec.result,
+      metrics: exec.metrics,
+      execution_time_ms: exec.execution_time_ms || exec.duration_ms || 0,
+      created_at: exec.created_at || new Date().toISOString(),
+      completed_at: exec.completed_at,
+    }))
+  }
+  return data.executions || []
 }
 
 /**
  * Get workflow definition
  */
-export async function getWorkflowDefinition(graphPath?: string): Promise<WorkflowDefinition> {
-  const url = graphPath
-    ? `${API_BASE_URL}/api/v1/workflows/definitions?graph_path=${encodeURIComponent(graphPath)}`
-    : `${API_BASE_URL}/api/v1/workflows/definitions`
+export async function getWorkflowDefinition(graphPath?: string, workflowId?: string): Promise<WorkflowDefinition> {
+  const params = new URLSearchParams()
+  if (graphPath) params.append('graph_path', graphPath)
+  if (workflowId) params.append('workflow_id', workflowId)
+  
+  const url = `${API_BASE_URL}/api/v1/workflows/definitions${params.toString() ? `?${params.toString()}` : ''}`
 
   const response = await fetch(url)
 
   if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error('Workflow definition not found')
+    }
     throw new Error('Failed to get workflow definition')
   }
 
@@ -121,7 +139,11 @@ export async function validateWorkflowDefinition(
   })
 
   if (!response.ok) {
-    throw new Error('Failed to validate workflow definition')
+    const error = await response.json().catch(() => ({ message: 'Validation failed' }))
+    return {
+      valid: false,
+      errors: [error.message || error.detail || 'Validation failed']
+    }
   }
 
   return response.json()
