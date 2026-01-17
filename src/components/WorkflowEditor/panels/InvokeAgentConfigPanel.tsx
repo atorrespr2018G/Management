@@ -36,14 +36,15 @@ const CREATE_NEW_AGENT_VALUE = '__CREATE_NEW__'
 interface InvokeAgentConfigPanelProps {
     data: InvokeAgentNodeData
     onUpdate: (data: InvokeAgentNodeData) => void
+    agents: Agent[]
+    agentsLoading: boolean
+    agentsError: string | null
 }
 
-const InvokeAgentConfigPanel = ({ data, onUpdate }: InvokeAgentConfigPanelProps) => {
+const InvokeAgentConfigPanel = ({ data, onUpdate, agents, agentsLoading, agentsError }: InvokeAgentConfigPanelProps) => {
     // We use local state for the form to ensure responsiveness, 
     // but we sync with the parent data prop
-    const [agents, setAgents] = useState<Agent[]>([])
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
+    // Agents are now passed from parent - no need to fetch
 
     // Dialog state
     const [dialogOpen, setDialogOpen] = useState(false)
@@ -52,29 +53,6 @@ const InvokeAgentConfigPanel = ({ data, onUpdate }: InvokeAgentConfigPanelProps)
     const [newAgentInstructions, setNewAgentInstructions] = useState('')
     const [creating, setCreating] = useState(false)
     const [createError, setCreateError] = useState<string | null>(null)
-
-    // Fetch agents on mount
-    useEffect(() => {
-        fetchAgents()
-    }, [])
-
-    const fetchAgents = async () => {
-        try {
-            setLoading(true);
-            setError(null);
-
-            // Use the list-agents tool
-            const agentsData: Agent[] = await invokeTool('list-agents', {});
-
-            console.log('Fetched agents:', agentsData);
-            setAgents(agentsData);
-        } catch (err) {
-            console.error('Failed to fetch agents:', err);
-            setError(err instanceof Error ? err.message : 'Failed to load agents');
-        } finally {
-            setLoading(false);
-        }
-    }
 
     const handleChange = (field: keyof InvokeAgentNodeData, value: any) => {
         const newData = { ...data, [field]: value }
@@ -114,7 +92,7 @@ const InvokeAgentConfigPanel = ({ data, onUpdate }: InvokeAgentConfigPanelProps)
             });
 
             // Refresh agent list
-            await fetchAgents()
+            // await fetchAgents()
 
             // Select the newly created agent
             // FIX: Persist extended fields
@@ -157,12 +135,12 @@ const InvokeAgentConfigPanel = ({ data, onUpdate }: InvokeAgentConfigPanelProps)
             <FormControl fullWidth size="small" sx={{ mb: 2 }}>
                 <InputLabel>Select an agent</InputLabel>
                 <Select
-                    value={loading ? '' : data.selectedAgent}
+                    value={agentsLoading ? '' : data.selectedAgent}
                     onChange={(e) => handleAgentChange(e.target.value)}
                     label="Select an agent"
-                    disabled={loading}
+                    disabled={agentsLoading}
                 >
-                    {loading && (
+                    {agentsLoading && (
                         <MenuItem value="">
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <CircularProgress size={16} />
@@ -170,12 +148,12 @@ const InvokeAgentConfigPanel = ({ data, onUpdate }: InvokeAgentConfigPanelProps)
                             </Box>
                         </MenuItem>
                     )}
-                    {!loading && (
+                    {!agentsLoading && (
                         [
-                            ...(error ? [
+                            ...(agentsError ? [
                                 <MenuItem key="error" value="" disabled>
                                     <Typography variant="body2" color="error">
-                                        Error: {error}
+                                        Error: {agentsError}
                                     </Typography>
                                 </MenuItem>
                             ] : agents?.map((agent) => (
