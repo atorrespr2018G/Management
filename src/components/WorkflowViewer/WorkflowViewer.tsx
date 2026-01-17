@@ -1,7 +1,7 @@
 // Management/src/components/WorkflowViewer/WorkflowViewer.tsx
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useMemo, useEffect } from 'react';
 import {
     ReactFlow,
     MiniMap,
@@ -28,6 +28,15 @@ import SendMessageConfigPanel from '../WorkflowEditor/panels/SendMessageConfigPa
 import InvokeAgentConfigPanel from '../WorkflowEditor/panels/InvokeAgentConfigPanel';
 import FanOutConfigPanel from '../WorkflowEditor/panels/FanOutConfigPanel';
 import FanInConfigPanel from '../WorkflowEditor/panels/FanInConfigPanel';
+import { deleteNode as deleteNodeFromGraph, isDeletable } from '@/utils/workflowsUtils';
+import { invokeTool } from '@/utils/foundry';
+
+interface Agent {
+    id: string;
+    name: string;
+    model: string;
+    description?: string;
+}
 
 const nodeTypes = {
     start: StartNode,
@@ -165,12 +174,71 @@ const WorkflowViewerContent: React.FC<WorkflowViewerProps> = ({ graph, name, val
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
+    // Agent caching state - fetch once at mount
+    const [agents, setAgents] = useState<Agent[]>([]);
+    const [agentsLoading, setAgentsLoading] = useState(true);
+    const [agentsError, setAgentsError] = useState<string | null>(null);
+
+    // Fetch agents once on mount
+    useEffect(() => {
+        const fetchAgents = async () => {
+            try {
+                setAgentsLoading(true);
+                setAgentsError(null);
+                const agentsData: Agent[] = await invokeTool('list-agents', {});
+                console.log('[WorkflowViewer] Cached agents:', agentsData);
+                setAgents(agentsData);
+            } catch (err) {
+                console.error('[WorkflowViewer] Failed to fetch agents:', err);
+                setAgentsError(err instanceof Error ? err.message : 'Failed to load agents');
+            } finally {
+                setAgentsLoading(false);
+            }
+        };
+        fetchAgents();
+    }, []);
+
     // A2) State for insertion mode
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-    const [insertionNodeId, setInsertionNodeId] = useState<string | null>(null);
+    const [insertionNodeId, setInsertionNodeId] = useState<string | null>(null); // For add_action node
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
+    // A2.5) Handle node deletion (defined before enrichedNodes to avoid scoping error)
+    const handleDeleteNode = useCallback((nodeId: string) => {
+        const currentGraph = { nodes, edges };
+        const newGraph = deleteNodeFromGraph(currentGraph, nodeId);
+
+        // Update state
+        setNodes(newGraph.nodes);
+        setEdges(newGraph.edges);
+
+        // Clear selection if deleted node was selected
+        if (selectedNodeId === nodeId) {
+            setSelectedNodeId(null);
+        }
+
+        // Notify parent of graph change (marks workflow dirty)
+        if (onGraphChange) {
+            const serialized = serializeCurrentGraph(newGraph.nodes, newGraph.edges);
+            onGraphChange(serialized);
+        }
+    }, [nodes, edges, selectedNodeId, setNodes, setEdges, onGraphChange]);
+
+    // Enrich nodes with delete handlers and deletable flags
+    const enrichedNodes = useMemo(() => {
+        const currentGraph = { nodes, edges };
+        return nodes.map(node => ({
+            ...node,
+            data: {
+                ...node.data,
+                onDelete: () => handleDeleteNode(node.id),
+                showDeleteButton: isDeletable(currentGraph, node.id)
+            }
+        }));
+    }, [nodes, edges, handleDeleteNode]);
+
+    // Color-code validation status
+    const getStatusColor = () => {
+        switch (validationStatus) {
             case 'valid': return 'success';
             case 'invalid': return 'error';
             case 'unvalidated': return 'warning';
@@ -502,7 +570,7 @@ const WorkflowViewerContent: React.FC<WorkflowViewerProps> = ({ graph, name, val
                 {/* React Flow Canvas - B) Now draggable */}
                 <Box sx={{ flexGrow: 1, bgcolor: 'grey.100', position: 'relative' }}>
                     <ReactFlow
-                        nodes={nodes}
+                        nodes={enrichedNodes}
                         edges={edges}
                         onNodesChange={onNodesChange}
                         onEdgesChange={onEdgesChange}
@@ -578,6 +646,9 @@ const WorkflowViewerContent: React.FC<WorkflowViewerProps> = ({ graph, name, val
                         <InvokeAgentConfigPanel
                             data={getSelectedNode()!.data as InvokeAgentNodeData}
                             onUpdate={(newData) => handleNodeUpdate(selectedNodeId, newData)}
+                            agents={agents}
+                            agentsLoading={agentsLoading}
+                            agentsError={agentsError}
                         />
                     </Paper>
                 )}
