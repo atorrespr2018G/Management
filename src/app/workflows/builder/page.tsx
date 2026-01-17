@@ -62,6 +62,7 @@ export default function WorkflowBuilderPage() {
   const [executeDialogOpen, setExecuteDialogOpen] = useState(false)
   const [executeGoal, setExecuteGoal] = useState('')
   const [isExecuting, setIsExecuting] = useState(false)
+  const [availableAgents, setAvailableAgents] = useState<Agent[]>([])
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
     message: '',
@@ -69,6 +70,19 @@ export default function WorkflowBuilderPage() {
   })
 
   const selectedNode = currentWorkflow?.nodes.find((n) => n.id === selectedNodeId) || null
+
+  useEffect(() => {
+    loadAgents()
+  }, [])
+
+  const loadAgents = async () => {
+    try {
+      const agents = await getAgents()
+      setAvailableAgents(agents)
+    } catch (error) {
+      console.error('Failed to load agents:', error)
+    }
+  }
 
   const handleWorkflowChange = useCallback(
     (workflow: WorkflowDefinition) => {
