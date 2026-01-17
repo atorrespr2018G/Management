@@ -125,6 +125,7 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
       title: 'Build and customize',
       items: [
         { text: 'Agents', icon: <AutoAwesomeIcon />, href: '/agents' },
+        { text: 'Workflows', icon: <TimelineIcon />, href: '/workflows' },
         { text: 'Templates', icon: <CodeIcon />, href: '/templates' },
         { text: 'Fine-tuning', icon: <TuneIcon />, href: '/fine-tuning' },
         { text: 'Content Understanding', icon: <DescriptionIcon />, href: '/content-understanding', badge: 'PREVIEW' },
