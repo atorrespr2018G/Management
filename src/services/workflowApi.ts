@@ -14,7 +14,7 @@ import type {
   WorkflowMetrics,
 } from '@/types/workflow'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787'
 
 /**
  * Execute a workflow
