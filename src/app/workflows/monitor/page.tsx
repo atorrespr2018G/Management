@@ -43,15 +43,63 @@ export default function WorkflowMonitorPage() {
       loadStatus()
       loadWorkflow()
       loadMetrics()
-      // Poll for status updates if running
-      const interval = setInterval(() => {
-        if (status?.status === 'running') {
-          loadStatus()
-          loadMetrics()
-        }
-      }, 2000)
-      return () => clearInterval(interval)
+      loadEvents()
     }
+  }, [runId])
+
+  // Set up real-time monitoring when status becomes running
+  useEffect(() => {
+    if (!runId || status?.status !== 'running') {
+      // Close existing event source if status is not running
+      if (eventSource) {
+        eventSource.close()
+        setEventSource(null)
+      }
+      return
+    }
+
+    // Set up Server-Sent Events for real-time monitoring
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787'
+    const eventStream = new EventSource(`${apiBaseUrl}/api/v1/workflows/monitor/stream/${runId}`)
+    
+    eventStream.onmessage = (event) => {
+      try {
+        const eventData = JSON.parse(event.data)
+        setEvents((prev) => [...prev, eventData].slice(-100)) // Keep last 100 events
+        // Update status if event indicates status change
+        if (eventData.type === 'workflow_completed' || eventData.type === 'workflow_failed') {
+          loadStatus()
+        }
+      } catch (error) {
+        console.error('Failed to parse event:', error)
+      }
+    }
+    
+    eventStream.onerror = (error) => {
+      console.error('EventSource error:', error)
+      eventStream.close()
+    }
+    
+    setEventSource(eventStream)
+    
+    return () => {
+      eventStream.close()
+      setEventSource(null)
+    }
+  }, [runId, status?.status])
+
+  // Polling fallback for status updates
+  useEffect(() => {
+    if (!runId) return
+    
+    const interval = setInterval(() => {
+      if (status?.status === 'running') {
+        loadStatus()
+        loadMetrics()
+      }
+    }, 2000)
+    
+    return () => clearInterval(interval)
   }, [runId, status?.status])
 
   const loadStatus = async () => {
@@ -83,6 +131,16 @@ export default function WorkflowMonitorPage() {
     } catch (error) {
       // Metrics might not be available yet
       console.debug('Metrics not available:', error)
+    }
+  }
+
+  const loadEvents = async () => {
+    if (!runId) return
+    try {
+      const eventData = await getExecutionEvents(runId)
+      setEvents(eventData)
+    } catch (error) {
+      console.error('Failed to load events:', error)
     }
   }
 
@@ -208,13 +266,36 @@ export default function WorkflowMonitorPage() {
 
         {tabValue === 2 && (
           <Paper sx={{ p: 2, height: '100%', overflow: 'auto' }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Execution Logs
-            </Typography>
-            {status?.logs && status.logs.length > 0 ? (
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">
+                Execution Logs & Events
+              </Typography>
+              {eventSource && (
+                <Chip label="Live" color="success" size="small" />
+              )}
+            </Box>
+            {(status?.logs && status.logs.length > 0) || events.length > 0 ? (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {status.logs.map((log, index) => (
-                  <Paper key={index} sx={{ p: 1, bgcolor: 'grey.50' }}>
+                {/* Show real-time events first */}
+                {events.map((log, index) => (
+                  <Paper key={`event-${index}`} sx={{ p: 1, bgcolor: 'grey.50' }}>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 0.5 }}>
+                      <Chip label={log.level || 'info'} size="small" color={log.level === 'error' ? 'error' : 'default'} />
+                      {log.node_id && (
+                        <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
+                          {log.node_id}
+                        </Typography>
+                      )}
+                      <Typography variant="caption" sx={{ ml: 'auto', color: 'text.secondary' }}>
+                        {new Date(log.timestamp * 1000).toLocaleString()}
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2">{log.message}</Typography>
+                  </Paper>
+                ))}
+                {/* Show status logs if available */}
+                {status?.logs && status.logs.map((log, index) => (
+                  <Paper key={`log-${index}`} sx={{ p: 1, bgcolor: 'grey.50' }}>
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 0.5 }}>
                       <Chip label={log.level} size="small" />
                       {log.node_id && (

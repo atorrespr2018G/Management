@@ -263,6 +263,53 @@ export async function getWorkflowSummary(workflowId: string): Promise<Record<str
 }
 
 /**
+ * Get workflow versions
+ */
+export async function getWorkflowVersions(workflowId: string): Promise<Array<{ version: string; created_at?: string; description?: string }>> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/versions/${workflowId}`)
+
+  if (!response.ok) {
+    throw new Error('Failed to get workflow versions')
+  }
+
+  const data = await response.json()
+  return data.versions || []
+}
+
+/**
+ * Get specific workflow version
+ */
+export async function getWorkflowVersion(workflowId: string, version: string): Promise<WorkflowDefinition> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/versions/${workflowId}/${version}`)
+
+  if (!response.ok) {
+    throw new Error(`Version ${version} not found for workflow ${workflowId}`)
+  }
+
+  const data = await response.json()
+  return data.graph || data
+}
+
+/**
+ * Compare two workflow versions
+ */
+export async function compareWorkflowVersions(
+  workflowId: string,
+  version1: string,
+  version2: string
+): Promise<{ differences: Array<{ type: string; description: string }> }> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/workflows/versions/${workflowId}/compare?version1=${version1}&version2=${version2}`
+  )
+
+  if (!response.ok) {
+    throw new Error('Failed to compare versions')
+  }
+
+  return response.json()
+}
+
+/**
  * Get the currently active workflow
  */
 export async function getActiveWorkflow(): Promise<WorkflowDefinition | null> {

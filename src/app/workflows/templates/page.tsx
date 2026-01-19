@@ -18,6 +18,8 @@ import {
   Chip,
   TextField,
   InputAdornment,
+  Snackbar,
+  Alert,
 } from '@mui/material'
 import {
   Search as SearchIcon,
@@ -57,9 +59,11 @@ export default function WorkflowTemplatesPage() {
     try {
       const workflow = await instantiateTemplate(template.id, {})
       dispatch(setWorkflow(workflow))
+      setSnackbar({ open: true, message: `Template "${template.name}" loaded successfully`, severity: 'success' })
       router.push('/workflows/builder')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to instantiate template:', error)
+      setSnackbar({ open: true, message: error.message || 'Failed to load template', severity: 'error' })
     }
   }
 
@@ -145,6 +149,17 @@ export default function WorkflowTemplatesPage() {
           ))}
         </Grid>
       )}
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }

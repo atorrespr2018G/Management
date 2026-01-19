@@ -78,6 +78,13 @@ export default function WorkflowBuilderPage() {
   const [isLoadingWorkflows, setIsLoadingWorkflows] = useState(false)
   const [connectionWizardOpen, setConnectionWizardOpen] = useState(false)
   const [isActiveWorkflow, setIsActiveWorkflow] = useState(false)
+  const [visualizationDialogOpen, setVisualizationDialogOpen] = useState(false)
+  const [visualizationFormat, setVisualizationFormat] = useState<'mermaid' | 'dot' | 'json'>('mermaid')
+  const [visualizationContent, setVisualizationContent] = useState<string>('')
+  const [summaryDialogOpen, setSummaryDialogOpen] = useState(false)
+  const [workflowSummary, setWorkflowSummary] = useState<any>(null)
+  const [versioningDialogOpen, setVersioningDialogOpen] = useState(false)
+  const [workflowVersions, setWorkflowVersions] = useState<Array<{ version: string; created_at?: string; description?: string }>>([])
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
     message: '',
@@ -310,6 +317,124 @@ export default function WorkflowBuilderPage() {
     setWorkflowDescription('')
   }
 
+  const handleVisualize = async () => {
+    if (!currentWorkflow) {
+      setSnackbar({ open: true, message: 'No workflow to visualize', severity: 'error' })
+      return
+    }
+
+    try {
+      // Try to get visualization from backend if workflow has an ID
+      if (currentWorkflow.workflow_id) {
+        try {
+          const visualization = await getWorkflowVisualization(currentWorkflow.workflow_id, visualizationFormat)
+          if (visualization.content) {
+            setVisualizationContent(visualization.content)
+          } else if (visualization.graph) {
+            setVisualizationContent(JSON.stringify(visualization.graph, null, 2))
+          }
+          setVisualizationDialogOpen(true)
+          return
+        } catch (error) {
+          // Fall through to client-side generation
+          console.debug('Backend visualization failed, using client-side generation')
+        }
+      }
+      
+      // Client-side visualization generation
+      if (visualizationFormat === 'json') {
+        setVisualizationContent(JSON.stringify(currentWorkflow, null, 2))
+      } else {
+        // Generate simple Mermaid or DOT format
+        const nodes = currentWorkflow.nodes.map(n => n.id).join(', ')
+        const edges = currentWorkflow.edges.map(e => `${e.from_node} --> ${e.to_node}`).join('\n    ')
+        
+        if (visualizationFormat === 'mermaid') {
+          setVisualizationContent(`graph LR\n    ${currentWorkflow.nodes.map(n => `${n.id}[${n.id}]`).join('\n    ')}\n    ${edges}`)
+        } else {
+          setVisualizationContent(`digraph workflow {\n    ${currentWorkflow.nodes.map(n => `"${n.id}"`).join('; ')}\n    ${currentWorkflow.edges.map(e => `"${e.from_node}" -> "${e.to_node}"`).join('\n    ')}\n}`)
+        }
+      }
+      
+      setVisualizationDialogOpen(true)
+    } catch (error: any) {
+      setSnackbar({ open: true, message: error.message || 'Failed to generate visualization', severity: 'error' })
+    }
+  }
+
+  const handleViewSummary = async () => {
+    if (!currentWorkflow) {
+      setSnackbar({ open: true, message: 'No workflow to summarize', severity: 'error' })
+      return
+    }
+
+    try {
+      // Try to get summary from backend if workflow has an ID
+      if (currentWorkflow.workflow_id) {
+        try {
+          const summary = await getWorkflowSummary(currentWorkflow.workflow_id)
+          setWorkflowSummary(summary)
+          setSummaryDialogOpen(true)
+          return
+        } catch (error) {
+          // Fall through to client-side generation
+          console.debug('Backend summary failed, using client-side generation')
+        }
+      }
+      
+      // Client-side summary generation
+      const nodeTypes = [...new Set(currentWorkflow.nodes.map(n => n.type))]
+      const terminalNodes = currentWorkflow.nodes
+        .filter(n => !currentWorkflow.edges.some(e => e.from_node === n.id))
+        .map(n => n.id)
+      const hasLoops = currentWorkflow.nodes.some(n => n.type === 'loop')
+      
+      const summary = {
+        total_nodes: currentWorkflow.nodes.length,
+        total_edges: currentWorkflow.edges.length,
+        entry_node: currentWorkflow.entry_node_id || currentWorkflow.nodes[0]?.id || 'N/A',
+        has_loops,
+        node_types: nodeTypes,
+        terminal_nodes,
+      }
+      
+      setWorkflowSummary(summary)
+      setSummaryDialogOpen(true)
+    } catch (error: any) {
+      setSnackbar({ open: true, message: error.message || 'Failed to get workflow summary', severity: 'error' })
+    }
+  }
+
+  const handleViewVersions = async () => {
+    if (!currentWorkflow?.workflow_id) {
+      setSnackbar({ open: true, message: 'Workflow must be saved to view versions', severity: 'error' })
+      return
+    }
+
+    try {
+      const versions = await getWorkflowVersions(currentWorkflow.workflow_id)
+      setWorkflowVersions(versions)
+      setVersioningDialogOpen(true)
+    } catch (error: any) {
+      setSnackbar({ open: true, message: error.message || 'Failed to load workflow versions', severity: 'error' })
+    }
+  }
+
+  const handleLoadVersion = async (version: string) => {
+    if (!currentWorkflow?.workflow_id) return
+
+    try {
+      const versionWorkflow = await getWorkflowVersion(currentWorkflow.workflow_id, version)
+      dispatch(setWorkflow(versionWorkflow))
+      setWorkflowName(versionWorkflow.name || '')
+      setWorkflowDescription(versionWorkflow.description || '')
+      setVersioningDialogOpen(false)
+      setSnackbar({ open: true, message: `Loaded version ${version}`, severity: 'success' })
+    } catch (error: any) {
+      setSnackbar({ open: true, message: error.message || 'Failed to load version', severity: 'error' })
+    }
+  }
+
   const handleGenerateWorkflow = (generatedWorkflow: WorkflowDefinition) => {
     // Merge generated workflow with current workflow
     if (currentWorkflow) {
@@ -511,6 +636,22 @@ export default function WorkflowBuilderPage() {
             <Button
               variant="outlined"
               size="small"
+              onClick={handleVisualize}
+              disabled={!currentWorkflow}
+            >
+              Visualize
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={handleViewSummary}
+              disabled={!currentWorkflow}
+            >
+              Summary
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
               startIcon={<ClearIcon />}
               onClick={handleClear}
               color="error"
@@ -608,6 +749,172 @@ export default function WorkflowBuilderPage() {
         onGenerate={handleGenerateWorkflow}
         availableAgents={availableAgents}
       />
+
+      {/* Visualization Dialog */}
+      <Dialog
+        open={visualizationDialogOpen}
+        onClose={() => setVisualizationDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Workflow Visualization
+          <FormControl size="small" sx={{ ml: 2, minWidth: 120 }}>
+            <InputLabel>Format</InputLabel>
+            <Select
+              value={visualizationFormat}
+              label="Format"
+              onChange={(e) => setVisualizationFormat(e.target.value as 'mermaid' | 'dot' | 'json')}
+            >
+              <MenuItem value="mermaid">Mermaid</MenuItem>
+              <MenuItem value="dot">DOT</MenuItem>
+              <MenuItem value="json">JSON</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            {visualizationFormat === 'json' ? (
+              <pre style={{ fontSize: '0.875rem', overflow: 'auto', background: '#f5f5f5', padding: '1rem', borderRadius: '4px' }}>
+                {visualizationContent}
+              </pre>
+            ) : (
+              <Box
+                component="pre"
+                sx={{
+                  fontSize: '0.875rem',
+                  overflow: 'auto',
+                  background: '#f5f5f5',
+                  padding: '1rem',
+                  borderRadius: '4px',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {visualizationContent}
+              </Box>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            navigator.clipboard.writeText(visualizationContent)
+            setSnackbar({ open: true, message: 'Visualization copied to clipboard', severity: 'success' })
+          }}>
+            Copy
+          </Button>
+          <Button onClick={() => setVisualizationDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Summary Dialog */}
+      <Dialog
+        open={summaryDialogOpen}
+        onClose={() => setSummaryDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Workflow Summary</DialogTitle>
+        <DialogContent>
+          {workflowSummary && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                Overview
+              </Typography>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2">
+                  <strong>Total Nodes:</strong> {workflowSummary.total_nodes || 'N/A'}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>Total Edges:</strong> {workflowSummary.total_edges || 'N/A'}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>Entry Node:</strong> {workflowSummary.entry_node || 'N/A'}
+                </Typography>
+                {workflowSummary.has_loops !== undefined && (
+                  <Typography variant="body2">
+                    <strong>Has Loops:</strong> {workflowSummary.has_loops ? 'Yes' : 'No'}
+                  </Typography>
+                )}
+                {workflowSummary.node_types && (
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    <strong>Node Types:</strong> {workflowSummary.node_types.join(', ')}
+                  </Typography>
+                )}
+              </Box>
+              {workflowSummary.terminal_nodes && workflowSummary.terminal_nodes.length > 0 && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                    Terminal Nodes
+                  </Typography>
+                  <Typography variant="body2">
+                    {workflowSummary.terminal_nodes.join(', ')}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSummaryDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Versioning Dialog */}
+      <Dialog
+        open={versioningDialogOpen}
+        onClose={() => setVersioningDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Workflow Versions</DialogTitle>
+        <DialogContent>
+          {workflowVersions.length === 0 ? (
+            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 2 }}>
+              No versions available for this workflow
+            </Typography>
+          ) : (
+            <Box sx={{ mt: 2 }}>
+              {workflowVersions.map((version) => (
+                <Paper
+                  key={version.version}
+                  sx={{
+                    p: 2,
+                    mb: 1,
+                    cursor: 'pointer',
+                    '&:hover': { bgcolor: 'action.hover' },
+                  }}
+                  onClick={() => handleLoadVersion(version.version)}
+                >
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                        Version {version.version}
+                      </Typography>
+                      {version.description && (
+                        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                          {version.description}
+                        </Typography>
+                      )}
+                      {version.created_at && (
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                          {new Date(version.created_at).toLocaleString()}
+                        </Typography>
+                      )}
+                    </Box>
+                    <Button size="small" variant="outlined">
+                      Load
+                    </Button>
+                  </Box>
+                </Paper>
+              ))}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setVersioningDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
