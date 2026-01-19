@@ -82,7 +82,8 @@ export default function WorkflowBuilderPage() {
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>('')
   const [savedWorkflows, setSavedWorkflows] = useState<Array<{ workflow_id: string; name: string; description?: string; created_at?: string; updated_at?: string }>>([])
   const [isLoadingWorkflows, setIsLoadingWorkflows] = useState(false)
-  const [connectionWizardOpen, setConnectionWizardOpen] = useState(false)
+  const [agentSelectionDialogOpen, setAgentSelectionDialogOpen] = useState(false)
+  const [pendingAgentNodeId, setPendingAgentNodeId] = useState<string | null>(null)
   const [isActiveWorkflow, setIsActiveWorkflow] = useState(false)
   const [visualizationDialogOpen, setVisualizationDialogOpen] = useState(false)
   const [visualizationFormat, setVisualizationFormat] = useState<'mermaid' | 'dot' | 'json'>('mermaid')
@@ -175,6 +176,8 @@ export default function WorkflowBuilderPage() {
 
   const handleNodeTypeSelect = useCallback(
     (type: NodeType) => {
+      // For click-based addition, add to center of viewport
+      // Position will be set by ReactFlow's default layout
       const newNodeId = `${type}_${uuidv4().substring(0, 8)}`
       const newNode = {
         id: newNodeId,
@@ -185,8 +188,51 @@ export default function WorkflowBuilderPage() {
       }
       dispatch(addNode(newNode))
       dispatch(setSelectedNode(newNodeId))
+      
+      // If it's an agent node, open agent selection dialog
+      if (type === 'agent') {
+        setPendingAgentNodeId(newNodeId)
+        setAgentSelectionDialogOpen(true)
+      }
     },
     [dispatch]
+  )
+
+  const handleNodeDrop = useCallback(
+    (nodeType: string, position: { x: number; y: number }) => {
+      const newNodeId = `${nodeType}_${uuidv4().substring(0, 8)}`
+      const newNode = {
+        id: newNodeId,
+        type: nodeType as NodeType,
+        inputs: {},
+        outputs: {},
+        params: {
+          position,
+        },
+      }
+      dispatch(addNode(newNode))
+      dispatch(setSelectedNode(newNodeId))
+      
+      // If it's an agent node, open agent selection dialog
+      if (nodeType === 'agent') {
+        setPendingAgentNodeId(newNodeId)
+        setAgentSelectionDialogOpen(true)
+      }
+    },
+    [dispatch]
+  )
+
+  const handleAgentSelect = useCallback(
+    (agentId: string) => {
+      if (!pendingAgentNodeId || !currentWorkflow) return
+      
+      const updatedNodes = currentWorkflow.nodes.map((n) =>
+        n.id === pendingAgentNodeId ? { ...n, agent_id: agentId } : n
+      )
+      dispatch(setWorkflow({ ...currentWorkflow, nodes: updatedNodes }))
+      setPendingAgentNodeId(null)
+    },
+    [pendingAgentNodeId, currentWorkflow, dispatch]
   )
 
   const handleSave = async () => {
@@ -657,14 +703,6 @@ export default function WorkflowBuilderPage() {
             >
               Summary
             </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={() => setConnectionWizardOpen(true)}
-            >
-              Connect Agents
-            </Button>
             {currentWorkflow?.workflow_id && (
               <>
                 <Button
@@ -710,6 +748,8 @@ export default function WorkflowBuilderPage() {
           <WorkflowGraphEditor
             workflow={currentWorkflow}
             onWorkflowChange={handleWorkflowChange}
+            onNodeAdd={handleNodeDrop}
+            onNodeClick={(nodeId) => dispatch(setSelectedNode(nodeId))}
             readOnly={false}
           />
         </Box>
@@ -738,7 +778,6 @@ export default function WorkflowBuilderPage() {
                 dispatch(setSelectedNode(null))
               }
             }}
-            onConnect={handleConnectAgent}
           />
         </Box>
       </Box>
@@ -778,11 +817,14 @@ export default function WorkflowBuilderPage() {
         </Alert>
       </Snackbar>
 
-      {/* Agent Connection Wizard */}
-      <AgentConnectionWizard
-        open={connectionWizardOpen}
-        onClose={() => setConnectionWizardOpen(false)}
-        onGenerate={handleGenerateWorkflow}
+      {/* Agent Selection Dialog */}
+      <AgentSelectionDialog
+        open={agentSelectionDialogOpen}
+        onClose={() => {
+          setAgentSelectionDialogOpen(false)
+          setPendingAgentNodeId(null)
+        }}
+        onSelect={handleAgentSelect}
         availableAgents={availableAgents}
       />
 

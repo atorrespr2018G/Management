@@ -4,7 +4,7 @@
 
 'use client'
 
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useRef } from 'react'
 import {
   ReactFlow,
   Background,
@@ -29,6 +29,7 @@ import type { WorkflowDefinition, WorkflowNode, WorkflowEdge } from '@/types/wor
 interface WorkflowGraphEditorProps {
   workflow: WorkflowDefinition | null
   onWorkflowChange?: (workflow: WorkflowDefinition) => void
+  onNodeAdd?: (nodeType: string, position: { x: number; y: number }) => void
   readOnly?: boolean
 }
 
@@ -118,6 +119,8 @@ function reactFlowToWorkflow(
 export default function WorkflowGraphEditor({
   workflow,
   onWorkflowChange,
+  onNodeAdd,
+  onNodeClick,
   readOnly = false,
 }: WorkflowGraphEditorProps) {
   const initialFlow = useMemo(() => workflowToReactFlow(workflow), [workflow])
@@ -125,6 +128,7 @@ export default function WorkflowGraphEditor({
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialFlow.edges)
   const workflowRef = React.useRef<WorkflowDefinition | null>(workflow)
   const isUpdatingFromProps = React.useRef(false)
+  const reactFlowWrapper = useRef<HTMLDivElement>(null)
 
   // Update nodes/edges when workflow prop changes (only if it's actually different)
   React.useEffect(() => {
@@ -172,23 +176,56 @@ export default function WorkflowGraphEditor({
     [readOnly, setEdges]
   )
 
-  const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
-    // Node selection can be handled by parent component
-  }, [])
+  const handleNodeClick = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      if (onNodeClick) {
+        onNodeClick(node.id)
+      }
+    },
+    [onNodeClick]
+  )
 
   const onEdgeClick = useCallback((_event: React.MouseEvent, edge: Edge) => {
     // Edge selection can be handled by parent component
   }, [])
 
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+  }, [])
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault()
+
+      if (readOnly || !onNodeAdd) return
+
+      const nodeType = event.dataTransfer.getData('application/reactflow')
+
+      if (!nodeType) return
+
+      // Get position relative to ReactFlow wrapper
+      if (reactFlowWrapper.current) {
+        const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect()
+        const position = {
+          x: event.clientX - reactFlowBounds.left,
+          y: event.clientY - reactFlowBounds.top,
+        }
+        onNodeAdd(nodeType, position)
+      }
+    },
+    [readOnly, onNodeAdd]
+  )
+
   return (
-    <Box sx={{ width: '100%', height: '100%' }}>
+    <Box ref={reactFlowWrapper} sx={{ width: '100%', height: '100%' }} onDragOver={onDragOver} onDrop={onDrop}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        onNodeClick={onNodeClick}
+        onNodeClick={handleNodeClick}
         onEdgeClick={onEdgeClick}
         nodeTypes={nodeTypes as NodeTypes}
         edgeTypes={edgeTypes}

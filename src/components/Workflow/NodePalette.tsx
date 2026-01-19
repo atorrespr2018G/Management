@@ -58,15 +58,33 @@ interface NodePaletteProps {
 }
 
 export default function NodePalette({ onNodeTypeSelect }: NodePaletteProps) {
+  const handleDragStart = (event: React.DragEvent, nodeType: NodeType) => {
+    event.dataTransfer.setData('application/reactflow', nodeType)
+    event.dataTransfer.effectAllowed = 'move'
+  }
+
   return (
     <Paper sx={{ p: 2, height: '100%', overflow: 'auto' }}>
       <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
         Node Types
       </Typography>
+      <Typography variant="caption" sx={{ mb: 2, color: 'text.secondary', display: 'block' }}>
+        Drag to canvas or click to add
+      </Typography>
       <List>
         {nodeTypes.map((nodeType) => (
           <ListItem key={nodeType.type} disablePadding>
-            <ListItemButton onClick={() => onNodeTypeSelect(nodeType.type)}>
+            <ListItemButton
+              draggable
+              onDragStart={(e) => handleDragStart(e, nodeType.type)}
+              onClick={() => onNodeTypeSelect(nodeType.type)}
+              sx={{
+                cursor: 'grab',
+                '&:active': {
+                  cursor: 'grabbing',
+                },
+              }}
+            >
               <ListItemIcon sx={{ color: 'primary.main' }}>{nodeType.icon}</ListItemIcon>
               <ListItemText
                 primary={nodeType.label}
