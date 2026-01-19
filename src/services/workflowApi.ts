@@ -344,3 +344,233 @@ export async function setActiveWorkflow(workflowId: string): Promise<{ workflow_
 
   return response.json()
 }
+
+// ========== Phase 7: Persistence, Security, Collaboration, Notifications, Integrations ==========
+
+/**
+ * Create a user (security)
+ */
+export async function createUser(
+  userId: string,
+  username: string,
+  email?: string,
+  roles?: string[]
+): Promise<{ user_id: string; username: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/security/users`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      user_id: userId,
+      username,
+      email,
+      roles,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to create user')
+  }
+
+  return response.json()
+}
+
+/**
+ * Create an access token
+ */
+export async function createToken(
+  userId: string,
+  expiresInHours: number = 24
+): Promise<{ token: string; expires_at: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/security/tokens`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      user_id: userId,
+      expires_in_hours: expiresInHours,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to create token')
+  }
+
+  return response.json()
+}
+
+/**
+ * Grant permission to a user for a workflow
+ */
+export async function grantPermission(
+  workflowId: string,
+  userId: string,
+  permission: 'read' | 'write' | 'execute' | 'admin'
+): Promise<{ success: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/security/permissions/${workflowId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      user_id: userId,
+      permission,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to grant permission')
+  }
+
+  return response.json()
+}
+
+/**
+ * Create a team (collaboration)
+ */
+export async function createTeam(
+  teamId: string,
+  name: string,
+  description?: string
+): Promise<{ team_id: string; name: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/collaboration/teams`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      team_id: teamId,
+      name,
+      description,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to create team')
+  }
+
+  return response.json()
+}
+
+/**
+ * Share a workflow
+ */
+export async function shareWorkflow(
+  workflowId: string,
+  ownerId: string,
+  shareLevel: 'private' | 'team' | 'public',
+  sharedWithUsers?: string[]
+): Promise<{ workflow_id: string; share_level: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/collaboration/share/${workflowId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      owner_id: ownerId,
+      share_level: shareLevel,
+      shared_with_users: sharedWithUsers,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to share workflow')
+  }
+
+  return response.json()
+}
+
+/**
+ * Add a notification rule
+ */
+export async function addNotificationRule(
+  ruleId: string,
+  name: string,
+  eventType: string,
+  workflowId?: string,
+  channels?: string[],
+  recipients?: string[]
+): Promise<{ rule_id: string; status: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/notifications/rules`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      rule_id: ruleId,
+      name,
+      event_type: eventType,
+      workflow_id: workflowId,
+      channels,
+      recipients,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to add notification rule')
+  }
+
+  return response.json()
+}
+
+/**
+ * Create a webhook integration
+ */
+export async function createWebhook(
+  webhookId: string,
+  url: string,
+  events: string[],
+  workflowId?: string,
+  secret?: string
+): Promise<{ webhook_id: string; url: string; status: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/integrations/webhooks`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      webhook_id: webhookId,
+      url,
+      events,
+      workflow_id: workflowId,
+      secret,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to create webhook')
+  }
+
+  return response.json()
+}
+
+/**
+ * Subscribe to workflow events
+ */
+export async function subscribeToEvents(
+  subscriptionId: string,
+  eventType: string,
+  workflowId?: string,
+  webhookUrl?: string
+): Promise<{ subscription_id: string; status: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/integrations/events`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      subscription_id: subscriptionId,
+      event_type: eventType,
+      workflow_id: workflowId,
+      webhook_url: webhookUrl,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to subscribe to events')
+  }
+
+  return response.json()
+}
