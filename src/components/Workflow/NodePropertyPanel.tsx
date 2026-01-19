@@ -267,12 +267,34 @@ export default function NodePropertyPanel({
           </AccordionSummary>
           <AccordionDetails>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <FormControl size="small" fullWidth>
+                <InputLabel>Merge Strategy</InputLabel>
+                <Select
+                  value={node.params?.strategy || 'stitch'}
+                  label="Merge Strategy"
+                  onChange={(e) => handleParamsUpdate('strategy', e.target.value)}
+                >
+                  <MenuItem value="stitch">Stitch (with headers)</MenuItem>
+                  <MenuItem value="concat_text">Concat Text</MenuItem>
+                  <MenuItem value="collect_list">Collect List</MenuItem>
+                  <MenuItem value="merge_dict">Merge Dictionary</MenuItem>
+                  <MenuItem value="custom_template">Custom Template</MenuItem>
+                </Select>
+                <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block' }}>
+                  {node.params?.strategy === 'stitch' && 'Stitch with headers (for reporter outputs)'}
+                  {node.params?.strategy === 'concat_text' && 'Concatenate text values with separator'}
+                  {node.params?.strategy === 'collect_list' && 'Collect values into a list'}
+                  {node.params?.strategy === 'merge_dict' && 'Merge dictionaries (deep merge)'}
+                  {node.params?.strategy === 'custom_template' && 'Use custom template from params'}
+                </Typography>
+              </FormControl>
               <TextField
                 label="Merge Key"
                 value={node.params?.merge_key || ''}
                 onChange={(e) => handleParamsUpdate('merge_key', e.target.value)}
                 size="small"
                 placeholder="final"
+                helperText="Key in state to merge from (e.g., 'final', 'drafts')"
               />
               <TextField
                 label="Expected Keys"
@@ -289,8 +311,50 @@ export default function NodePropertyPanel({
                 }
                 size="small"
                 placeholder="key1, key2"
-                helperText="Comma-separated list of keys to wait for"
+                helperText="Comma-separated list of keys to wait for (join barrier)"
               />
+              {node.params?.strategy === 'stitch' && (
+                <>
+                  <TextField
+                    label="Header Template"
+                    value={node.params?.header_template || '### {key}'}
+                    onChange={(e) => handleParamsUpdate('header_template', e.target.value)}
+                    size="small"
+                    placeholder="### {key}"
+                    helperText="Template for headers (use {key} placeholder)"
+                  />
+                  <TextField
+                    label="Separator"
+                    value={node.params?.separator || '\n\n---\n\n'}
+                    onChange={(e) => handleParamsUpdate('separator', e.target.value)}
+                    size="small"
+                    placeholder="\n\n---\n\n"
+                    helperText="Separator between stitched items"
+                  />
+                </>
+              )}
+              {node.params?.strategy === 'concat_text' && (
+                <TextField
+                  label="Separator"
+                  value={node.params?.separator || '\n\n'}
+                  onChange={(e) => handleParamsUpdate('separator', e.target.value)}
+                  size="small"
+                  placeholder="\n\n"
+                  helperText="Separator between concatenated text values"
+                />
+              )}
+              {node.params?.strategy === 'custom_template' && (
+                <TextField
+                  label="Template"
+                  value={node.params?.template || '{items}'}
+                  onChange={(e) => handleParamsUpdate('template', e.target.value)}
+                  multiline
+                  rows={3}
+                  size="small"
+                  placeholder="{items}"
+                  helperText="Custom template (use {items} and {count} placeholders)"
+                />
+              )}
             </Box>
           </AccordionDetails>
         </Accordion>
