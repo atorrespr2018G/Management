@@ -54,6 +54,7 @@ import {
   executeWorkflow,
   getWorkflowDefinition,
   listWorkflows,
+  setActiveWorkflow,
 } from '@/services/workflowApi'
 import { getAgents } from '@/services/agentApi'
 import type { WorkflowDefinition, NodeType } from '@/types/workflow'
@@ -75,6 +76,8 @@ export default function WorkflowBuilderPage() {
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>('')
   const [savedWorkflows, setSavedWorkflows] = useState<Array<{ workflow_id: string; name: string; description?: string; created_at?: string; updated_at?: string }>>([])
   const [isLoadingWorkflows, setIsLoadingWorkflows] = useState(false)
+  const [connectionWizardOpen, setConnectionWizardOpen] = useState(false)
+  const [isActiveWorkflow, setIsActiveWorkflow] = useState(false)
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
     message: '',
@@ -162,15 +165,21 @@ export default function WorkflowBuilderPage() {
         name: workflowName || currentWorkflow.name || 'Untitled Workflow',
         description: workflowDescription || currentWorkflow.description,
       }
-      await saveWorkflowDefinition(workflowToSave, workflowName)
+      const saveResult = await saveWorkflowDefinition(workflowToSave, workflowName)
       
-      // TODO: Set as active workflow if isActiveWorkflow is true
-      // This will be implemented in Phase 2 when backend endpoints are ready
-      if (isActiveWorkflow) {
-        console.log('Setting workflow as active (backend integration pending)')
+      // Set as active workflow if isActiveWorkflow is true
+      if (isActiveWorkflow && saveResult.workflow_id) {
+        try {
+          await setActiveWorkflow(saveResult.workflow_id)
+          setSnackbar({ open: true, message: 'Workflow saved and set as active successfully', severity: 'success' })
+        } catch (error: any) {
+          // Workflow saved but failed to set as active
+          setSnackbar({ open: true, message: `Workflow saved but failed to set as active: ${error.message}`, severity: 'warning' })
+        }
+      } else {
+        setSnackbar({ open: true, message: 'Workflow saved successfully', severity: 'success' })
       }
       
-      setSnackbar({ open: true, message: 'Workflow saved successfully', severity: 'success' })
       // Refresh the workflow list to include the newly saved workflow
       await loadWorkflows()
     } catch (err: any) {

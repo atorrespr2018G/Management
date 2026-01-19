@@ -261,3 +261,39 @@ export async function getWorkflowSummary(workflowId: string): Promise<Record<str
 
   return response.json()
 }
+
+/**
+ * Get the currently active workflow
+ */
+export async function getActiveWorkflow(): Promise<WorkflowDefinition | null> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/active`)
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      return null // No active workflow
+    }
+    throw new Error('Failed to get active workflow')
+  }
+
+  const data = await response.json()
+  return data.graph_definition || null
+}
+
+/**
+ * Set a workflow as active (deactivates all other workflows)
+ */
+export async function setActiveWorkflow(workflowId: string): Promise<{ workflow_id: string; status: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/${workflowId}/set-active`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Failed to set active workflow' }))
+    throw new Error(error.message || error.detail || 'Failed to set active workflow')
+  }
+
+  return response.json()
+}
