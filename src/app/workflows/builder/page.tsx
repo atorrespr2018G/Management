@@ -89,6 +89,7 @@ export default function WorkflowBuilderPage() {
   useEffect(() => {
     loadAgents()
     loadWorkflows()
+    checkActiveWorkflow()
   }, [])
 
   const loadAgents = async () => {
@@ -113,6 +114,22 @@ export default function WorkflowBuilderPage() {
     }
   }
 
+  const checkActiveWorkflow = async () => {
+    try {
+      const active = await getActiveWorkflow()
+      if (active && currentWorkflow) {
+        // Check if current workflow is active
+        const activeWorkflowId = (active as any).workflow_id
+        if (activeWorkflowId && currentWorkflow.workflow_id === activeWorkflowId) {
+          setIsActiveWorkflow(true)
+        }
+      }
+    } catch (error) {
+      // No active workflow is fine
+      console.debug('No active workflow found')
+    }
+  }
+
   const handleLoadWorkflow = async () => {
     if (!selectedWorkflowId) {
       setSnackbar({ open: true, message: 'Please select a workflow to load', severity: 'error' })
@@ -124,6 +141,10 @@ export default function WorkflowBuilderPage() {
       dispatch(setWorkflow(workflow))
       setWorkflowName(workflow.name || '')
       setWorkflowDescription(workflow.description || '')
+      
+      // Check if this workflow is active
+      await checkActiveWorkflow()
+      
       setSnackbar({ open: true, message: 'Workflow loaded successfully', severity: 'success' })
     } catch (error: any) {
       setSnackbar({ open: true, message: error.message || 'Failed to load workflow', severity: 'error' })
@@ -428,6 +449,25 @@ export default function WorkflowBuilderPage() {
               onChange={(e) => setWorkflowName(e.target.value)}
               sx={{ minWidth: 200 }}
             />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={isActiveWorkflow}
+                  onChange={(e) => setIsActiveWorkflow(e.target.checked)}
+                  size="small"
+                />
+              }
+              label="Set as Active"
+              sx={{ ml: 1 }}
+            />
+            {isActiveWorkflow && (
+              <Chip
+                label="Will be set as active"
+                color="primary"
+                size="small"
+                sx={{ ml: 1 }}
+              />
+            )}
             <Button
               variant="contained"
               size="small"

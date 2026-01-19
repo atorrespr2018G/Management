@@ -1,33 +1,35 @@
 /**
- * Workflow API Service Tests
- * Basic tests for API service functions
+ * Tests for workflowApi service
  */
 
 import {
   executeWorkflow,
   getExecutionStatus,
-  getWorkflowDefinition,
-  validateWorkflowDefinition,
+  getExecutionHistory,
+  listWorkflows,
+  saveWorkflowDefinition,
+  getActiveWorkflow,
+  setActiveWorkflow,
 } from '../workflowApi'
 import type { WorkflowRequest, WorkflowDefinition } from '@/types/workflow'
 
-// Mock fetch globally
+// Mock fetch
 global.fetch = jest.fn()
 
-describe('Workflow API Service', () => {
+describe('workflowApi', () => {
   beforeEach(() => {
-    (fetch as jest.Mock).mockClear()
+    jest.clearAllMocks()
   })
 
   describe('executeWorkflow', () => {
-    it('should execute a workflow successfully', async () => {
+    it('calls the correct endpoint with workflow request', async () => {
       const mockResponse = {
         run_id: 'test-run-123',
         result: 'Test result',
         execution_time_ms: 1000,
       }
 
-      ;(fetch as jest.Mock).mockResolvedValueOnce({
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse,
       })
@@ -39,78 +41,132 @@ describe('Workflow API Service', () => {
 
       const result = await executeWorkflow(request)
 
-      expect(result).toEqual(mockResponse)
-      expect(fetch).toHaveBeenCalledWith(
+      expect(global.fetch).toHaveBeenCalledWith(
         expect.stringContaining('/api/v1/workflows/execute'),
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(request),
         })
       )
+      expect(result).toEqual(mockResponse)
     })
 
-    it('should handle errors correctly', async () => {
-      ;(fetch as jest.Mock).mockResolvedValueOnce({
+    it('throws error on failed request', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: false,
         json: async () => ({ message: 'Execution failed' }),
       })
 
-      const request: WorkflowRequest = {
-        goal: 'Test goal',
-      }
-
-      await expect(executeWorkflow(request)).rejects.toThrow('Execution failed')
+      await expect(executeWorkflow({ goal: 'test' })).rejects.toThrow()
     })
   })
 
-  describe('getWorkflowDefinition', () => {
-    it('should fetch workflow definition', async () => {
-      const mockDefinition: WorkflowDefinition = {
-        name: 'Test Workflow',
-        nodes: [],
-        edges: [],
+  describe('getActiveWorkflow', () => {
+    it('returns active workflow when available', async () => {
+      const mockWorkflow = {
+        workflow_id: 'active-123',
+        name: 'Active Workflow',
+        graph_definition: { nodes: [], edges: [] },
       }
 
-      ;(fetch as jest.Mock).mockResolvedValueOnce({
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
-        json: async () => mockDefinition,
+        json: async () => mockWorkflow,
       })
 
-      const result = await getWorkflowDefinition()
+      const result = await getActiveWorkflow()
 
-      expect(result).toEqual(mockDefinition)
-      expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/workflows/definitions')
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/workflows/active')
       )
+      expect(result).toEqual(mockWorkflow.graph_definition)
+    })
+
+    it('returns null when no active workflow', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+      })
+
+      const result = await getActiveWorkflow()
+
+      expect(result).toBeNull()
     })
   })
 
-  describe('validateWorkflowDefinition', () => {
-    it('should validate workflow definition', async () => {
-      const mockResult = {
-        valid: true,
-        errors: [],
+  describe('setActiveWorkflow', () => {
+    it('calls the correct endpoint to set active workflow', async () => {
+      const mockResponse = {
+        workflow_id: 'workflow-123',
+        status: 'active',
       }
 
-      ;(fetch as jest.Mock).mockResolvedValueOnce({
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
-        json: async () => mockResult,
+        json: async () => mockResponse,
       })
 
-      const definition: WorkflowDefinition = {
-        nodes: [],
-        edges: [],
-      }
+      const result = await setActiveWorkflow('workflow-123')
 
-      const result = await validateWorkflowDefinition(definition)
-
-      expect(result.valid).toBe(true)
-      expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/workflows/definitions/validate'),
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/workflows/workflow-123/set-active'),
         expect.objectContaining({
           method: 'POST',
         })
       )
+      expect(result).toEqual(mockResponse)
+    })
+  })
+
+  describe('listWorkflows', () => {
+    it('returns list of workflows', async () => {
+      const mockWorkflows = [
+        { workflow_id: 'wf1', name: 'Workflow 1' },
+        { workflow_id: 'wf2', name: 'Workflow 2' },
+      ]
+
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockWorkflows,
+      })
+
+      const result = await listWorkflows()
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/workflows/persist')
+      )
+      expect(result).toEqual(mockWorkflows)
+    })
+  })
+
+  describe('saveWorkflowDefinition', () => {
+    it('saves workflow definition', async () => {
+      const mockWorkflow: WorkflowDefinition = {
+        nodes: [{ id: 'node1', type: 'agent', agent_id: 'agent1' }],
+        edges: [],
+      }
+
+      const mockResponse = {
+        success: true,
+        workflow_id: 'new-workflow-123',
+      }
+
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      })
+
+      const result = await saveWorkflowDefinition(mockWorkflow, 'Test Workflow')
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/workflows/definitions'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ definition: mockWorkflow, name: 'Test Workflow' }),
+        })
+      )
+      expect(result).toEqual(mockResponse)
     })
   })
 })

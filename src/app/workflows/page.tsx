@@ -22,6 +22,9 @@ import {
   IconButton,
   Menu,
   MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
 } from '@mui/material'
 import {
   Search as SearchIcon,
@@ -33,19 +36,24 @@ import {
   Visibility as ViewIcon,
 } from '@mui/icons-material'
 import { useRouter } from 'next/navigation'
-import { getExecutionHistory } from '@/services/workflowApi'
+import { getExecutionHistory, listWorkflows, getActiveWorkflow } from '@/services/workflowApi'
 import type { WorkflowExecution, ExecutionStatus } from '@/types/workflow'
 
 export default function WorkflowsPage() {
   const router = useRouter()
   const [executions, setExecutions] = useState<WorkflowExecution[]>([])
+  const [savedWorkflows, setSavedWorkflows] = useState<Array<{ workflow_id: string; name: string; description?: string; is_active?: boolean }>>([])
+  const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<ExecutionStatus | 'all'>('all')
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [selectedExecution, setSelectedExecution] = useState<WorkflowExecution | null>(null)
 
   useEffect(() => {
     loadExecutions()
+    loadSavedWorkflows()
+    loadActiveWorkflow()
   }, [])
 
   const loadExecutions = async () => {
@@ -57,6 +65,27 @@ export default function WorkflowsPage() {
       console.error('Failed to load executions:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadSavedWorkflows = async () => {
+    try {
+      const workflows = await listWorkflows()
+      setSavedWorkflows(workflows)
+    } catch (error: any) {
+      console.error('Failed to load saved workflows:', error)
+    }
+  }
+
+  const loadActiveWorkflow = async () => {
+    try {
+      const active = await getActiveWorkflow()
+      if (active && 'workflow_id' in active) {
+        setActiveWorkflowId((active as any).workflow_id)
+      }
+    } catch (error: any) {
+      // No active workflow is fine
+      console.debug('No active workflow found')
     }
   }
 
@@ -85,10 +114,13 @@ export default function WorkflowsPage() {
     setSelectedExecution(null)
   }
 
-  const filteredExecutions = executions.filter((exec) =>
-    exec.goal.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    exec.run_id.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredExecutions = executions.filter((exec) => {
+    const matchesSearch = 
+      exec.goal.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      exec.run_id.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatus = statusFilter === 'all' || exec.status === statusFilter
+    return matchesSearch && matchesStatus
+  })
 
   return (
     <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}>
@@ -105,8 +137,36 @@ export default function WorkflowsPage() {
         </Button>
       </Box>
 
+      {/* Saved Workflows Section */}
+      {savedWorkflows.length > 0 && (
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+            <Typography variant="h6">Saved Workflows</Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => router.push('/workflows/builder')}
+            >
+              Create New
+            </Button>
+          </Box>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            {savedWorkflows.map((wf) => (
+              <Chip
+                key={wf.workflow_id}
+                label={wf.name || wf.workflow_id}
+                onClick={() => router.push(`/workflows/builder?workflowId=${wf.workflow_id}`)}
+                color={wf.is_active || wf.workflow_id === activeWorkflowId ? 'primary' : 'default'}
+                variant={wf.is_active || wf.workflow_id === activeWorkflowId ? 'filled' : 'outlined'}
+                sx={{ cursor: 'pointer' }}
+              />
+            ))}
+          </Box>
+        </Paper>
+      )}
+
       {/* Search and Filters */}
-      <Box sx={{ mb: 2 }}>
+      <Box sx={{ mb: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
         <TextField
           placeholder="Search executions..."
           size="small"
@@ -121,6 +181,29 @@ export default function WorkflowsPage() {
           }}
           sx={{ width: 400 }}
         />
+        <FormControl size="small" sx={{ minWidth: 150 }}>
+          <InputLabel>Status</InputLabel>
+          <Select
+            value={statusFilter}
+            label="Status"
+            onChange={(e) => setStatusFilter(e.target.value as ExecutionStatus | 'all')}
+          >
+            <MenuItem value="all">All</MenuItem>
+            <MenuItem value="completed">Completed</MenuItem>
+            <MenuItem value="running">Running</MenuItem>
+            <MenuItem value="failed">Failed</MenuItem>
+            <MenuItem value="paused">Paused</MenuItem>
+            <MenuItem value="cancelled">Cancelled</MenuItem>
+          </Select>
+        </FormControl>
+        {activeWorkflowId && (
+          <Chip
+            label={`Active: ${savedWorkflows.find(w => w.workflow_id === activeWorkflowId)?.name || 'Workflow'}`}
+            color="primary"
+            size="small"
+            sx={{ ml: 'auto' }}
+          />
+        )}
       </Box>
 
       {/* Executions Table */}

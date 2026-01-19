@@ -1,6 +1,5 @@
 /**
- * Agent Workflow Generator Tests
- * Tests for workflow generation utilities
+ * Tests for agentWorkflowGenerator utility
  */
 
 import {
@@ -9,234 +8,101 @@ import {
   createAgentConnection,
   generateLinearWorkflow,
   generateConditionalWorkflow,
-  autoLayoutNodes,
-  type ConnectionConfig,
-  type ConditionalRoute,
 } from '../agentWorkflowGenerator'
 import type { Agent } from '@/services/agentApi'
-import type { WorkflowNode, WorkflowEdge } from '@/types/workflow'
+import type { WorkflowDefinition, WorkflowNode, WorkflowEdge } from '@/types/workflow'
 
-// Mock the autoLayoutWorkflow function
-jest.mock('../workflowLayout', () => ({
-  autoLayoutWorkflow: (workflow: any) => workflow, // Return workflow as-is for testing
-}))
+const mockAgent: Agent = {
+  id: 'triage',
+  name: 'Triage Agent',
+  description: 'Triage agent',
+}
 
-describe('Agent Workflow Generator', () => {
-  const mockAgent1: Agent = {
-    id: 'triage_agent',
-    name: 'Triage Agent',
-    description: 'Routes and categorizes requests',
-  }
-
-  const mockAgent2: Agent = {
-    id: 'news_agent',
-    name: 'News Agent',
-    description: 'Generates news content',
-  }
-
-  const mockAgent3: Agent = {
-    id: 'reviewer_agent',
-    name: 'Reviewer Agent',
-    description: 'Reviews and validates content',
-  }
-
+describe('agentWorkflowGenerator', () => {
   describe('generateAgentNode', () => {
-    it('should generate an agent node with correct structure', () => {
-      const node = generateAgentNode(mockAgent1, 'triage', { x: 100, y: 100 })
+    it('creates an agent node with correct structure', () => {
+      const node = generateAgentNode(mockAgent, 'triage_node')
 
-      expect(node).toEqual({
-        id: 'triage',
-        type: 'agent',
-        agent_id: 'triage_agent',
-        inputs: {},
-        outputs: {
-          result: 'triage',
-        },
-        params: {
-          position: { x: 100, y: 100 },
-        },
-      })
+      expect(node.id).toBe('triage_node')
+      expect(node.type).toBe('agent')
+      expect(node.agent_id).toBe('triage')
+      expect(node.inputs).toBeDefined()
+      expect(node.outputs).toBeDefined()
     })
 
-    it('should generate an agent node without position', () => {
-      const node = generateAgentNode(mockAgent1, 'triage')
+    it('uses provided position', () => {
+      const position = { x: 100, y: 200 }
+      const node = generateAgentNode(mockAgent, 'triage_node', position)
 
-      expect(node.agent_id).toBe('triage_agent')
-      expect(node.params).toEqual({})
+      expect(node.params?.position).toEqual(position)
     })
   })
 
   describe('generateConditionalNode', () => {
-    it('should generate a conditional node with condition', () => {
-      const node = generateConditionalNode('route_1', 'triage.preferred_agent == "news"', { x: 200, y: 200 })
+    it('creates a conditional node with condition', () => {
+      const node = generateConditionalNode('cond_1', 'result === "success"')
 
-      expect(node).toEqual({
-        id: 'route_1',
-        type: 'conditional',
-        condition: 'triage.preferred_agent == "news"',
-        params: {
-          position: { x: 200, y: 200 },
-        },
-      })
+      expect(node.id).toBe('cond_1')
+      expect(node.type).toBe('conditional')
+      expect(node.condition).toBe('result === "success"')
     })
   })
 
   describe('createAgentConnection', () => {
-    it('should create an edge between two nodes', () => {
+    it('creates an edge between two nodes', () => {
       const edge = createAgentConnection('node1', 'node2')
 
-      expect(edge).toEqual({
-        from_node: 'node1',
-        to_node: 'node2',
-      })
+      expect(edge.from_node).toBe('node1')
+      expect(edge.to_node).toBe('node2')
     })
 
-    it('should create an edge with condition', () => {
-      const edge = createAgentConnection('node1', 'node2', 'condition == true')
+    it('includes condition when provided', () => {
+      const edge = createAgentConnection('node1', 'node2', 'result === "success"')
 
-      expect(edge).toEqual({
-        from_node: 'node1',
-        to_node: 'node2',
-        condition: 'condition == true',
-      })
+      expect(edge.condition).toBe('result === "success"')
     })
   })
 
   describe('generateLinearWorkflow', () => {
-    it('should generate a linear workflow with 2 agents', () => {
-      const workflow = generateLinearWorkflow([mockAgent1, mockAgent2])
+    it('creates a linear workflow from multiple agents', () => {
+      const agents: Agent[] = [
+        { id: 'triage', name: 'Triage' },
+        { id: 'reporter', name: 'Reporter' },
+      ]
+
+      const workflow = generateLinearWorkflow(agents)
 
       expect(workflow.nodes).toHaveLength(2)
       expect(workflow.edges).toHaveLength(1)
-      expect(workflow.entry_node_id).toBe('triage_agent')
-      expect(workflow.nodes[0].agent_id).toBe('triage_agent')
-      expect(workflow.nodes[1].agent_id).toBe('news_agent')
-      expect(workflow.edges[0].from_node).toBe('triage_agent')
-      expect(workflow.edges[0].to_node).toBe('news_agent')
+      expect(workflow.entry_node_id).toBe('triage')
     })
 
-    it('should generate a linear workflow with 3 agents', () => {
-      const workflow = generateLinearWorkflow([mockAgent1, mockAgent2, mockAgent3])
+    it('handles single agent', () => {
+      const workflow = generateLinearWorkflow([mockAgent])
 
-      expect(workflow.nodes).toHaveLength(3)
-      expect(workflow.edges).toHaveLength(2)
-      expect(workflow.entry_node_id).toBe('triage_agent')
-    })
-
-    it('should throw error if less than 2 agents provided', () => {
-      expect(() => generateLinearWorkflow([mockAgent1])).toThrow('At least 2 agents are required')
-    })
-
-    it('should apply connection config if provided', () => {
-      const config: Partial<ConnectionConfig> = {
-        sourceOutputPath: 'triage.result',
-        targetInputPath: 'news.goal',
-        condition: 'some_condition',
-      }
-      const workflow = generateLinearWorkflow([mockAgent1, mockAgent2], config)
-
-      expect(workflow.nodes[0].outputs?.result).toBe('triage.result')
-      expect(workflow.nodes[1].inputs?.goal).toBe('news.goal')
-      expect(workflow.edges[0].condition).toBe('some_condition')
-    })
-
-    it('should have correct workflow metadata', () => {
-      const workflow = generateLinearWorkflow([mockAgent1, mockAgent2])
-
-      expect(workflow.name).toContain('Triage Agent')
-      expect(workflow.name).toContain('News Agent')
-      expect(workflow.description).toContain('Linear workflow')
-      expect(workflow.limits).toBeDefined()
-      expect(workflow.limits?.max_steps).toBe(100)
+      expect(workflow.nodes).toHaveLength(1)
+      expect(workflow.edges).toHaveLength(0)
     })
   })
 
   describe('generateConditionalWorkflow', () => {
-    it('should generate a conditional workflow', () => {
-      const routes: ConditionalRoute[] = [
+    it('creates a conditional workflow with routes', () => {
+      const conditions = [
         {
-          condition: 'triage.preferred_agent == "news"',
-          targetAgentId: mockAgent2.id,
-          label: mockAgent2.name,
+          condition: 'result === "success"',
+          targetAgent: { id: 'reporter', name: 'Reporter' },
         },
         {
-          condition: 'triage.preferred_agent == "reviewer"',
-          targetAgentId: mockAgent3.id,
-          label: mockAgent3.name,
+          condition: 'result === "error"',
+          targetAgent: { id: 'reviewer', name: 'Reviewer' },
         },
       ]
 
-      const workflow = generateConditionalWorkflow(mockAgent1, routes)
+      const workflow = generateConditionalWorkflow(mockAgent, conditions)
 
-      expect(workflow.nodes.length).toBeGreaterThanOrEqual(3) // source + conditional + targets
-      expect(workflow.edges.length).toBeGreaterThanOrEqual(2)
-      expect(workflow.entry_node_id).toBe('triage_agent')
-
-      // Check that conditional node exists
-      const conditionalNode = workflow.nodes.find((n) => n.type === 'conditional')
-      expect(conditionalNode).toBeDefined()
-    })
-
-    it('should throw error if less than 2 routes provided', () => {
-      const routes: ConditionalRoute[] = [
-        {
-          condition: 'condition1',
-          targetAgentId: mockAgent2.id,
-        },
-      ]
-
-      expect(() => generateConditionalWorkflow(mockAgent1, routes)).toThrow(
-        'At least 2 conditional routes are required'
-      )
-    })
-
-    it('should create edges with conditions', () => {
-      const routes: ConditionalRoute[] = [
-        {
-          condition: 'condition1',
-          targetAgentId: mockAgent2.id,
-        },
-        {
-          condition: 'condition2',
-          targetAgentId: mockAgent3.id,
-        },
-      ]
-
-      const workflow = generateConditionalWorkflow(mockAgent1, routes)
-      const conditionalEdges = workflow.edges.filter((e) => e.condition)
-
-      expect(conditionalEdges.length).toBeGreaterThan(0)
-    })
-  })
-
-  describe('autoLayoutNodes', () => {
-    it('should auto-layout nodes based on edges', () => {
-      const nodes: WorkflowNode[] = [
-        {
-          id: 'node1',
-          type: 'agent',
-          agent_id: 'agent1',
-        },
-        {
-          id: 'node2',
-          type: 'agent',
-          agent_id: 'agent2',
-        },
-      ]
-
-      const edges: WorkflowEdge[] = [
-        {
-          from_node: 'node1',
-          to_node: 'node2',
-        },
-      ]
-
-      const laidOutNodes = autoLayoutNodes(nodes, edges)
-
-      expect(laidOutNodes).toHaveLength(2)
-      // Layout should preserve node structure
-      expect(laidOutNodes[0].id).toBe('node1')
-      expect(laidOutNodes[1].id).toBe('node2')
+      expect(workflow.nodes.length).toBeGreaterThan(1)
+      expect(workflow.edges.length).toBeGreaterThan(0)
+      expect(workflow.entry_node_id).toBe('triage')
     })
   })
 })

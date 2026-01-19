@@ -42,10 +42,12 @@ export default function WorkflowMonitorPage() {
     if (runId) {
       loadStatus()
       loadWorkflow()
+      loadMetrics()
       // Poll for status updates if running
       const interval = setInterval(() => {
         if (status?.status === 'running') {
           loadStatus()
+          loadMetrics()
         }
       }, 2000)
       return () => clearInterval(interval)
@@ -70,6 +72,17 @@ export default function WorkflowMonitorPage() {
       console.error('Failed to load workflow:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadMetrics = async () => {
+    if (!runId) return
+    try {
+      const data = await getWorkflowMetrics(runId)
+      setMetrics(data)
+    } catch (error) {
+      // Metrics might not be available yet
+      console.debug('Metrics not available:', error)
     }
   }
 
@@ -230,9 +243,58 @@ export default function WorkflowMonitorPage() {
             <Typography variant="h6" sx={{ mb: 2 }}>
               Execution Metrics
             </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Metrics will be displayed here
-            </Typography>
+            {metrics ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {metrics.execution_time_ms && (
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                      Execution Time
+                    </Typography>
+                    <Typography variant="body1">
+                      {(metrics.execution_time_ms / 1000).toFixed(2)}s
+                    </Typography>
+                  </Box>
+                )}
+                {metrics.total_nodes && (
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                      Total Nodes Executed
+                    </Typography>
+                    <Typography variant="body1">{metrics.total_nodes}</Typography>
+                  </Box>
+                )}
+                {metrics.cache_hits !== undefined && (
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                      Cache Performance
+                    </Typography>
+                    <Typography variant="body1">
+                      Hits: {metrics.cache_hits} | Misses: {metrics.cache_misses || 0}
+                    </Typography>
+                  </Box>
+                )}
+                {metrics.retries !== undefined && (
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                      Retries
+                    </Typography>
+                    <Typography variant="body1">{metrics.retries}</Typography>
+                  </Box>
+                )}
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                    Full Metrics
+                  </Typography>
+                  <pre style={{ fontSize: '0.875rem', overflow: 'auto', background: '#f5f5f5', padding: '1rem', borderRadius: '4px' }}>
+                    {JSON.stringify(metrics, null, 2)}
+                  </pre>
+                </Box>
+              </Box>
+            ) : (
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                Metrics not available yet. They will appear once the execution completes.
+              </Typography>
+            )}
           </Paper>
         )}
       </Box>
