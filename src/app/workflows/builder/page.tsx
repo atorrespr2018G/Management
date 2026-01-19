@@ -19,6 +19,10 @@ import {
   Snackbar,
   IconButton,
   Toolbar,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material'
 import {
   Save as SaveIcon,
@@ -46,10 +50,12 @@ import {
   validateWorkflowDefinition,
   executeWorkflow,
   getWorkflowDefinition,
+  listWorkflows,
 } from '@/services/workflowApi'
 import { getAgents } from '@/services/agentApi'
 import type { WorkflowDefinition, NodeType } from '@/types/workflow'
 import type { Agent } from '@/services/agentApi'
+import { validateWorkflow as validateWorkflowClient } from '@/utils/workflowValidation'
 import { v4 as uuidv4 } from 'uuid'
 
 export default function WorkflowBuilderPage() {
@@ -63,6 +69,9 @@ export default function WorkflowBuilderPage() {
   const [executeGoal, setExecuteGoal] = useState('')
   const [isExecuting, setIsExecuting] = useState(false)
   const [availableAgents, setAvailableAgents] = useState<Agent[]>([])
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>('')
+  const [savedWorkflows, setSavedWorkflows] = useState<Array<{ workflow_id: string; name: string; description?: string; created_at?: string; updated_at?: string }>>([])
+  const [isLoadingWorkflows, setIsLoadingWorkflows] = useState(false)
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
     message: '',
@@ -73,6 +82,7 @@ export default function WorkflowBuilderPage() {
 
   useEffect(() => {
     loadAgents()
+    loadWorkflows()
   }, [])
 
   const loadAgents = async () => {
@@ -81,6 +91,36 @@ export default function WorkflowBuilderPage() {
       setAvailableAgents(agents)
     } catch (error) {
       console.error('Failed to load agents:', error)
+    }
+  }
+
+  const loadWorkflows = async () => {
+    setIsLoadingWorkflows(true)
+    try {
+      const workflows = await listWorkflows()
+      setSavedWorkflows(workflows)
+    } catch (error) {
+      console.error('Failed to load workflows:', error)
+      setSnackbar({ open: true, message: 'Failed to load saved workflows', severity: 'error' })
+    } finally {
+      setIsLoadingWorkflows(false)
+    }
+  }
+
+  const handleLoadWorkflow = async () => {
+    if (!selectedWorkflowId) {
+      setSnackbar({ open: true, message: 'Please select a workflow to load', severity: 'error' })
+      return
+    }
+
+    try {
+      const workflow = await getWorkflowDefinition(undefined, selectedWorkflowId)
+      dispatch(setWorkflow(workflow))
+      setWorkflowName(workflow.name || '')
+      setWorkflowDescription(workflow.description || '')
+      setSnackbar({ open: true, message: 'Workflow loaded successfully', severity: 'success' })
+    } catch (error: any) {
+      setSnackbar({ open: true, message: error.message || 'Failed to load workflow', severity: 'error' })
     }
   }
 
@@ -121,6 +161,8 @@ export default function WorkflowBuilderPage() {
       }
       await saveWorkflowDefinition(workflowToSave, workflowName)
       setSnackbar({ open: true, message: 'Workflow saved successfully', severity: 'success' })
+      // Refresh the workflow list to include the newly saved workflow
+      await loadWorkflows()
     } catch (err: any) {
       setSnackbar({ open: true, message: err.message || 'Failed to save workflow', severity: 'error' })
     }
@@ -237,6 +279,32 @@ export default function WorkflowBuilderPage() {
             Workflow Builder
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, flexGrow: 1 }}>
+            <FormControl size="small" sx={{ minWidth: 200 }}>
+              <InputLabel>Load Workflow</InputLabel>
+              <Select
+                value={selectedWorkflowId}
+                label="Load Workflow"
+                onChange={(e) => setSelectedWorkflowId(e.target.value)}
+                disabled={isLoadingWorkflows}
+              >
+                <MenuItem value="">
+                  <em>Select a workflow...</em>
+                </MenuItem>
+                {savedWorkflows.map((wf) => (
+                  <MenuItem key={wf.workflow_id} value={wf.workflow_id}>
+                    {wf.name || wf.workflow_id}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={handleLoadWorkflow}
+              disabled={!selectedWorkflowId || isLoadingWorkflows}
+            >
+              Load
+            </Button>
             <TextField
               size="small"
               placeholder="Workflow name"

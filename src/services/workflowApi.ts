@@ -80,6 +80,19 @@ export async function getExecutionHistory(limit = 50): Promise<WorkflowExecution
 }
 
 /**
+ * List all saved workflows
+ */
+export async function listWorkflows(): Promise<Array<{ workflow_id: string; name: string; description?: string; created_at?: string; updated_at?: string }>> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/persist`)
+
+  if (!response.ok) {
+    throw new Error('Failed to list workflows')
+  }
+
+  return response.json()
+}
+
+/**
  * Get workflow definition
  */
 export async function getWorkflowDefinition(graphPath?: string, workflowId?: string): Promise<WorkflowDefinition> {
