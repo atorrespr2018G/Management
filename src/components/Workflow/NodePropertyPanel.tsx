@@ -142,12 +142,16 @@ export default function NodePropertyPanel({
           <AccordionDetails>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <FormControl size="small" fullWidth>
-                <InputLabel>Agent</InputLabel>
+                <InputLabel>Select Agent</InputLabel>
                 <Select
                   value={node.agent_id || ''}
-                  label="Agent"
-                  onChange={(e) => handleUpdate('agent_id', e.target.value)}
+                  label="Select Agent"
+                  onChange={(e) => handleUpdate('agent_id', e.target.value || undefined)}
+                  displayEmpty
                 >
+                  <MenuItem value="">
+                    <em>No agent selected</em>
+                  </MenuItem>
                   {availableAgents.map((agent) => (
                     <MenuItem key={agent.id} value={agent.id}>
                       {agent.name} ({agent.id})
@@ -155,6 +159,11 @@ export default function NodePropertyPanel({
                   ))}
                 </Select>
               </FormControl>
+              {!node.agent_id && (
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                  Select an agent from the dropdown above to configure this node
+                </Typography>
+              )}
             </Box>
           </AccordionDetails>
         </Accordion>

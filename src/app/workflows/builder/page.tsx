@@ -47,7 +47,6 @@ import {
 import WorkflowGraphEditor from '@/components/Workflow/WorkflowGraphEditor'
 import NodePropertyPanel from '@/components/Workflow/NodePropertyPanel'
 import NodePalette from '@/components/Workflow/NodePalette'
-import AgentSelectionDialog from '@/components/Workflow/AgentSelectionDialog'
 import {
   saveWorkflowDefinition,
   validateWorkflowDefinition,
@@ -82,8 +81,6 @@ export default function WorkflowBuilderPage() {
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>('')
   const [savedWorkflows, setSavedWorkflows] = useState<Array<{ workflow_id: string; name: string; description?: string; created_at?: string; updated_at?: string }>>([])
   const [isLoadingWorkflows, setIsLoadingWorkflows] = useState(false)
-  const [agentSelectionDialogOpen, setAgentSelectionDialogOpen] = useState(false)
-  const [pendingAgentNodeId, setPendingAgentNodeId] = useState<string | null>(null)
   const [isActiveWorkflow, setIsActiveWorkflow] = useState(false)
   const [visualizationDialogOpen, setVisualizationDialogOpen] = useState(false)
   const [visualizationFormat, setVisualizationFormat] = useState<'mermaid' | 'dot' | 'json'>('mermaid')
@@ -188,12 +185,6 @@ export default function WorkflowBuilderPage() {
       }
       dispatch(addNode(newNode))
       dispatch(setSelectedNode(newNodeId))
-      
-      // If it's an agent node, open agent selection dialog
-      if (type === 'agent') {
-        setPendingAgentNodeId(newNodeId)
-        setAgentSelectionDialogOpen(true)
-      }
     },
     [dispatch]
   )
@@ -212,28 +203,10 @@ export default function WorkflowBuilderPage() {
       }
       dispatch(addNode(newNode))
       dispatch(setSelectedNode(newNodeId))
-      
-      // If it's an agent node, open agent selection dialog
-      if (nodeType === 'agent') {
-        setPendingAgentNodeId(newNodeId)
-        setAgentSelectionDialogOpen(true)
-      }
     },
     [dispatch]
   )
 
-  const handleAgentSelect = useCallback(
-    (agentId: string) => {
-      if (!pendingAgentNodeId || !currentWorkflow) return
-      
-      const updatedNodes = currentWorkflow.nodes.map((n) =>
-        n.id === pendingAgentNodeId ? { ...n, agent_id: agentId } : n
-      )
-      dispatch(setWorkflow({ ...currentWorkflow, nodes: updatedNodes }))
-      setPendingAgentNodeId(null)
-    },
-    [pendingAgentNodeId, currentWorkflow, dispatch]
-  )
 
   const handleSave = async () => {
     if (!currentWorkflow) {
@@ -817,16 +790,6 @@ export default function WorkflowBuilderPage() {
         </Alert>
       </Snackbar>
 
-      {/* Agent Selection Dialog */}
-      <AgentSelectionDialog
-        open={agentSelectionDialogOpen}
-        onClose={() => {
-          setAgentSelectionDialogOpen(false)
-          setPendingAgentNodeId(null)
-        }}
-        onSelect={handleAgentSelect}
-        availableAgents={availableAgents}
-      />
 
       {/* Visualization Dialog */}
       <Dialog
