@@ -28,15 +28,10 @@ export default function AgentNode({ data, selected }: NodeProps<AgentNodeData>) 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
         <AgentIcon sx={{ fontSize: 20, color: 'primary.main' }} />
         <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-          {data.label || data.id}
+          {data.agentName || data.label || data.id}
         </Typography>
         <Chip label="Agent" size="small" color="primary" sx={{ ml: 'auto' }} />
       </Box>
-      {data.agentName && (
-        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1 }}>
-          {data.agentName}
-        </Typography>
-      )}
       {data.agent_id && (
         <Typography
           variant="caption"

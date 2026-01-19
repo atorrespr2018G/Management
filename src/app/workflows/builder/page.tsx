@@ -723,6 +723,7 @@ export default function WorkflowBuilderPage() {
             onWorkflowChange={handleWorkflowChange}
             onNodeAdd={handleNodeDrop}
             onNodeClick={(nodeId) => dispatch(setSelectedNode(nodeId))}
+            availableAgents={availableAgents}
             readOnly={false}
           />
         </Box>
@@ -735,9 +736,15 @@ export default function WorkflowBuilderPage() {
             onUpdate={(nodeId, updates) => {
               // Update node in workflow
               if (currentWorkflow) {
-                const updatedNodes = currentWorkflow.nodes.map((n) =>
-                  n.id === nodeId ? { ...n, ...updates } : n
-                )
+                const updatedNodes = currentWorkflow.nodes.map((n) => {
+                  if (n.id === nodeId) {
+                    const updated = { ...n, ...updates }
+                    // If agent_id was updated, we need to refresh the node data in ReactFlow
+                    // The WorkflowGraphEditor will handle this via the workflow prop change
+                    return updated
+                  }
+                  return n
+                })
                 dispatch(setWorkflow({ ...currentWorkflow, nodes: updatedNodes }))
               }
             }}

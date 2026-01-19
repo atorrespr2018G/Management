@@ -142,12 +142,23 @@ export default function NodePropertyPanel({
           <AccordionDetails>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <FormControl size="small" fullWidth>
-                <InputLabel>Select Agent</InputLabel>
+                <InputLabel id="agent-select-label" shrink={!!node.agent_id}>
+                  Select Agent
+                </InputLabel>
                 <Select
                   value={node.agent_id || ''}
+                  labelId="agent-select-label"
                   label="Select Agent"
                   onChange={(e) => handleUpdate('agent_id', e.target.value || undefined)}
                   displayEmpty
+                  notched={!!node.agent_id}
+                  renderValue={(selected) => {
+                    if (!selected || selected === '') {
+                      return ''
+                    }
+                    const selectedAgent = availableAgents.find((a) => a.id === selected)
+                    return selectedAgent ? `${selectedAgent.name} (${selectedAgent.id})` : selected
+                  }}
                 >
                   <MenuItem value="">
                     <em>No agent selected</em>

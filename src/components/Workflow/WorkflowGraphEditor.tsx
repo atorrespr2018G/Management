@@ -31,6 +31,7 @@ interface WorkflowGraphEditorProps {
   workflow: WorkflowDefinition | null
   onWorkflowChange?: (workflow: WorkflowDefinition) => void
   onNodeAdd?: (nodeType: string, position: { x: number; y: number }) => void
+  availableAgents?: Array<{ id: string; name: string }>
   readOnly?: boolean
 }
 
@@ -39,7 +40,7 @@ const edgeTypes: EdgeTypes = {
 }
 
 // Convert workflow definition to ReactFlow nodes and edges
-function workflowToReactFlow(workflow: WorkflowDefinition | null) {
+function workflowToReactFlow(workflow: WorkflowDefinition | null, availableAgents?: Array<{ id: string; name: string }>) {
   if (!workflow) {
     return { nodes: [], edges: [] }
   }
@@ -59,6 +60,13 @@ function workflowToReactFlow(workflow: WorkflowDefinition | null) {
       position = { x: col * 250 + 100, y: row * 150 + 100 }
     }
 
+    // For agent nodes, find the agent name
+    let agentName: string | undefined
+    if (node.type === 'agent' && node.agent_id && availableAgents) {
+      const agent = availableAgents.find((a) => a.id === node.agent_id)
+      agentName = agent?.name
+    }
+
     return {
       id: node.id,
       type: node.type,
@@ -66,6 +74,7 @@ function workflowToReactFlow(workflow: WorkflowDefinition | null) {
       data: {
         ...node,
         label: node.id,
+        agentName,
       },
     }
   })
@@ -122,29 +131,45 @@ export default function WorkflowGraphEditor({
   onWorkflowChange,
   onNodeAdd,
   onNodeClick,
+  availableAgents,
   readOnly = false,
 }: WorkflowGraphEditorProps) {
-  const initialFlow = useMemo(() => workflowToReactFlow(workflow), [workflow])
+  const initialFlow = useMemo(() => workflowToReactFlow(workflow, availableAgents), [workflow, availableAgents])
   const [nodes, setNodes, onNodesChange] = useNodesState(initialFlow.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialFlow.edges)
   const workflowRef = React.useRef<WorkflowDefinition | null>(workflow)
+  const workflowNodesRef = React.useRef<string>('')
   const isUpdatingFromProps = React.useRef(false)
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
 
-  // Update nodes/edges when workflow prop changes (only if it's actually different)
+  // Update nodes/edges when workflow prop changes
   React.useEffect(() => {
-    if (workflow !== workflowRef.current) {
+    if (!workflow) {
+      setNodes([])
+      setEdges([])
+      workflowRef.current = null
+      workflowNodesRef.current = ''
+      return
+    }
+
+    // Serialize node agent_ids to detect changes
+    const nodesKey = JSON.stringify(workflow.nodes.map((n) => ({ id: n.id, agent_id: n.agent_id })))
+    const workflowChanged = workflow !== workflowRef.current
+    const nodesChanged = nodesKey !== workflowNodesRef.current
+
+    if (workflowChanged || nodesChanged) {
       isUpdatingFromProps.current = true
-      const newFlow = workflowToReactFlow(workflow)
+      const newFlow = workflowToReactFlow(workflow, availableAgents)
       setNodes(newFlow.nodes)
       setEdges(newFlow.edges)
       workflowRef.current = workflow
+      workflowNodesRef.current = nodesKey
       // Reset flag after update completes
       setTimeout(() => {
         isUpdatingFromProps.current = false
       }, 100)
     }
-  }, [workflow, setNodes, setEdges])
+  }, [workflow, availableAgents, setNodes, setEdges])
 
   // Notify parent of changes (only when user makes changes, not when syncing from props)
   React.useEffect(() => {
