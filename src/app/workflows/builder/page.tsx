@@ -55,6 +55,12 @@ import {
   getWorkflowDefinition,
   listWorkflows,
   setActiveWorkflow,
+  getActiveWorkflow,
+  getWorkflowVisualization,
+  getWorkflowSummary,
+  getWorkflowVersions,
+  getWorkflowVersion,
+  analyzeWorkflow,
 } from '@/services/workflowApi'
 import { getAgents } from '@/services/agentApi'
 import type { WorkflowDefinition, NodeType } from '@/types/workflow'
@@ -85,6 +91,8 @@ export default function WorkflowBuilderPage() {
   const [workflowSummary, setWorkflowSummary] = useState<any>(null)
   const [versioningDialogOpen, setVersioningDialogOpen] = useState(false)
   const [workflowVersions, setWorkflowVersions] = useState<Array<{ version: string; created_at?: string; description?: string }>>([])
+  const [analysisDialogOpen, setAnalysisDialogOpen] = useState(false)
+  const [workflowAnalysis, setWorkflowAnalysis] = useState<any>(null)
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
     message: '',
@@ -913,6 +921,66 @@ export default function WorkflowBuilderPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setVersioningDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Analysis Dialog */}
+      <Dialog
+        open={analysisDialogOpen}
+        onClose={() => setAnalysisDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Workflow Analysis & Optimization</DialogTitle>
+        <DialogContent>
+          {workflowAnalysis && (
+            <Box sx={{ mt: 2 }}>
+              {workflowAnalysis.recommendations && workflowAnalysis.recommendations.length > 0 ? (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+                    Optimization Recommendations
+                  </Typography>
+                  {workflowAnalysis.recommendations.map((rec: any, index: number) => (
+                    <Paper key={index} variant="outlined" sx={{ p: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'start', gap: 1 }}>
+                        <Chip
+                          label={rec.severity || 'info'}
+                          size="small"
+                          color={
+                            rec.severity === 'high'
+                              ? 'error'
+                              : rec.severity === 'medium'
+                              ? 'warning'
+                              : 'default'
+                          }
+                        />
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                            {rec.type || 'Recommendation'}
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                            {rec.description || rec.message}
+                          </Typography>
+                          {rec.impact && (
+                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block' }}>
+                              Impact: {rec.impact}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+                    </Paper>
+                  ))}
+                </Box>
+              ) : (
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  No optimization recommendations available
+                </Typography>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAnalysisDialogOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
     </Box>
