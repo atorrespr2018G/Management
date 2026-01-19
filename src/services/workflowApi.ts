@@ -93,6 +93,22 @@ export async function listWorkflows(): Promise<Array<{ workflow_id: string; name
 }
 
 /**
+ * Delete a workflow
+ */
+export async function deleteWorkflow(workflowId: string): Promise<{ success: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/persist/${workflowId}`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Failed to delete workflow' }))
+    throw new Error(error.message || error.detail || 'Failed to delete workflow')
+  }
+
+  return response.json()
+}
+
+/**
  * Get workflow definition
  */
 export async function getWorkflowDefinition(graphPath?: string, workflowId?: string): Promise<WorkflowDefinition> {

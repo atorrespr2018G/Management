@@ -34,6 +34,7 @@ export interface GraphLimits {
 }
 
 export interface WorkflowDefinition {
+  workflow_id?: string
   name?: string
   description?: string
   version?: string

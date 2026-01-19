@@ -54,13 +54,14 @@ import {
   executeWorkflow,
   getWorkflowDefinition,
   listWorkflows,
+  deleteWorkflow,
   setActiveWorkflow,
   getActiveWorkflow,
   getWorkflowVisualization,
   getWorkflowSummary,
   getWorkflowVersions,
   getWorkflowVersion,
-  analyzeWorkflow,
+  getAIRecommendations,
 } from '@/services/workflowApi'
 import { getAgents } from '@/services/agentApi'
 import type { WorkflowDefinition, NodeType } from '@/types/workflow'
@@ -152,7 +153,9 @@ export default function WorkflowBuilderPage() {
 
     try {
       const workflow = await getWorkflowDefinition(undefined, selectedWorkflowId)
-      dispatch(setWorkflow(workflow))
+      // Ensure workflow_id is preserved
+      const workflowWithId = { ...workflow, workflow_id: workflow.workflow_id || selectedWorkflowId }
+      dispatch(setWorkflow(workflowWithId))
       setWorkflowName(workflow.name || '')
       setWorkflowDescription(workflow.description || '')
       
@@ -162,6 +165,34 @@ export default function WorkflowBuilderPage() {
       setSnackbar({ open: true, message: 'Workflow loaded successfully', severity: 'success' })
     } catch (error: any) {
       setSnackbar({ open: true, message: error.message || 'Failed to load workflow', severity: 'error' })
+    }
+  }
+
+  const handleDeleteWorkflow = async () => {
+    const workflowIdToDelete = currentWorkflow?.workflow_id || selectedWorkflowId
+    
+    if (!workflowIdToDelete) {
+      setSnackbar({ open: true, message: 'No workflow loaded to delete', severity: 'error' })
+      return
+    }
+
+    if (!confirm(`Are you sure you want to delete workflow "${currentWorkflow?.name || workflowIdToDelete}"? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      await deleteWorkflow(workflowIdToDelete)
+      // Clear the current workflow from the screen
+      dispatch(clearWorkflow())
+      setWorkflowName('')
+      setWorkflowDescription('')
+      setSelectedWorkflowId('')
+      setIsActiveWorkflow(false)
+      // Refresh the workflow list
+      await loadWorkflows()
+      setSnackbar({ open: true, message: 'Workflow deleted successfully', severity: 'success' })
+    } catch (error: any) {
+      setSnackbar({ open: true, message: error.message || 'Failed to delete workflow', severity: 'error' })
     }
   }
 
@@ -463,6 +494,21 @@ export default function WorkflowBuilderPage() {
     }
   }
 
+  const handleAnalyze = async () => {
+    if (!currentWorkflow?.workflow_id) {
+      setSnackbar({ open: true, message: 'Workflow must be saved to analyze', severity: 'error' })
+      return
+    }
+
+    try {
+      const recommendations = await getAIRecommendations(currentWorkflow.workflow_id)
+      setWorkflowAnalysis({ recommendations })
+      setAnalysisDialogOpen(true)
+    } catch (error: any) {
+      setSnackbar({ open: true, message: error.message || 'Failed to analyze workflow', severity: 'error' })
+    }
+  }
+
   const handleGenerateWorkflow = (generatedWorkflow: WorkflowDefinition) => {
     // Merge generated workflow with current workflow
     if (currentWorkflow) {
@@ -594,6 +640,17 @@ export default function WorkflowBuilderPage() {
               disabled={!selectedWorkflowId || isLoadingWorkflows}
             >
               Load
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              color="error"
+              startIcon={<ClearIcon />}
+              onClick={handleDeleteWorkflow}
+              disabled={!currentWorkflow?.workflow_id && !selectedWorkflowId}
+              title="Delete the currently loaded workflow"
+            >
+              Delete
             </Button>
             <TextField
               size="small"
