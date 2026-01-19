@@ -47,7 +47,7 @@ import {
 import WorkflowGraphEditor from '@/components/Workflow/WorkflowGraphEditor'
 import NodePropertyPanel from '@/components/Workflow/NodePropertyPanel'
 import NodePalette from '@/components/Workflow/NodePalette'
-import AgentConnectionWizard from '@/components/Workflow/AgentConnectionWizard'
+import AgentSelectionDialog from '@/components/Workflow/AgentSelectionDialog'
 import {
   saveWorkflowDefinition,
   validateWorkflowDefinition,

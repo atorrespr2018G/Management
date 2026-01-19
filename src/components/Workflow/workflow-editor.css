@@ -1,0 +1,35 @@
+/* Custom styles for ReactFlow handles to make them more visible */
+.react-flow__handle {
+  opacity: 0.8;
+  transition: all 0.2s ease;
+}
+
+.react-flow__handle:hover {
+  opacity: 1;
+  transform: scale(1.2);
+  box-shadow: 0 0 8px rgba(25, 118, 210, 0.6);
+}
+
+.react-flow__handle-top {
+  top: -6px;
+}
+
+.react-flow__handle-bottom {
+  bottom: -6px;
+}
+
+/* Connection line styling */
+.react-flow__edge-path {
+  stroke-width: 2;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #1976d2;
+  stroke-width: 3;
+}
+
+/* Node selection styling */
+.react-flow__node.selected {
+  outline: 2px solid #1976d2;
+  outline-offset: 2px;
+}

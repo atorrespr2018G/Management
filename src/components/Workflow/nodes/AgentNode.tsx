@@ -52,8 +52,28 @@ export default function AgentNode({ data, selected }: NodeProps<AgentNodeData>) 
           {data.agent_id}
         </Typography>
       )}
-      <Handle type="target" position={Position.Top} />
-      <Handle type="source" position={Position.Bottom} />
+      <Handle
+        type="target"
+        position={Position.Top}
+        style={{
+          background: '#1976d2',
+          width: 12,
+          height: 12,
+          border: '2px solid white',
+          borderRadius: '50%',
+        }}
+      />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        style={{
+          background: '#1976d2',
+          width: 12,
+          height: 12,
+          border: '2px solid white',
+          borderRadius: '50%',
+        }}
+      />
     </Box>
   )
 }

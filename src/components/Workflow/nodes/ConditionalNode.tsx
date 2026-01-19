@@ -48,9 +48,43 @@ export default function ConditionalNode({ data, selected }: NodeProps<Conditiona
           {data.condition.length > 30 ? `${data.condition.substring(0, 30)}...` : data.condition}
         </Typography>
       )}
-      <Handle type="target" position={Position.Top} />
-      <Handle type="source" position={Position.Bottom} id="true" style={{ left: '30%' }} />
-      <Handle type="source" position={Position.Bottom} id="false" style={{ left: '70%' }} />
+      <Handle
+        type="target"
+        position={Position.Top}
+        style={{
+          background: '#ed6c02',
+          width: 12,
+          height: 12,
+          border: '2px solid white',
+          borderRadius: '50%',
+        }}
+      />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        id="true"
+        style={{
+          left: '30%',
+          background: '#ed6c02',
+          width: 12,
+          height: 12,
+          border: '2px solid white',
+          borderRadius: '50%',
+        }}
+      />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        id="false"
+        style={{
+          left: '70%',
+          background: '#ed6c02',
+          width: 12,
+          height: 12,
+          border: '2px solid white',
+          borderRadius: '50%',
+        }}
+      />
     </Box>
   )
 }

@@ -20,6 +20,7 @@ import {
   EdgeTypes,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
+import './workflow-editor.css'
 import { Box } from '@mui/material'
 import { nodeTypes } from './nodes/NodeFactory'
 import ConditionalEdge from './edges/ConditionalEdge'

@@ -71,6 +71,9 @@ export default function NodePalette({ onNodeTypeSelect }: NodePaletteProps) {
       <Typography variant="caption" sx={{ mb: 2, color: 'text.secondary', display: 'block' }}>
         Drag to canvas or click to add
       </Typography>
+      <Typography variant="caption" sx={{ mb: 2, color: 'info.main', display: 'block', fontSize: '0.7rem' }}>
+        💡 Tip: Connect nodes by dragging from the bottom handle (blue circle) of one node to the top handle of another
+      </Typography>
       <List>
         {nodeTypes.map((nodeType) => (
           <ListItem key={nodeType.type} disablePadding>
