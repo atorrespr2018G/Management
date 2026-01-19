@@ -2,7 +2,7 @@
  * Node Property Panel - Dynamic form for editing node properties
  */
 
-import React from 'react'
+import React, { useState } from 'react'
 import {
   Box,
   Typography,
@@ -17,8 +17,11 @@ import {
   AccordionDetails,
   Chip,
 } from '@mui/material'
-import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material'
+import { ExpandMore as ExpandMoreIcon, Link as LinkIcon } from '@mui/icons-material'
 import type { WorkflowNode, NodeType } from '@/types/workflow'
+import ConnectionConfigPanel from './ConnectionConfigPanel'
+import type { Agent } from '@/services/agentApi'
+import type { ConnectionConfig } from '@/utils/agentWorkflowGenerator'
 
 interface NodePropertyPanelProps {
   node: WorkflowNode | null
@@ -32,7 +35,10 @@ export default function NodePropertyPanel({
   availableAgents = [],
   onUpdate,
   onDelete,
+  onConnect,
 }: NodePropertyPanelProps) {
+  const [connectionDialogOpen, setConnectionDialogOpen] = useState(false)
+  const [selectedTargetAgent, setSelectedTargetAgent] = useState<Agent | null>(null)
   if (!node) {
     return (
       <Box sx={{ p: 2 }}>
@@ -55,6 +61,24 @@ export default function NodePropertyPanel({
       },
     })
   }
+
+  const handleConnectClick = () => {
+    if (node && node.type === 'agent' && availableAgents.length > 0) {
+      setConnectionDialogOpen(true)
+    }
+  }
+
+  const handleConnectionConfirm = (config: ConnectionConfig) => {
+    if (onConnect && node) {
+      onConnect(node.id, config.targetAgentId, config)
+    }
+    setConnectionDialogOpen(false)
+    setSelectedTargetAgent(null)
+  }
+
+  const sourceAgent = node && node.type === 'agent' 
+    ? availableAgents.find((a) => a.id === node.agent_id) || null
+    : null
 
   return (
     <Box sx={{ p: 2, height: '100%', overflow: 'auto' }}>
@@ -303,6 +327,21 @@ export default function NodePropertyPanel({
           </Box>
         </AccordionDetails>
       </Accordion>
+
+      {/* Connection Config Dialog */}
+      {onConnect && (
+        <ConnectionConfigPanel
+          open={connectionDialogOpen}
+          onClose={() => {
+            setConnectionDialogOpen(false)
+            setSelectedTargetAgent(null)
+          }}
+          onConfirm={handleConnectionConfirm}
+          sourceAgent={sourceAgent}
+          targetAgent={selectedTargetAgent}
+          availableAgents={availableAgents as Agent[]}
+        />
+      )}
     </Box>
   )
 }

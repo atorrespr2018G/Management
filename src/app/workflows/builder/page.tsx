@@ -23,6 +23,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material'
 import {
   Save as SaveIcon,
@@ -45,6 +47,7 @@ import {
 import WorkflowGraphEditor from '@/components/Workflow/WorkflowGraphEditor'
 import NodePropertyPanel from '@/components/Workflow/NodePropertyPanel'
 import NodePalette from '@/components/Workflow/NodePalette'
+import AgentConnectionWizard from '@/components/Workflow/AgentConnectionWizard'
 import {
   saveWorkflowDefinition,
   validateWorkflowDefinition,
@@ -160,6 +163,13 @@ export default function WorkflowBuilderPage() {
         description: workflowDescription || currentWorkflow.description,
       }
       await saveWorkflowDefinition(workflowToSave, workflowName)
+      
+      // TODO: Set as active workflow if isActiveWorkflow is true
+      // This will be implemented in Phase 2 when backend endpoints are ready
+      if (isActiveWorkflow) {
+        console.log('Setting workflow as active (backend integration pending)')
+      }
+      
       setSnackbar({ open: true, message: 'Workflow saved successfully', severity: 'success' })
       // Refresh the workflow list to include the newly saved workflow
       await loadWorkflows()
@@ -268,6 +278,103 @@ export default function WorkflowBuilderPage() {
     dispatch(clearWorkflow())
     setWorkflowName('')
     setWorkflowDescription('')
+  }
+
+  const handleGenerateWorkflow = (generatedWorkflow: WorkflowDefinition) => {
+    // Merge generated workflow with current workflow
+    if (currentWorkflow) {
+      const mergedNodes = [...currentWorkflow.nodes, ...generatedWorkflow.nodes]
+      const mergedEdges = [...currentWorkflow.edges, ...generatedWorkflow.edges]
+      dispatch(
+        setWorkflow({
+          ...currentWorkflow,
+          nodes: mergedNodes,
+          edges: mergedEdges,
+          entry_node_id: currentWorkflow.entry_node_id || generatedWorkflow.entry_node_id,
+        })
+      )
+    } else {
+      // No current workflow, use generated one
+      dispatch(setWorkflow(generatedWorkflow))
+      setWorkflowName(generatedWorkflow.name || '')
+      setWorkflowDescription(generatedWorkflow.description || '')
+    }
+    setSnackbar({ open: true, message: 'Workflow structure generated successfully', severity: 'success' })
+  }
+
+  const handleConnectAgent = (
+    sourceNodeId: string,
+    targetAgentId: string,
+    config?: import('@/utils/agentWorkflowGenerator').ConnectionConfig
+  ) => {
+    if (!currentWorkflow) {
+      setSnackbar({ open: true, message: 'No workflow to connect agents in', severity: 'error' })
+      return
+    }
+
+    const targetAgent = availableAgents.find((a) => a.id === targetAgentId)
+    if (!targetAgent) {
+      setSnackbar({ open: true, message: 'Target agent not found', severity: 'error' })
+      return
+    }
+
+    // Check if target node already exists
+    let targetNode = currentWorkflow.nodes.find((n) => n.agent_id === targetAgentId && n.type === 'agent')
+    
+    // Create target node if it doesn't exist
+    if (!targetNode) {
+      const newNodeId = targetAgentId.toLowerCase().replace(/\s+/g, '_')
+      targetNode = {
+        id: newNodeId,
+        type: 'agent',
+        agent_id: targetAgentId,
+        inputs: config?.targetInputPath ? { goal: config.targetInputPath } : {},
+        outputs: { result: newNodeId },
+        params: {},
+      }
+      dispatch(addNode(targetNode))
+    }
+
+    // Create edge
+    const newEdge = {
+      from_node: sourceNodeId,
+      to_node: targetNode.id,
+      condition: config?.condition,
+    }
+
+    // If autoConditional is enabled and condition exists, create conditional node
+    if (config?.autoConditional && config.condition) {
+      const conditionalNodeId = `conditional_${uuidv4().substring(0, 8)}`
+      const conditionalNode = {
+        id: conditionalNodeId,
+        type: 'conditional' as const,
+        condition: config.condition,
+        params: {},
+      }
+      dispatch(addNode(conditionalNode))
+
+      // Update edges: source -> conditional -> target
+      const edges = [
+        { from_node: sourceNodeId, to_node: conditionalNodeId },
+        { from_node: conditionalNodeId, to_node: targetNode.id, condition: config.condition },
+      ]
+      dispatch(
+        setWorkflow({
+          ...currentWorkflow,
+          edges: [...currentWorkflow.edges, ...edges],
+        })
+      )
+    } else {
+      // Direct connection
+      dispatch(
+        setWorkflow({
+          ...currentWorkflow,
+          edges: [...currentWorkflow.edges, newEdge],
+        })
+      )
+    }
+
+    setSnackbar({ open: true, message: 'Agents connected successfully', severity: 'success' })
   }
 
   return (
@@ -405,6 +512,7 @@ export default function WorkflowBuilderPage() {
                 dispatch(setSelectedNode(null))
               }
             }}
+            onConnect={handleConnectAgent}
           />
         </Box>
       </Box>
@@ -443,6 +551,14 @@ export default function WorkflowBuilderPage() {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Agent Connection Wizard */}
+      <AgentConnectionWizard
+        open={connectionWizardOpen}
+        onClose={() => setConnectionWizardOpen(false)}
+        onGenerate={handleGenerateWorkflow}
+        availableAgents={availableAgents}
+      />
     </Box>
   )
 }
