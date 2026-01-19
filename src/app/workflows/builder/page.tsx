@@ -660,6 +660,34 @@ export default function WorkflowBuilderPage() {
             <Button
               variant="outlined"
               size="small"
+              startIcon={<AddIcon />}
+              onClick={() => setConnectionWizardOpen(true)}
+            >
+              Connect Agents
+            </Button>
+            {currentWorkflow?.workflow_id && (
+              <>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={handleViewVersions}
+                  disabled={!currentWorkflow.workflow_id}
+                >
+                  Versions
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={handleAnalyze}
+                  disabled={!currentWorkflow.workflow_id}
+                >
+                  Analyze
+                </Button>
+              </>
+            )}
+            <Button
+              variant="outlined"
+              size="small"
               startIcon={<ClearIcon />}
               onClick={handleClear}
               color="error"

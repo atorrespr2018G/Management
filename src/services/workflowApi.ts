@@ -574,3 +574,333 @@ export async function subscribeToEvents(
 
   return response.json()
 }
+
+// ========== Phase 8: Cost Management, Backup, Debugger, Governance, AI, Documentation ==========
+
+/**
+ * Record a cost entry
+ */
+export async function recordCost(
+  workflowId: string,
+  costType: string,
+  amount?: number,
+  units: number = 1.0
+): Promise<{ entry_id: string; amount: number }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/cost/record`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      workflow_id: workflowId,
+      cost_type: costType,
+      amount,
+      units,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to record cost')
+  }
+
+  return response.json()
+}
+
+/**
+ * Add a cost budget
+ */
+export async function addBudget(
+  budgetId: string,
+  amount: number,
+  workflowId?: string,
+  period: string = 'monthly'
+): Promise<{ budget_id: string; amount: number }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/cost/budgets`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      budget_id: budgetId,
+      amount,
+      workflow_id: workflowId,
+      period,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to add budget')
+  }
+
+  return response.json()
+}
+
+/**
+ * Generate a cost report
+ */
+export async function getCostReport(
+  workflowId?: string,
+  startDate?: string,
+  endDate?: string
+): Promise<{
+  total_cost: number
+  cost_by_type: Record<string, number>
+  execution_count: number
+  avg_cost_per_execution: number
+}> {
+  const params = new URLSearchParams()
+  if (workflowId) params.append('workflow_id', workflowId)
+  if (startDate) params.append('start_date', startDate)
+  if (endDate) params.append('end_date', endDate)
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/cost/report?${params.toString()}`)
+
+  if (!response.ok) {
+    throw new Error('Failed to get cost report')
+  }
+
+  return response.json()
+}
+
+/**
+ * Create a workflow backup
+ */
+export async function createBackup(
+  backupType: 'full' | 'incremental' = 'full',
+  workflowIds?: string[]
+): Promise<{ backup_id: string; backup_type: string; workflow_count: number }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/backup/create`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      backup_type: backupType,
+      workflow_ids: workflowIds,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to create backup')
+  }
+
+  return response.json()
+}
+
+/**
+ * Restore a backup
+ */
+export async function restoreBackup(
+  backupId: string,
+  overwrite: boolean = false
+): Promise<{ success: boolean; restored_count: number }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/backup/${backupId}/restore`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      overwrite,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to restore backup')
+  }
+
+  return response.json()
+}
+
+/**
+ * Add a debugger breakpoint
+ */
+export async function addBreakpoint(
+  breakpointId: string,
+  type: string,
+  nodeId?: string,
+  condition?: string
+): Promise<{ breakpoint_id: string; type: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/debugger/breakpoints`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      breakpoint_id: breakpointId,
+      type,
+      node_id: nodeId,
+      condition,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to add breakpoint')
+  }
+
+  return response.json()
+}
+
+/**
+ * Get debug traces
+ */
+export async function getTraces(
+  nodeId?: string,
+  eventType?: string,
+  limit: number = 100
+): Promise<Array<{ trace_id: string; node_id: string; event_type: string; timestamp: string }>> {
+  const params = new URLSearchParams()
+  if (nodeId) params.append('node_id', nodeId)
+  if (eventType) params.append('event_type', eventType)
+  params.append('limit', limit.toString())
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/debugger/traces?${params.toString()}`)
+
+  if (!response.ok) {
+    throw new Error('Failed to get traces')
+  }
+
+  return response.json()
+}
+
+/**
+ * Validate workflow against governance policies
+ */
+export async function validateWorkflowGovernance(workflowId: string): Promise<{
+  workflow_id: string
+  violation_count: number
+  violations: Array<{ policy_id: string; severity: string; message: string }>
+}> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/governance/validate/${workflowId}`, {
+    method: 'POST',
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to validate workflow governance')
+  }
+
+  return response.json()
+}
+
+/**
+ * Get compliance report for a workflow
+ */
+export async function getComplianceReport(workflowId: string): Promise<Record<string, any>> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/governance/compliance/${workflowId}`)
+
+  if (!response.ok) {
+    throw new Error('Failed to get compliance report')
+  }
+
+  return response.json()
+}
+
+/**
+ * Get AI predictions for a workflow
+ */
+export async function getAIPrediction(
+  workflowId: string,
+  predictionType: 'execution_time' | 'cost' = 'execution_time'
+): Promise<{ prediction_id: string; prediction: any; confidence: number }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/ai/predict/${workflowId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      prediction_type: predictionType,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to get AI prediction')
+  }
+
+  return response.json()
+}
+
+/**
+ * Get AI recommendations for a workflow
+ */
+export async function getAIRecommendations(workflowId: string): Promise<
+  Array<{
+    recommendation_id: string
+    type: string
+    description: string
+    expected_improvement: string
+    confidence: number
+  }>
+> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/ai/recommendations/${workflowId}`)
+
+  if (!response.ok) {
+    throw new Error('Failed to get AI recommendations')
+  }
+
+  return response.json()
+}
+
+/**
+ * Add documentation
+ */
+export async function addDocumentation(
+  docId: string,
+  type: string,
+  title: string,
+  content: string,
+  workflowId?: string
+): Promise<{ doc_id: string; title: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/documentation`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      doc_id: docId,
+      type,
+      title,
+      content,
+      workflow_id: workflowId,
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to add documentation')
+  }
+
+  return response.json()
+}
+
+/**
+ * Get documentation for a workflow
+ */
+export async function getWorkflowDocumentation(workflowId: string): Promise<
+  Array<{
+    doc_id: string
+    title: string
+    type: string
+    content: string
+  }>
+> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/documentation/${workflowId}`)
+
+  if (!response.ok) {
+    throw new Error('Failed to get documentation')
+  }
+
+  return response.json()
+}
+
+/**
+ * Generate documentation for a workflow
+ */
+export async function generateWorkflowDocs(workflowId: string): Promise<{ doc_id: string; title: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/workflows/documentation/${workflowId}/generate`, {
+    method: 'POST',
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to generate documentation')
+  }
+
+  return response.json()
+}

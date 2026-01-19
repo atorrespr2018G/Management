@@ -3,7 +3,7 @@
  * UI for configuring agent connections with state paths and conditions
  */
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Box,
   Dialog,
@@ -16,6 +16,10 @@ import {
   Checkbox,
   Typography,
   Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material'
 import type { ConnectionConfig } from '@/utils/agentWorkflowGenerator'
 import type { Agent } from '@/services/agentApi'
@@ -37,6 +41,7 @@ export default function ConnectionConfigPanel({
   targetAgent,
   availableAgents,
 }: ConnectionConfigPanelProps) {
+  const [selectedTargetAgentId, setSelectedTargetAgentId] = useState<string>(targetAgent?.id || '')
   const [config, setConfig] = useState<ConnectionConfig>({
     sourceAgentId: sourceAgent?.id || '',
     targetAgentId: targetAgent?.id || '',
@@ -45,6 +50,17 @@ export default function ConnectionConfigPanel({
     condition: '',
     autoConditional: false,
   })
+
+  useEffect(() => {
+    if (targetAgent) {
+      setSelectedTargetAgentId(targetAgent.id)
+      setConfig((prev) => ({ ...prev, targetAgentId: targetAgent.id }))
+    } else if (open && !targetAgent) {
+      // Reset when dialog opens without target agent
+      setSelectedTargetAgentId('')
+      setConfig((prev) => ({ ...prev, targetAgentId: '' }))
+    }
+  }, [targetAgent, open])
 
   const handleChange = (field: keyof ConnectionConfig, value: any) => {
     setConfig((prev) => ({ ...prev, [field]: value }))
@@ -56,10 +72,20 @@ export default function ConnectionConfigPanel({
     }
     onConfirm(config)
     onClose()
+    // Reset config
+    setConfig({
+      sourceAgentId: sourceAgent?.id || '',
+      targetAgentId: '',
+      sourceOutputPath: '',
+      targetInputPath: '',
+      condition: '',
+      autoConditional: false,
+    })
+    setSelectedTargetAgentId('')
   }
 
   const sourceAgentName = availableAgents.find((a) => a.id === config.sourceAgentId)?.name || config.sourceAgentId
-  const targetAgentName = availableAgents.find((a) => a.id === config.targetAgentId)?.name || config.targetAgentId
+  const targetAgentName = availableAgents.find((a) => a.id === config.targetAgentId)?.name || config.targetAgentId || 'Select target agent'
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -67,8 +93,34 @@ export default function ConnectionConfigPanel({
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
           <Alert severity="info" sx={{ mb: 1 }}>
-            Connecting: <strong>{sourceAgentName}</strong> → <strong>{targetAgentName}</strong>
+            {sourceAgent ? (
+              <>Connecting: <strong>{sourceAgentName}</strong> → <strong>{targetAgentName || 'Select target agent'}</strong></>
+            ) : (
+              <>Configure connection between agents</>
+            )}
           </Alert>
+
+          {!targetAgent && (
+            <FormControl fullWidth required>
+              <InputLabel>Target Agent</InputLabel>
+              <Select
+                value={selectedTargetAgentId}
+                label="Target Agent"
+                onChange={(e) => {
+                  setSelectedTargetAgentId(e.target.value)
+                  setConfig((prev) => ({ ...prev, targetAgentId: e.target.value }))
+                }}
+              >
+                {availableAgents
+                  .filter((a) => a.id !== sourceAgent?.id)
+                  .map((agent) => (
+                    <MenuItem key={agent.id} value={agent.id}>
+                      {agent.name} ({agent.id})
+                    </MenuItem>
+                  ))}
+              </Select>
+            </FormControl>
+          )}
 
           <TextField
             label="Source Output Path"
@@ -121,7 +173,11 @@ export default function ConnectionConfigPanel({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={handleConfirm} variant="contained" disabled={!config.sourceAgentId || !config.targetAgentId}>
+        <Button
+          onClick={handleConfirm}
+          variant="contained"
+          disabled={!config.sourceAgentId || !config.targetAgentId || (!targetAgent && !selectedTargetAgentId)}
+        >
           Confirm
         </Button>
       </DialogActions>

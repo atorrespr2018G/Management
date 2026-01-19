@@ -28,6 +28,7 @@ interface NodePropertyPanelProps {
   availableAgents?: Array<{ id: string; name: string }>
   onUpdate: (nodeId: string, updates: Partial<WorkflowNode>) => void
   onDelete?: (nodeId: string) => void
+  onConnect?: (sourceNodeId: string, targetAgentId: string, config?: ConnectionConfig) => void
 }
 
 export default function NodePropertyPanel({
@@ -64,6 +65,7 @@ export default function NodePropertyPanel({
 
   const handleConnectClick = () => {
     if (node && node.type === 'agent' && availableAgents.length > 0) {
+      // First show agent selection, then configuration
       setConnectionDialogOpen(true)
     }
   }
