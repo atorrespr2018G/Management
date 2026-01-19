@@ -110,6 +110,11 @@ function reactFlowToWorkflow(
     id: node.id,
     type: node.data.type || 'agent',
     ...node.data,
+    // Preserve position in params so it persists
+    params: {
+      ...node.data.params,
+      position: node.position,
+    },
   }))
 
   const workflowEdges: WorkflowEdge[] = edges.map((edge) => ({
@@ -160,7 +165,24 @@ export default function WorkflowGraphEditor({
     if (workflowChanged || nodesChanged) {
       isUpdatingFromProps.current = true
       const newFlow = workflowToReactFlow(workflow, availableAgents)
-      setNodes(newFlow.nodes)
+      
+      // Preserve positions of existing nodes
+      setNodes((currentNodes) => {
+        const nodeMap = new Map(currentNodes.map((n) => [n.id, n]))
+        return newFlow.nodes.map((newNode) => {
+          const existingNode = nodeMap.get(newNode.id)
+          if (existingNode) {
+            // Preserve the position of existing nodes
+            return {
+              ...newNode,
+              position: existingNode.position,
+            }
+          }
+          // New node - use position from workflow or calculated position
+          return newNode
+        })
+      })
+      
       setEdges(newFlow.edges)
       workflowRef.current = workflow
       workflowNodesRef.current = nodesKey
