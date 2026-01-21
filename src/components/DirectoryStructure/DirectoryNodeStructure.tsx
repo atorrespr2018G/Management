@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
+import WarningIcon from '@mui/icons-material/Warning';
 import {
     setSelectedForRag,
     toggleSelectedForGraph,
@@ -18,12 +19,14 @@ import type { FileStructure } from '@/types/neo4j'
 import { RagStatusBadge, GraphStatusBadge } from '../../components/ui/StatusBadges';
 
 // Reusable Component replacing renderNeo4jNodeWithUpload
-const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActionsEnabled = true, fetchNeo4jStructure }: {
+const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActionsEnabled = true, fetchNeo4jStructure, isLocal = false, storedRoot = null }: {
     node: FileStructure,
     level?: number,
     isSelectable?: boolean,
     areActionsEnabled?: boolean
     fetchNeo4jStructure?: () => Promise<void>,
+    isLocal?: boolean,
+    storedRoot?: FileStructure | null,
 }) => {
     if (!node) return null;
     const dispatch = useDispatch();
@@ -38,6 +41,42 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActi
     const Icon = isDirectory ? FolderOpenIcon : InsertDriveFileIcon;
     const children = node.children || [];
     const bytes = node.size
+
+    // Helper function to find a matching node in the stored structure
+    const findStoredNode = (root: FileStructure | null, relativePath: string): FileStructure | null => {
+        if (!root) return null;
+        
+        const traverse = (current: FileStructure): FileStructure | null => {
+            if (current.relativePath === relativePath) {
+                return current;
+            }
+            if (current.children) {
+                for (const child of current.children) {
+                    const found = traverse(child);
+                    if (found) return found;
+                }
+            }
+            return null;
+        };
+        
+        return traverse(root);
+    };
+
+    // Check if file has changed (size, modifiedTime, or hash)
+    const hasChanged = (): boolean => {
+        if (!isLocal || !storedRoot || isDirectory) return false;
+        
+        const storedNode = findStoredNode(storedRoot, node.relativePath || '');
+        if (!storedNode) return true; // New file
+        
+        return (
+            node.size !== storedNode.size ||
+            node.modifiedTime !== storedNode.modifiedTime ||
+            node.hash !== storedNode.hash
+        );
+    };
+
+    const fileChanged = hasChanged();
 
     // data for selectable functionality
     const machineId = localStorage.getItem('machineId') || '';
@@ -72,8 +111,10 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActi
                     <Icon fontSize="small" color={isDirectory ? 'primary' : 'action'} />
                     <Typography variant="body2" fontWeight={500} lineHeight='1.2'>
                         {`${truncateFileName(node, (isSelectable ? 48 : 68))}`}
+                        {fileChanged && isLocal ? ' (changed)' : ''}
                         {/* {`${truncateFileName(node, (isSelectable ? 48 : 68))} (${typeof bytes === 'number' ? formatBytes(bytes) : ''})`} */}
                     </Typography>
+                    {fileChanged && isLocal && <WarningIcon fontSize="small" color="warning" />}
                     {typeof bytes === 'number' && (
                         <Typography variant="caption" color="text.secondary" whiteSpace='nowrap'>
                             ({formatBytes(bytes)})
@@ -154,6 +195,8 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActi
                             level={level + 1}
                             isSelectable={isSelectable}
                             fetchNeo4jStructure={fetchNeo4jStructure}
+                            isLocal={isLocal}
+                            storedRoot={storedRoot}
                         />
                     ))}
                 </Box>
