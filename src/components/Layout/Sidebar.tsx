@@ -29,6 +29,8 @@ import TuneIcon from '@mui/icons-material/Tune'
 import DescriptionIcon from '@mui/icons-material/Description'
 import TimelineIcon from '@mui/icons-material/Timeline'
 import MonitorIcon from '@mui/icons-material/Monitor'
+import AccountTreeIcon from '@mui/icons-material/AccountTree'
+import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import BalanceIcon from '@mui/icons-material/Balance'
 import SecurityIcon from '@mui/icons-material/Security'
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive'
@@ -81,6 +83,7 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
     'connectors': true,
     'data-source': true,
     'enterprise': true,
+    'workflows': true,
   })
 
   const handleSectionToggle = (section: string) => {
@@ -125,6 +128,16 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
       title: 'Build and customize',
       items: [
         { text: 'Agents', icon: <AutoAwesomeIcon />, href: '/agents' },
+        {
+          text: 'Workflows',
+          icon: <AccountTreeIcon />,
+          subItems: [
+            { text: 'All Workflows', icon: <TimelineIcon />, href: '/workflows' },
+            { text: 'Builder', icon: <AccountTreeIcon />, href: '/workflows/builder' },
+            { text: 'Monitor', icon: <MonitorIcon />, href: '/workflows/monitor' },
+            { text: 'Templates', icon: <DescriptionIcon />, href: '/workflows/templates' },
+          ],
+        },
         { text: 'Templates', icon: <CodeIcon />, href: '/templates' },
         { text: 'Fine-tuning', icon: <TuneIcon />, href: '/fine-tuning' },
         { text: 'Content Understanding', icon: <DescriptionIcon />, href: '/content-understanding', badge: 'PREVIEW' },
