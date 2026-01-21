@@ -7,6 +7,7 @@ import {
     Typography,
     Checkbox,
     FormControlLabel,
+    Button,
 } from '@mui/material';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
@@ -114,7 +115,30 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActi
                         {fileChanged && isLocal ? ' (changed)' : ''}
                         {/* {`${truncateFileName(node, (isSelectable ? 48 : 68))} (${typeof bytes === 'number' ? formatBytes(bytes) : ''})`} */}
                     </Typography>
-                    {fileChanged && isLocal && <WarningIcon fontSize="small" color="warning" />}
+                    {fileChanged && isLocal && <WarningIcon fontSize="small" sx={{ color: '#FFC107' }} />}
+                    {fileChanged && isLocal && (
+                        <Button 
+                            variant="contained" 
+                            size="small" 
+                            onClick={() => {
+                                // Placeholder - will be implemented later
+                                console.log('Update clicked for:', node.relativePath);
+                            }}
+                            sx={{ 
+                                minWidth: 'auto', 
+                                px: 1, 
+                                py: 0.25, 
+                                fontSize: '0.75rem',
+                                backgroundColor: '#FFC107',
+                                color: '#000',
+                                '&:hover': {
+                                    backgroundColor: '#FFB300'
+                                }
+                            }}
+                        >
+                            Update
+                        </Button>
+                    )}
                     {typeof bytes === 'number' && (
                         <Typography variant="caption" color="text.secondary" whiteSpace='nowrap'>
                             ({formatBytes(bytes)})
