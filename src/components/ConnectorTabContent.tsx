@@ -370,6 +370,11 @@ const AllResultsDirectoryStructures: React.FC<{
     }
 
     const handleCreateSemanticRelationships = async (directoryNode: FileStructure) => {
+        if (!directoryNode) {
+            console.error('directoryNode is undefined');
+            return
+        }
+
         if (!finalMachineId) {
             dispatch(
                 setRelationshipStatus({
@@ -599,7 +604,7 @@ const AllResultsDirectoryStructures: React.FC<{
                                         label="Create Graph"
                                         loadingLabel="Creating..."
                                         loading={isCreatingRelationships}
-                                        onClick={() => handleCreateSemanticRelationships(localNeo4jStructure)}
+                                        onClick={() => node && handleCreateSemanticRelationships(node)}
                                         icon={<NetworkIcon />}
                                     />
                                 </Box>
