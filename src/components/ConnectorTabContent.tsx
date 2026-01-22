@@ -14,14 +14,19 @@ import {
     CircularProgress,
     Chip,
     Grid,
+    Button,
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import FolderIcon from '@mui/icons-material/Folder'
+import DatabaseIcon from '@mui/icons-material/Storage'
 import type { ConnectorPath } from '@/types/neo4j'
 import type { FileStructure } from '@/types/neo4j'
 import ScanResultsDisplay from '@/components/ScanResultsDisplay'
 import ScannedDirectoryStructureCard from './DirectoryStructure/ScannedDirectoryStructureCard'
 import NeoDirectoryStructureCard from './DirectoryStructure/NeoDirectoryStructureCard'
+import DirectoryNodeStructure from './DirectoryStructure/DirectoryNodeStructure'
+import { DirectoryStructureContainer } from './DirectoryStructure/DirectoryStructureContainer'
+import { TimedAlert } from './TimedAlert'
 import { useSelector } from 'react-redux'
 import { useMachineId } from '@/hooks/useMachineId'
 import { useNeo4jStructure } from '@/hooks/useNeo4jStructure'
@@ -237,6 +242,9 @@ const AllResultsDirectoryStructures: React.FC<{
 }> = ({ node, machineId: propMachineId }) => {
     const { machineId: hookMachineId } = useMachineId()
     const finalMachineId = propMachineId || hookMachineId
+    
+    // Local state for path-specific Neo4j structure
+    const [localNeo4jStructure, setLocalNeo4jStructure] = React.useState<FileStructure | null>(null);
 
     const { fetchNeo4jStructure } = useNeo4jStructure({
         machineId: finalMachineId,
@@ -251,8 +259,40 @@ const AllResultsDirectoryStructures: React.FC<{
         scanData: node,
         metadata: {},
         machineId: finalMachineId,
-        onAfterStore: fetchNeo4jStructure,
+        onAfterStore: async () => {
+            await fetchNeo4jStructure();
+            // Also fetch local structure after storing
+            if (node?.fullPath && finalMachineId) {
+                try {
+                    const { getDirectoryFromNeo4j } = await import('@/services/neo4jApi');
+                    const result = await getDirectoryFromNeo4j(finalMachineId, node.fullPath);
+                    if (result.found && result.structure) {
+                        setLocalNeo4jStructure(result.structure);
+                    }
+                } catch (error) {
+                    console.error('Error fetching local Neo4j structure:', error);
+                }
+            }
+        },
     })
+
+    // Fetch the Neo4j structure for this specific path on mount
+    React.useEffect(() => {
+        if (node?.fullPath && finalMachineId) {
+            const fetchLocalStructure = async () => {
+                try {
+                    const { getDirectoryFromNeo4j } = await import('@/services/neo4jApi');
+                    const result = await getDirectoryFromNeo4j(finalMachineId, node.fullPath);
+                    if (result.found && result.structure) {
+                        setLocalNeo4jStructure(result.structure);
+                    }
+                } catch (error) {
+                    console.error('Error fetching local Neo4j structure:', error);
+                }
+            };
+            fetchLocalStructure();
+        }
+    }, [node?.fullPath, finalMachineId]);
 
     if (!node) return null
 
@@ -261,7 +301,7 @@ const AllResultsDirectoryStructures: React.FC<{
             <Grid container spacing={2}>
                 {/* Scanned / Local Directory */}
                 <Grid item xs={12} md={6}>
-                    <ScannedDirectoryStructureCard
+                    <ScannedDirectoryStructureCardWithLocalNeo4j
                         node={node}
                         machineId={finalMachineId}
                         storeMessage={storeMessage}
@@ -269,6 +309,7 @@ const AllResultsDirectoryStructures: React.FC<{
                         onStoreInNeo4j={handleStoreInNeo4j}
                         fetchNeo4jStructure={fetchNeo4jStructure}
                         areActionsEnabled={false}
+                        localNeo4jStructure={localNeo4jStructure}
                     />
                 </Grid>
 
@@ -286,3 +327,55 @@ const AllResultsDirectoryStructures: React.FC<{
         </Box>
     )
 }
+
+/**
+ * Wrapper component that uses local Neo4j structure instead of Redux global state
+ */
+const ScannedDirectoryStructureCardWithLocalNeo4j: React.FC<{
+    node: FileStructure | null
+    machineId: string | null
+    storeMessage: string
+    isStoring: boolean
+    onStoreInNeo4j: () => Promise<void>
+    fetchNeo4jStructure: () => Promise<void>
+    areActionsEnabled: boolean
+    localNeo4jStructure: FileStructure | null
+}> = ({ localNeo4jStructure, ...props }) => {
+    return (
+        <DirectoryStructureContainer
+            title="Directory Structure"
+            chipLabel="LOCAL"
+            chipColor="warning"
+            actions={
+                <Button
+                    variant="contained"
+                    onClick={props.onStoreInNeo4j}
+                    disabled={props.isStoring}
+                    startIcon={props.isStoring ? <CircularProgress size={20} /> : <DatabaseIcon />}
+                >
+                    {props.isStoring ? 'Storing...' : 'Store in Neo4j'}
+                </Button>
+            }
+            alerts={
+                props.storeMessage && (
+                    <TimedAlert
+                        sx={{ mb: 2 }}
+                        message={props.storeMessage}
+                        severity={props.storeMessage.includes('❌') ? 'error' : 'success'}
+                        durationMs={4000}
+                    />
+                )
+            }
+        >
+            <DirectoryNodeStructure
+                node={props.node}
+                fetchNeo4jStructure={props.fetchNeo4jStructure}
+                areActionsEnabled={props.areActionsEnabled}
+                isLocal={true}
+                storedRoot={localNeo4jStructure}
+                storeLocalDirectory={props.onStoreInNeo4j}
+                localRootNode={props.node}
+            />
+        </DirectoryStructureContainer>
+    );
+};
