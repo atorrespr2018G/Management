@@ -370,8 +370,8 @@ const AllResultsDirectoryStructures: React.FC<{
     }
 
     const handleCreateSemanticRelationships = async (directoryNode: FileStructure) => {
-        if (!directoryNode) {
-            console.error('directoryNode is undefined');
+        if (!directoryNode || !directoryNode.fullPath) {
+            console.error('directoryNode or directoryNode.fullPath is undefined', directoryNode);
             return
         }
 
@@ -379,7 +379,7 @@ const AllResultsDirectoryStructures: React.FC<{
             dispatch(
                 setRelationshipStatus({
                     ...relationshipStatus,
-                    [directoryNode.fullPath || directoryNode.id]: 'Error: Machine ID not found',
+                    [directoryNode.fullPath]: 'Error: Machine ID not found',
                 })
             );
             return
@@ -388,7 +388,7 @@ const AllResultsDirectoryStructures: React.FC<{
         try {
             dispatch(setHasEverCreatedGraph(true));
             dispatch(setIsCreatingRelationships(true))
-            const directoryPath = directoryNode.fullPath || directoryNode.id
+            const directoryPath = directoryNode.fullPath
 
             // Get selected file IDs
             const selectedFiles = getSelectedFileIds(directoryNode)
@@ -451,10 +451,11 @@ const AllResultsDirectoryStructures: React.FC<{
             // Refresh relationship statuses for all files in the directory to update Graph badges
             await refreshRelationshipStatuses(directoryNode)
         } catch (e: any) {
+            const errorPath = directoryNode.fullPath || directoryNode.id || 'unknown'
             dispatch(
                 setRelationshipStatus({
                     ...relationshipStatus,
-                    [directoryNode.fullPath || directoryNode.id]: `Error: ${e.response?.data?.detail || e.message}`,
+                    [errorPath]: `Error: ${e.response?.data?.detail || e.message}`,
                 })
             );
         } finally {
@@ -498,7 +499,7 @@ const AllResultsDirectoryStructures: React.FC<{
             </Grid>
 
             {/* Create Semantic Relationships Section - Only show when Graph badges are selected */}
-            {node && showCreateGraph && (
+            {node && node.fullPath && showCreateGraph && (
                 <Card sx={{ mt: 2, mb: 3 }}>
                     <CardContent>
                         <Box
@@ -512,9 +513,9 @@ const AllResultsDirectoryStructures: React.FC<{
                             <Typography variant="h6" whiteSpace={'nowrap'}>
                                 Create Graph (Semantic Relationships)
                             </Typography>
-                            {relationshipStatus[node.fullPath || node.id] && (
+                            {node.fullPath && relationshipStatus[node.fullPath] && (
                                 <Alert severity="info" sx={{ width: '70%', ml: 2 }}>
-                                    {relationshipStatus[node.fullPath || node.id]}
+                                    {relationshipStatus[node.fullPath]}
                                 </Alert>
                             )}
                         </Box>
