@@ -13,12 +13,19 @@ import {
     Divider,
     CircularProgress,
     Chip,
+    Grid,
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import FolderIcon from '@mui/icons-material/Folder'
 import type { ConnectorPath } from '@/types/neo4j'
 import type { FileStructure } from '@/types/neo4j'
 import ScanResultsDisplay from '@/components/ScanResultsDisplay'
+import ScannedDirectoryStructureCard from './DirectoryStructure/ScannedDirectoryStructureCard'
+import NeoDirectoryStructureCard from './DirectoryStructure/NeoDirectoryStructureCard'
+import { useSelector } from 'react-redux'
+import { useMachineId } from '@/hooks/useMachineId'
+import { useNeo4jStructure } from '@/hooks/useNeo4jStructure'
+import { useStoreDirectoryInNeo4j } from '@/hooks/useStoreDirectoryInNeo4j'
 
 type AllPathResult = {
     path: ConnectorPath
@@ -206,19 +213,10 @@ export const ConnectorTabContent: React.FC<Props> = ({
                                         </Box>
                                     </Paper>
 
-                                    <ScanResultsDisplay
-                                        scanResults={{
-                                            data: pathResult.data,
-                                            totalFiles: pathResult.results.totalFiles,
-                                            totalFolders: pathResult.results.totalFolders,
-                                            source: pathResult.results.source || 'local',
-                                            metadata: { source: pathResult.results.source || 'local' },
-                                        }}
-                                        sx={(allPathResults?.size < index + 1)
-                                            ? { borderRadius: 0 }
-                                            : { borderRadius: 0, borderBottomLeftRadius: 4, borderBottomRightRadius: 4 }
-                                        }
-                                        areActionsEnabled={false}
+                                    {/* Directory Structures - Side by Side for All Results */}
+                                    <AllResultsDirectoryStructures
+                                        node={pathResult.data}
+                                        machineId={null}
                                     />
                                 </Box>
                             ))}
@@ -227,5 +225,64 @@ export const ConnectorTabContent: React.FC<Props> = ({
                 </Box>
             )}
         </>
+    )
+}
+
+/**
+ * Component to display Directory Structures (LOCAL and NEO4J) side by side for All Results
+ */
+const AllResultsDirectoryStructures: React.FC<{
+    node: FileStructure | null
+    machineId: string | null
+}> = ({ node, machineId: propMachineId }) => {
+    const { machineId: hookMachineId } = useMachineId()
+    const finalMachineId = propMachineId || hookMachineId
+
+    const { fetchNeo4jStructure } = useNeo4jStructure({
+        machineId: finalMachineId,
+        node,
+    })
+
+    const {
+        isStoring,
+        storeMessage,
+        handleStoreInNeo4j,
+    } = useStoreDirectoryInNeo4j({
+        scanData: node,
+        metadata: {},
+        machineId: finalMachineId,
+        onAfterStore: fetchNeo4jStructure,
+    })
+
+    if (!node) return null
+
+    return (
+        <Box sx={{ mt: 0 }}>
+            <Grid container spacing={2}>
+                {/* Scanned / Local Directory */}
+                <Grid item xs={12} md={6}>
+                    <ScannedDirectoryStructureCard
+                        node={node}
+                        machineId={finalMachineId}
+                        storeMessage={storeMessage}
+                        isStoring={isStoring}
+                        onStoreInNeo4j={handleStoreInNeo4j}
+                        fetchNeo4jStructure={fetchNeo4jStructure}
+                        areActionsEnabled={false}
+                    />
+                </Grid>
+
+                {/* Neo4j Directory - specific to this path */}
+                <Grid item xs={12} md={6}>
+                    <NeoDirectoryStructureCard
+                        fetchNeo4jStructure={fetchNeo4jStructure}
+                        onResetNeoStatus={() => {}}
+                        areActionsEnabled={false}
+                        rootPath={node.fullPath}
+                        machineId={finalMachineId}
+                    />
+                </Grid>
+            </Grid>
+        </Box>
     )
 }
