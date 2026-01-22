@@ -327,10 +327,10 @@ const AllResultsDirectoryStructures: React.FC<{
 
     // Refresh relationship statuses for files in a directory
     const refreshRelationshipStatuses = async (directoryNode: FileStructure) => {
-        if (!finalMachineId) return
+        if (!finalMachineId || !directoryNode) return
 
         const traverseAndRefresh = async (node: FileStructure) => {
-            if (node.type === 'file') {
+            if (node && node.type === 'file' && node.fullPath) {
                 const fileKey = `${finalMachineId}:${node.fullPath}`
                 try {
                     const status = await getFileRelationshipStatus(fileKey)
@@ -340,7 +340,7 @@ const AllResultsDirectoryStructures: React.FC<{
                 }
             }
 
-            if (node.children) {
+            if (node && node.children) {
                 for (const child of node.children) {
                     await traverseAndRefresh(child)
                 }
@@ -354,18 +354,18 @@ const AllResultsDirectoryStructures: React.FC<{
     const getSelectedFileIds = (node: FileStructure): Array<{ fileId: string; stableId: string }> => {
         const selected: Array<{ fileId: string; stableId: string }> = []
         const traverse = (node: FileStructure) => {
-            if (node.type === 'file' && finalMachineId) {
+            if (node && node.type === 'file' && node.fullPath && finalMachineId) {
                 const stableId = buildStableId(node.fullPath)
                 const fileKey = `${finalMachineId}:${node.fullPath}`
                 if (selectedForGraph[stableId]) {
                     selected.push({ fileId: fileKey, stableId })
                 }
             }
-            if (node.children) {
+            if (node && node.children) {
                 node.children.forEach(child => traverse(child))
             }
         }
-        traverse(node)
+        if (node) traverse(node)
         return selected
     }
 
