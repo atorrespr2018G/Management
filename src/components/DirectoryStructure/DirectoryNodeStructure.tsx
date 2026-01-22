@@ -22,7 +22,7 @@ import { RagStatusBadge, GraphStatusBadge } from '../../components/ui/StatusBadg
 import { deleteFileChunks } from '@/services/neo4jApi';
 
 // Reusable Component replacing renderNeo4jNodeWithUpload
-const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActionsEnabled = true, fetchNeo4jStructure, isLocal = false, storedRoot = null }: {
+const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActionsEnabled = true, fetchNeo4jStructure, isLocal = false, storedRoot = null, storeLocalDirectory, localRootNode }: {
     node: FileStructure,
     level?: number,
     isSelectable?: boolean,
@@ -30,6 +30,8 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActi
     fetchNeo4jStructure?: () => Promise<void>,
     isLocal?: boolean,
     storedRoot?: FileStructure | null,
+    storeLocalDirectory?: () => Promise<void>,
+    localRootNode?: FileStructure | null,
 }) => {
     if (!node) return null;
     const dispatch = useDispatch();
@@ -95,6 +97,12 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActi
         try {
             setUpdatingFile(true);
             await deleteFileChunks(machineId, filePath);
+            if (storeLocalDirectory) {
+                await storeLocalDirectory();
+            }
+            if (fetchNeo4jStructure) {
+                await fetchNeo4jStructure();
+            }
         } catch (err) {
             console.error('Failed to delete file in Neo4j', err);
         } finally {
@@ -240,6 +248,8 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActi
                             fetchNeo4jStructure={fetchNeo4jStructure}
                             isLocal={isLocal}
                             storedRoot={storedRoot}
+                            storeLocalDirectory={storeLocalDirectory}
+                            localRootNode={localRootNode}
                         />
                     ))}
                 </Box>

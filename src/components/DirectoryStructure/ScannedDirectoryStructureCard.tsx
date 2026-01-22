@@ -114,6 +114,8 @@ export default function ScannedDirectoryStructureCard({
         areActionsEnabled={areActionsEnabled}
         isLocal={true}
         storedRoot={neo4jDirectoryStructure}
+        storeLocalDirectory={onStoreInNeo4j}
+        localRootNode={node}
       />
     </DirectoryStructureContainer>
   )
