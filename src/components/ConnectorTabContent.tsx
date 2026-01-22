@@ -498,7 +498,7 @@ const AllResultsDirectoryStructures: React.FC<{
             </Grid>
 
             {/* Create Semantic Relationships Section - Only show when Graph badges are selected */}
-            {localNeo4jStructure && showCreateGraph && (
+            {node && showCreateGraph && (
                 <Card sx={{ mt: 2, mb: 3 }}>
                     <CardContent>
                         <Box
@@ -512,9 +512,9 @@ const AllResultsDirectoryStructures: React.FC<{
                             <Typography variant="h6" whiteSpace={'nowrap'}>
                                 Create Graph (Semantic Relationships)
                             </Typography>
-                            {relationshipStatus[localNeo4jStructure.fullPath || localNeo4jStructure.id] && (
+                            {relationshipStatus[node.fullPath || node.id] && (
                                 <Alert severity="info" sx={{ width: '70%', ml: 2 }}>
-                                    {relationshipStatus[localNeo4jStructure.fullPath || localNeo4jStructure.id]}
+                                    {relationshipStatus[node.fullPath || node.id]}
                                 </Alert>
                             )}
                         </Box>
