@@ -15,10 +15,17 @@ import {
     Chip,
     Grid,
     Button,
+    Card,
+    CardContent,
+    Alert,
+    TextField,
+    Checkbox,
+    FormControlLabel,
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import FolderIcon from '@mui/icons-material/Folder'
 import DatabaseIcon from '@mui/icons-material/Storage'
+import NetworkIcon from '@mui/icons-material/AccountTree'
 import type { ConnectorPath } from '@/types/neo4j'
 import type { FileStructure } from '@/types/neo4j'
 import ScanResultsDisplay from '@/components/ScanResultsDisplay'
@@ -27,10 +34,24 @@ import NeoDirectoryStructureCard from './DirectoryStructure/NeoDirectoryStructur
 import DirectoryNodeStructure from './DirectoryStructure/DirectoryNodeStructure'
 import { DirectoryStructureContainer } from './DirectoryStructure/DirectoryStructureContainer'
 import { TimedAlert } from './TimedAlert'
-import { useSelector } from 'react-redux'
+import { ActionButton } from './ui/ActionButton'
+import { useSelector, useDispatch } from 'react-redux'
 import { useMachineId } from '@/hooks/useMachineId'
 import { useNeo4jStructure } from '@/hooks/useNeo4jStructure'
 import { useStoreDirectoryInNeo4j } from '@/hooks/useStoreDirectoryInNeo4j'
+import { buildStableId } from '@/utils/treeUtils'
+import {
+    setSelectedForGraph,
+    setRelationshipSettings,
+    setIsCreatingRelationships,
+    setRelationshipStatus,
+    setRelationshipStatusForFile,
+    setHasEverCreatedGraph,
+} from '../store/slices/neoSlice'
+import {
+    getFileRelationshipStatus,
+    createSemanticRelationships,
+} from '@/services/neo4jApi'
 
 type AllPathResult = {
     path: ConnectorPath
@@ -242,9 +263,19 @@ const AllResultsDirectoryStructures: React.FC<{
 }> = ({ node, machineId: propMachineId }) => {
     const { machineId: hookMachineId } = useMachineId()
     const finalMachineId = propMachineId || hookMachineId
+    const dispatch = useDispatch()
     
     // Local state for path-specific Neo4j structure
     const [localNeo4jStructure, setLocalNeo4jStructure] = React.useState<FileStructure | null>(null);
+
+    // Redux state for graph creation
+    const {
+        selectedForGraph,
+        relationshipSettings,
+        isCreatingRelationships,
+        relationshipStatus,
+        hasEverCreatedGraph,
+    } = useSelector((state: any) => state.neo);
 
     const { fetchNeo4jStructure } = useNeo4jStructure({
         machineId: finalMachineId,
@@ -294,7 +325,143 @@ const AllResultsDirectoryStructures: React.FC<{
         }
     }, [node?.fullPath, finalMachineId]);
 
+    // Refresh relationship statuses for files in a directory
+    const refreshRelationshipStatuses = async (directoryNode: FileStructure) => {
+        if (!finalMachineId) return
+
+        const traverseAndRefresh = async (node: FileStructure) => {
+            if (node.type === 'file') {
+                const fileKey = `${finalMachineId}:${node.fullPath}`
+                try {
+                    const status = await getFileRelationshipStatus(fileKey)
+                    dispatch(setRelationshipStatusForFile({ fileKey, status }))
+                } catch (e) {
+                    console.error(`Error fetching relationship status for ${fileKey}:`, e)
+                }
+            }
+
+            if (node.children) {
+                for (const child of node.children) {
+                    await traverseAndRefresh(child)
+                }
+            }
+        }
+
+        await traverseAndRefresh(directoryNode)
+    }
+
+    // Get selected file IDs helper function
+    const getSelectedFileIds = (node: FileStructure): Array<{ fileId: string; stableId: string }> => {
+        const selected: Array<{ fileId: string; stableId: string }> = []
+        const traverse = (node: FileStructure) => {
+            if (node.type === 'file' && finalMachineId) {
+                const stableId = buildStableId(node.fullPath)
+                const fileKey = `${finalMachineId}:${node.fullPath}`
+                if (selectedForGraph[stableId]) {
+                    selected.push({ fileId: fileKey, stableId })
+                }
+            }
+            if (node.children) {
+                node.children.forEach(child => traverse(child))
+            }
+        }
+        traverse(node)
+        return selected
+    }
+
+    const handleCreateSemanticRelationships = async (directoryNode: FileStructure) => {
+        if (!finalMachineId) {
+            dispatch(
+                setRelationshipStatus({
+                    ...relationshipStatus,
+                    [directoryNode.fullPath || directoryNode.id]: 'Error: Machine ID not found',
+                })
+            );
+            return
+        }
+
+        try {
+            dispatch(setHasEverCreatedGraph(true));
+            dispatch(setIsCreatingRelationships(true))
+            const directoryPath = directoryNode.fullPath || directoryNode.id
+
+            // Get selected file IDs
+            const selectedFiles = getSelectedFileIds(directoryNode)
+
+            if (selectedFiles.length === 0) {
+                dispatch(
+                    setRelationshipStatus({
+                        ...relationshipStatus,
+                        [directoryPath]: 'No files selected. Click on Graph badges to select files.',
+                    })
+                );
+                return
+            }
+
+            dispatch(
+                setRelationshipStatus({
+                    ...relationshipStatus,
+                    [directoryPath]: `Creating relationships for ${selectedFiles.length} file(s)...`,
+                })
+            );
+            let totalCreatedRelationships = 0
+            let totalProcessedChunks = 0
+            const errors: string[] = []
+
+            // Process each selected file
+            for (const { fileId } of selectedFiles) {
+                try {
+                    const res = await createSemanticRelationships(finalMachineId, directoryPath, {
+                        similarity_threshold: relationshipSettings.similarity_threshold,
+                        top_k: relationshipSettings.top_k,
+                        same_directory_only: relationshipSettings.same_directory_only,
+                        same_document_only: relationshipSettings.same_document_only,
+                        scope_file_id: fileId,
+                    })
+
+                    const result = res.result || res.summary || res
+                    totalCreatedRelationships += result.created_relationships || 0
+                    totalProcessedChunks += result.processed_chunks || 0
+                } catch (e: any) {
+                    errors.push(`File ${fileId}: ${e.response?.data?.detail || e.message}`)
+                }
+            }
+
+            dispatch(
+                setRelationshipStatus({
+                    ...relationshipStatus,
+                    [directoryPath]: errors.length > 0
+                        ? `Created ${totalCreatedRelationships} relationships from ${totalProcessedChunks} chunks. ${errors.length} error(s): ${errors.join('; ')}`
+                        : `Created ${totalCreatedRelationships} relationships from ${totalProcessedChunks} chunks`,
+                })
+            );
+
+            // Clear selections after successful creation
+            const newSelection = { ...selectedForGraph }
+            selectedFiles.forEach(({ stableId }) => {
+                delete newSelection[stableId]
+            })
+            dispatch(setSelectedForGraph(newSelection))
+
+            // Refresh relationship statuses for all files in the directory to update Graph badges
+            await refreshRelationshipStatuses(directoryNode)
+        } catch (e: any) {
+            dispatch(
+                setRelationshipStatus({
+                    ...relationshipStatus,
+                    [directoryNode.fullPath || directoryNode.id]: `Error: ${e.response?.data?.detail || e.message}`,
+                })
+            );
+        } finally {
+            dispatch(setIsCreatingRelationships(false))
+        }
+    }
+
     if (!node) return null
+
+    // Check if any files are selected for graph creation
+    const hasSelectedGraph = Object.values(selectedForGraph).some(selected => selected === true)
+    const showCreateGraph = hasSelectedGraph || hasEverCreatedGraph
 
     return (
         <Box sx={{ mt: 0 }}>
@@ -324,6 +491,123 @@ const AllResultsDirectoryStructures: React.FC<{
                     />
                 </Grid>
             </Grid>
+
+            {/* Create Semantic Relationships Section - Only show when Graph badges are selected */}
+            {localNeo4jStructure && showCreateGraph && (
+                <Card sx={{ mt: 2, mb: 3 }}>
+                    <CardContent>
+                        <Box
+                            sx={{
+                                mb: 3,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                            }}
+                        >
+                            <Typography variant="h6" whiteSpace={'nowrap'}>
+                                Create Graph (Semantic Relationships)
+                            </Typography>
+                            {relationshipStatus[localNeo4jStructure.fullPath || localNeo4jStructure.id] && (
+                                <Alert severity="info" sx={{ width: '70%', ml: 2 }}>
+                                    {relationshipStatus[localNeo4jStructure.fullPath || localNeo4jStructure.id]}
+                                </Alert>
+                            )}
+                        </Box>
+                        <Grid container spacing={3}>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="Similarity Threshold (0.0 - 1.0)"
+                                    type="number"
+                                    inputProps={{ min: 0, max: 1, step: 0.1 }}
+                                    value={relationshipSettings.similarity_threshold}
+                                    onChange={(e) =>
+                                        dispatch(
+                                            setRelationshipSettings({
+                                                similarity_threshold: parseFloat(e.target.value) || 0.7,
+                                            })
+                                        )
+                                    }
+                                    helperText="Only chunks with similarity ≥ this value will be connected"
+                                />
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="Top-K Connections (optional)"
+                                    type="number"
+                                    inputProps={{ min: 1 }}
+                                    value={relationshipSettings.top_k || ''}
+                                    onChange={(e) =>
+                                        dispatch(
+                                            setRelationshipSettings({
+                                                top_k: e.target.value
+                                                    ? parseInt(e.target.value)
+                                                    : relationshipSettings.top_k,
+                                            }))
+                                    }
+                                    placeholder="No limit"
+                                    helperText="Maximum relationships per chunk (leave empty for no limit)"
+                                />
+                            </Grid>
+                            <Grid item xs={12}>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                    <FormControlLabel
+                                        control={
+                                            <Checkbox
+                                                checked={relationshipSettings.same_directory_only}
+                                                onChange={(e) =>
+                                                    dispatch(
+                                                        setRelationshipSettings({
+                                                            same_directory_only: e.target.checked,
+                                                        })
+                                                    )
+                                                }
+                                            />
+                                        }
+                                        label="Same Directory Only"
+                                    />
+                                    <FormControlLabel
+                                        control={
+                                            <Checkbox
+                                                checked={relationshipSettings.same_document_only}
+                                                onChange={(e) =>
+                                                    dispatch(
+                                                        setRelationshipSettings({
+                                                            same_document_only: e.target.checked,
+                                                        })
+                                                    )
+                                                }
+                                            />
+                                        }
+                                        label="Same Document Only"
+                                    />
+                                </Box>
+                            </Grid>
+                            <Grid item xs={12}>
+                                <Divider sx={{ my: 2 }} />
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Box>
+                                        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                                            Create Relationships for Directory
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                            Select a directory from the Neo4j structure above and create relationships
+                                        </Typography>
+                                    </Box>
+                                    <ActionButton
+                                        label="Create Graph"
+                                        loadingLabel="Creating..."
+                                        loading={isCreatingRelationships}
+                                        onClick={() => handleCreateSemanticRelationships(localNeo4jStructure)}
+                                        icon={<NetworkIcon />}
+                                    />
+                                </Box>
+                            </Grid>
+                        </Grid>
+                    </CardContent>
+                </Card>
+            )}
         </Box>
     )
 }
