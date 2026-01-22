@@ -1,11 +1,12 @@
 
 import { useDispatch, useSelector } from 'react-redux';
+import { useState, useEffect } from 'react';
 import { buildStableId } from '../../utils/treeUtils'
 import DatabaseIcon from '@mui/icons-material/Storage'
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import LoopIcon from '@mui/icons-material/Loop';
 import DeleteIcon from '@mui/icons-material/Delete'
-import { uploadFilesBatch, deleteFileRelationships, deleteFileChunks } from '../../services/neo4jApi';
+import { uploadFilesBatch, deleteFileRelationships, deleteFileChunks, getDirectoryFromNeo4j } from '../../services/neo4jApi';
 import DirectoryNodeStructure from './DirectoryNodeStructure';
 import { FileStructure } from '@/types/neo4j';
 import {
@@ -37,16 +38,19 @@ import { useMachineId } from '@/hooks/useMachineId';
 import { DirectoryStructureContainer } from './DirectoryStructureContainer';
 import { ActionButton } from '../ui/ActionButton';
 
-const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, areActionsEnabled, onResetNeoStatus }: {
+const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, areActionsEnabled, onResetNeoStatus, rootPath, machineId: propMachineId }: {
     fetchNeo4jStructure: () => Promise<void>,
     onGraphDataChanged?: () => Promise<void>,
     areActionsEnabled?: boolean,
-    onResetNeoStatus?: (key: string) => void
+    onResetNeoStatus?: (key: string) => void,
+    rootPath?: string,
+    machineId?: string | null
 }) => {
     const dispatch = useDispatch();
-    const { machineId } = useMachineId()
+    const { machineId: hookMachineId } = useMachineId()
+    const machineId = propMachineId || hookMachineId
     const {
-        neo4jDirectoryStructure,
+        neo4jDirectoryStructure: globalNeo4jStructure,
         isLoadingNeo4jStructure,
         selectedForRag,
         uploadStatus,
@@ -59,6 +63,38 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, ar
         ragStatuses,
         relationshipStatuses
     } = useSelector((state: any) => state.neo);
+
+    // Local state for path-specific Neo4j structure (used in All Results tab)
+    const [localNeo4jStructure, setLocalNeo4jStructure] = useState<FileStructure | null>(null);
+    const [isLoadingLocal, setIsLoadingLocal] = useState(false);
+
+    // Fetch path-specific Neo4j structure if rootPath is provided
+    useEffect(() => {
+        if (rootPath && machineId) {
+            const fetchLocalStructure = async () => {
+                setIsLoadingLocal(true);
+                try {
+                    const result = await getDirectoryFromNeo4j(machineId, rootPath);
+                    if (result.found && result.structure) {
+                        setLocalNeo4jStructure(result.structure);
+                    } else {
+                        setLocalNeo4jStructure(null);
+                    }
+                } catch (error) {
+                    console.error('Error fetching local Neo4j structure:', error);
+                    setLocalNeo4jStructure(null);
+                } finally {
+                    setIsLoadingLocal(false);
+                }
+            };
+            fetchLocalStructure();
+        }
+    }, [rootPath, machineId]);
+
+    // Use local structure if rootPath is provided (for All Results tab)
+    // Otherwise use global structure from Redux
+    const neo4jDirectoryStructure = rootPath ? localNeo4jStructure : globalNeo4jStructure;
+    const effectiveIsLoading = rootPath ? isLoadingLocal : isLoadingNeo4jStructure;
 
     const getSelectedFilesWithStatus = (directoryNode: FileStructure) => {
         const files: Array<{
@@ -478,12 +514,12 @@ const NeoDirectoryStructureCard = ({ fetchNeo4jStructure, onGraphDataChanged, ar
 
     return (
         <>
-            {isLoadingNeo4jStructure && (
+            {effectiveIsLoading && (
                 <Paper variant="outlined" sx={{ p: 2, flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                     <CircularProgress />
                 </Paper>
             )}
-            {!isLoadingNeo4jStructure && (
+            {!effectiveIsLoading && (
                 <DirectoryStructureContainer
                     title="Directory Structure"
                     chipLabel="NEO4J"
