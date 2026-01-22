@@ -240,10 +240,16 @@ export const ConnectorTabContent: React.FC<Props> = ({
                                     </Paper>
 
                                     {/* Directory Structures - Side by Side for All Results */}
-                                    <AllResultsDirectoryStructures
-                                        node={pathResult.data}
-                                        machineId={null}
-                                    />
+                                    {pathResult.data ? (
+                                        <AllResultsDirectoryStructures
+                                            node={pathResult.data}
+                                            machineId={null}
+                                        />
+                                    ) : (
+                                        <Box sx={{ p: 2, textAlign: 'center', color: 'text.secondary' }}>
+                                            <Typography variant="body2">No data available for this path</Typography>
+                                        </Box>
+                                    )}
                                 </Box>
                             ))}
                         </Box>
@@ -264,6 +270,12 @@ const AllResultsDirectoryStructures: React.FC<{
     const { machineId: hookMachineId } = useMachineId()
     const finalMachineId = propMachineId || hookMachineId
     const dispatch = useDispatch()
+    
+    // Early return if node is invalid
+    if (!node || typeof node !== 'object') {
+        console.error('AllResultsDirectoryStructures: Invalid node prop', node);
+        return null
+    }
     
     // Local state for path-specific Neo4j structure
     const [localNeo4jStructure, setLocalNeo4jStructure] = React.useState<FileStructure | null>(null);
@@ -351,35 +363,29 @@ const AllResultsDirectoryStructures: React.FC<{
     }
 
     // Get selected file IDs helper function
-    const getSelectedFileIds = (node: FileStructure): Array<{ fileId: string; stableId: string }> => {
+    const getSelectedFileIds = (dirNode: FileStructure): Array<{ fileId: string; stableId: string }> => {
         const selected: Array<{ fileId: string; stableId: string }> = []
-        const traverse = (node: FileStructure) => {
-            if (node && node.type === 'file' && node.fullPath && finalMachineId) {
-                const stableId = buildStableId(node.fullPath)
-                const fileKey = `${finalMachineId}:${node.fullPath}`
-                if (selectedForGraph[stableId]) {
-                    selected.push({ fileId: fileKey, stableId })
+        const traverse = (n: FileStructure) => {
+            if (n.type === 'file') {
+                const fileKey = buildStableId(finalMachineId || '', n)
+                if (selectedForGraph[fileKey]) {
+                    selected.push({ fileId: n.id, stableId: fileKey })
                 }
             }
-            if (node && node.children) {
-                node.children.forEach(child => traverse(child))
+            if (n.children && Array.isArray(n.children)) {
+                n.children.forEach(child => traverse(child))
             }
         }
-        if (node) traverse(node)
+        traverse(dirNode)
         return selected
     }
 
     const handleCreateSemanticRelationships = async (directoryNode: FileStructure) => {
-        if (!directoryNode || !directoryNode.fullPath) {
-            console.error('directoryNode or directoryNode.fullPath is undefined', directoryNode);
-            return
-        }
-
         if (!finalMachineId) {
             dispatch(
                 setRelationshipStatus({
                     ...relationshipStatus,
-                    [directoryNode.fullPath]: 'Error: Machine ID not found',
+                    [directoryNode.fullPath || directoryNode.id]: 'Error: Machine ID not found',
                 })
             );
             return
@@ -388,7 +394,7 @@ const AllResultsDirectoryStructures: React.FC<{
         try {
             dispatch(setHasEverCreatedGraph(true));
             dispatch(setIsCreatingRelationships(true))
-            const directoryPath = directoryNode.fullPath
+            const directoryPath = directoryNode.fullPath || directoryNode.id
 
             // Get selected file IDs
             const selectedFiles = getSelectedFileIds(directoryNode)
@@ -465,10 +471,6 @@ const AllResultsDirectoryStructures: React.FC<{
 
     if (!node) return null
 
-    // Check if any files are selected for graph creation
-    const hasSelectedGraph = Object.values(selectedForGraph).some(selected => selected === true)
-    const showCreateGraph = hasSelectedGraph || hasEverCreatedGraph
-
     return (
         <Box sx={{ mt: 0 }}>
             <Grid container spacing={2}>
@@ -499,7 +501,11 @@ const AllResultsDirectoryStructures: React.FC<{
             </Grid>
 
             {/* Create Semantic Relationships Section - Only show when Graph badges are selected */}
-            {node && node.fullPath && showCreateGraph && (
+            {localNeo4jStructure && (() => {
+                // Check if any files are selected for graph creation
+                const hasSelectedGraph = Object.values(selectedForGraph).some(selected => selected === true)
+                return hasSelectedGraph || hasEverCreatedGraph
+            })() && (
                 <Card sx={{ mt: 2, mb: 3 }}>
                     <CardContent>
                         <Box
@@ -513,9 +519,9 @@ const AllResultsDirectoryStructures: React.FC<{
                             <Typography variant="h6" whiteSpace={'nowrap'}>
                                 Create Graph (Semantic Relationships)
                             </Typography>
-                            {node.fullPath && relationshipStatus[node.fullPath] && (
+                            {relationshipStatus[localNeo4jStructure.fullPath || localNeo4jStructure.id] && (
                                 <Alert severity="info" sx={{ width: '70%', ml: 2 }}>
-                                    {relationshipStatus[node.fullPath]}
+                                    {relationshipStatus[localNeo4jStructure.fullPath || localNeo4jStructure.id]}
                                 </Alert>
                             )}
                         </Box>
@@ -605,7 +611,7 @@ const AllResultsDirectoryStructures: React.FC<{
                                         label="Create Graph"
                                         loadingLabel="Creating..."
                                         loading={isCreatingRelationships}
-                                        onClick={() => node && handleCreateSemanticRelationships(node)}
+                                        onClick={() => handleCreateSemanticRelationships(localNeo4jStructure!)}
                                         icon={<NetworkIcon />}
                                     />
                                 </Box>
