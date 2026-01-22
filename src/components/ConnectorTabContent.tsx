@@ -318,7 +318,7 @@ const AllResultsDirectoryStructures: React.FC<{
                     <NeoDirectoryStructureCard
                         fetchNeo4jStructure={fetchNeo4jStructure}
                         onResetNeoStatus={() => {}}
-                        areActionsEnabled={false}
+                        areActionsEnabled={true}
                         rootPath={node.fullPath}
                         machineId={finalMachineId}
                     />
