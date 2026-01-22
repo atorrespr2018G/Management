@@ -1,4 +1,5 @@
 import { useDispatch, useSelector } from 'react-redux';
+import { useState } from 'react';
 import { formatBytes, truncateFileName } from '../../utils/formatters';
 import { buildStableId, sortTreeChildren } from '../../utils/treeUtils';
 import {
@@ -18,6 +19,7 @@ import {
 } from '../../store/slices/neoSlice';
 import type { FileStructure } from '@/types/neo4j'
 import { RagStatusBadge, GraphStatusBadge } from '../../components/ui/StatusBadges';
+import { deleteFileChunks } from '@/services/neo4jApi';
 
 // Reusable Component replacing renderNeo4jNodeWithUpload
 const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActionsEnabled = true, fetchNeo4jStructure, isLocal = false, storedRoot = null }: {
@@ -31,6 +33,7 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActi
 }) => {
     if (!node) return null;
     const dispatch = useDispatch();
+    const [updatingFile, setUpdatingFile] = useState(false);
     const {
         selectedForRag,
         ragStatuses,
@@ -81,6 +84,24 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActi
 
     // data for selectable functionality
     const machineId = localStorage.getItem('machineId') || '';
+    
+    // Delete file from Neo4j (replicate delete button functionality)
+    const handleUpdateFile = async () => {
+        if (!machineId || !node || updatingFile) return;
+        
+        const filePath = node.fullPath || node.id || '';
+        if (!filePath) return;
+        
+        try {
+            setUpdatingFile(true);
+            await deleteFileChunks(machineId, filePath);
+        } catch (err) {
+            console.error('Failed to delete file in Neo4j', err);
+        } finally {
+            setUpdatingFile(false);
+        }
+    };
+
     const stableId = buildStableId(machineId, node);
     const isSelectedForRag = selectedForRag[stableId] || false;
     const ragStatus = ragStatuses[stableId] || 'none';
@@ -120,10 +141,8 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActi
                         <Button 
                             variant="contained" 
                             size="small" 
-                            onClick={() => {
-                                // Placeholder - will be implemented later
-                                console.log('Update clicked for:', node.relativePath);
-                            }}
+                            onClick={handleUpdateFile}
+                            disabled={updatingFile}
                             sx={{ 
                                 minWidth: 'auto', 
                                 px: 1, 
@@ -136,7 +155,7 @@ const DirectoryNodeStructure = ({ node, level = 0, isSelectable = false, areActi
                                 }
                             }}
                         >
-                            Update
+                            {updatingFile ? 'Updating...' : 'Update'}
                         </Button>
                     )}
                     {typeof bytes === 'number' && (
