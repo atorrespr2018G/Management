@@ -369,7 +369,7 @@ const AllResultsDirectoryStructures: React.FC<{
             if (n.type === 'file') {
                 const fileKey = buildStableId(finalMachineId || '', n)
                 if (selectedForGraph[fileKey]) {
-                    selected.push({ fileId: n.id, stableId: fileKey })
+                    selected.push({ fileId: fileKey, stableId: fileKey })
                 }
             }
             if (n.children && Array.isArray(n.children)) {
@@ -400,6 +400,7 @@ const AllResultsDirectoryStructures: React.FC<{
             const selectedFiles = getSelectedFileIds(directoryNode)
 
             if (selectedFiles.length === 0) {
+                console.log('[GRAPH] No files selected for graph creation')
                 dispatch(
                     setRelationshipStatus({
                         ...relationshipStatus,
@@ -409,6 +410,7 @@ const AllResultsDirectoryStructures: React.FC<{
                 return
             }
 
+            console.log(`[GRAPH] Creating semantic relationships for ${selectedFiles.length} file(s)`)
             dispatch(
                 setRelationshipStatus({
                     ...relationshipStatus,
@@ -422,6 +424,7 @@ const AllResultsDirectoryStructures: React.FC<{
             // Process each selected file
             for (const { fileId } of selectedFiles) {
                 try {
+                    console.log(`[GRAPH] Creating semantic relationships for file: ${fileId}`)
                     const res = await createSemanticRelationships(finalMachineId, directoryPath, {
                         similarity_threshold: relationshipSettings.similarity_threshold,
                         top_k: relationshipSettings.top_k,
