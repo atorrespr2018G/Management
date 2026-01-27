@@ -44,6 +44,7 @@ import {
   clearWorkflow,
   setSelectedNode,
   setError,
+  deleteNode,
 } from '@/store/slices/workflowSlice'
 import WorkflowGraphEditor from '@/components/Workflow/WorkflowGraphEditor'
 import NodePropertyPanel from '@/components/Workflow/NodePropertyPanel'
@@ -158,10 +159,10 @@ export default function WorkflowBuilderPage() {
       dispatch(setWorkflow(workflowWithId))
       setWorkflowName(workflow.name || '')
       setWorkflowDescription(workflow.description || '')
-      
+
       // Check if this workflow is active
       await checkActiveWorkflow()
-      
+
       setSnackbar({ open: true, message: 'Workflow loaded successfully', severity: 'success' })
     } catch (error: any) {
       setSnackbar({ open: true, message: error.message || 'Failed to load workflow', severity: 'error' })
@@ -170,7 +171,7 @@ export default function WorkflowBuilderPage() {
 
   const handleDeleteWorkflow = async () => {
     const workflowIdToDelete = currentWorkflow?.workflow_id || selectedWorkflowId
-    
+
     if (!workflowIdToDelete) {
       setSnackbar({ open: true, message: 'No workflow loaded to delete', severity: 'error' })
       return
@@ -253,7 +254,7 @@ export default function WorkflowBuilderPage() {
         description: workflowDescription || currentWorkflow.description,
       }
       const saveResult = await saveWorkflowDefinition(workflowToSave, workflowName)
-      
+
       // Set as active workflow if isActiveWorkflow is true
       if (isActiveWorkflow && saveResult.workflow_id) {
         try {
@@ -261,12 +262,12 @@ export default function WorkflowBuilderPage() {
           setSnackbar({ open: true, message: 'Workflow saved and set as active successfully', severity: 'success' })
         } catch (error: any) {
           // Workflow saved but failed to set as active
-          setSnackbar({ open: true, message: `Workflow saved but failed to set as active: ${error.message}`, severity: 'warning' })
+          setSnackbar({ open: true, message: `Workflow saved but failed to set as active: ${error.message}`, severity: 'error' })
         }
       } else {
         setSnackbar({ open: true, message: 'Workflow saved successfully', severity: 'success' })
       }
-      
+
       // Refresh the workflow list to include the newly saved workflow
       await loadWorkflows()
     } catch (err: any) {
@@ -399,7 +400,7 @@ export default function WorkflowBuilderPage() {
           console.debug('Backend visualization failed, using client-side generation')
         }
       }
-      
+
       // Client-side visualization generation
       if (visualizationFormat === 'json') {
         setVisualizationContent(JSON.stringify(currentWorkflow, null, 2))
@@ -407,14 +408,14 @@ export default function WorkflowBuilderPage() {
         // Generate simple Mermaid or DOT format
         const nodes = currentWorkflow.nodes.map(n => n.id).join(', ')
         const edges = currentWorkflow.edges.map(e => `${e.from_node} --> ${e.to_node}`).join('\n    ')
-        
+
         if (visualizationFormat === 'mermaid') {
           setVisualizationContent(`graph LR\n    ${currentWorkflow.nodes.map(n => `${n.id}[${n.id}]`).join('\n    ')}\n    ${edges}`)
         } else {
           setVisualizationContent(`digraph workflow {\n    ${currentWorkflow.nodes.map(n => `"${n.id}"`).join('; ')}\n    ${currentWorkflow.edges.map(e => `"${e.from_node}" -> "${e.to_node}"`).join('\n    ')}\n}`)
         }
       }
-      
+
       setVisualizationDialogOpen(true)
     } catch (error: any) {
       setSnackbar({ open: true, message: error.message || 'Failed to generate visualization', severity: 'error' })
@@ -440,23 +441,23 @@ export default function WorkflowBuilderPage() {
           console.debug('Backend summary failed, using client-side generation')
         }
       }
-      
+
       // Client-side summary generation
       const nodeTypes = [...new Set(currentWorkflow.nodes.map(n => n.type))]
       const terminalNodes = currentWorkflow.nodes
         .filter(n => !currentWorkflow.edges.some(e => e.from_node === n.id))
         .map(n => n.id)
       const hasLoops = currentWorkflow.nodes.some(n => n.type === 'loop')
-      
+
       const summary = {
         total_nodes: currentWorkflow.nodes.length,
         total_edges: currentWorkflow.edges.length,
         entry_node: currentWorkflow.entry_node_id || currentWorkflow.nodes[0]?.id || 'N/A',
-        has_loops,
+        has_loops: hasLoops,
         node_types: nodeTypes,
-        terminal_nodes,
+        terminal_nodes: terminalNodes,
       }
-      
+
       setWorkflowSummary(summary)
       setSummaryDialogOpen(true)
     } catch (error: any) {
@@ -549,7 +550,7 @@ export default function WorkflowBuilderPage() {
 
     // Check if target node already exists
     let targetNode = currentWorkflow.nodes.find((n) => n.agent_id === targetAgentId && n.type === 'agent')
-    
+
     // Create target node if it doesn't exist
     if (!targetNode) {
       const newNodeId = targetAgentId.toLowerCase().replace(/\s+/g, '_')
@@ -807,14 +808,16 @@ export default function WorkflowBuilderPage() {
               }
             }}
             onDelete={(nodeId) => {
-              if (currentWorkflow) {
-                const updatedNodes = currentWorkflow.nodes.filter((n) => n.id !== nodeId)
-                const updatedEdges = currentWorkflow.edges.filter(
-                  (e) => e.from_node !== nodeId && e.to_node !== nodeId
-                )
-                dispatch(setWorkflow({ ...currentWorkflow, nodes: updatedNodes, edges: updatedEdges }))
-                dispatch(setSelectedNode(null))
-              }
+              // if (currentWorkflow) {
+              //   const updatedNodes = currentWorkflow.nodes.filter((n) => n.id !== nodeId)
+              //   const updatedEdges = currentWorkflow.edges.filter(
+              //     (e) => e.from_node !== nodeId && e.to_node !== nodeId
+              //   )
+              //   dispatch(setWorkflow({ ...currentWorkflow, nodes: updatedNodes, edges: updatedEdges }))
+              //   dispatch(setSelectedNode(null))
+              // }
+              // Use Redux deleteNode for splice delete support
+              dispatch(deleteNode(nodeId))
             }}
           />
         </Box>
@@ -1048,8 +1051,8 @@ export default function WorkflowBuilderPage() {
                             rec.severity === 'high'
                               ? 'error'
                               : rec.severity === 'medium'
-                              ? 'warning'
-                              : 'default'
+                                ? 'warning'
+                                : 'default'
                           }
                         />
                         <Box sx={{ flex: 1 }}>

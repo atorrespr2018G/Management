@@ -32,7 +32,8 @@ interface WorkflowGraphEditorProps {
   onWorkflowChange?: (workflow: WorkflowDefinition) => void
   onNodeAdd?: (nodeType: string, position: { x: number; y: number }) => void
   availableAgents?: Array<{ id: string; name: string }>
-  readOnly?: boolean
+  readOnly?: boolean,
+  onNodeClick?: (nodeId: string) => void,
 }
 
 const edgeTypes: EdgeTypes = {
@@ -48,7 +49,7 @@ function workflowToReactFlow(workflow: WorkflowDefinition | null, availableAgent
   // Create nodes with initial positions (from params if available, otherwise simple grid)
   const nodes: Node[] = workflow.nodes.map((node, index) => {
     let position = { x: 0, y: 0 }
-    
+
     // Try to get position from params
     if (node.params?.position) {
       position = node.params.position
@@ -165,7 +166,7 @@ export default function WorkflowGraphEditor({
     if (workflowChanged || nodesChanged) {
       isUpdatingFromProps.current = true
       const newFlow = workflowToReactFlow(workflow, availableAgents)
-      
+
       // Preserve positions of existing nodes
       setNodes((currentNodes) => {
         const nodeMap = new Map(currentNodes.map((n) => [n.id, n]))
@@ -182,7 +183,7 @@ export default function WorkflowGraphEditor({
           return newNode
         })
       })
-      
+
       setEdges(newFlow.edges)
       workflowRef.current = workflow
       workflowNodesRef.current = nodesKey
