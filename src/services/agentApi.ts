@@ -19,7 +19,8 @@ export async function getAgents(): Promise<Agent[]> {
   // Try to fetch from agents endpoint
   // If that doesn't exist, return mock data for now
   try {
-    const response = await fetch(`${API_BASE_URL}/api/agents`, {
+    // const response = await fetch(`${API_BASE_URL}/api/agents`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/workflows/agents`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
