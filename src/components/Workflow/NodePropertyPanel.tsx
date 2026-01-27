@@ -78,7 +78,7 @@ export default function NodePropertyPanel({
     setSelectedTargetAgent(null)
   }
 
-  const sourceAgent = node && node.type === 'agent' 
+  const sourceAgent = node && node.type === 'agent'
     ? availableAgents.find((a) => a.id === node.agent_id) || null
     : null
 
@@ -165,7 +165,7 @@ export default function NodePropertyPanel({
                   </MenuItem>
                   {availableAgents.map((agent) => (
                     <MenuItem key={agent.id} value={agent.id}>
-                      {agent.name} ({agent.id})
+                      <strong>{agent.name}</strong> &ensp; ({agent.id})
                     </MenuItem>
                   ))}
                 </Select>
