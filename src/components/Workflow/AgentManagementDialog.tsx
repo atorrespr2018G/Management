@@ -60,6 +60,7 @@ export default function AgentManagementDialog({
   const [success, setSuccess] = useState<string | null>(null)
   const [editingAgentId, setEditingAgentId] = useState<string>('')
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null)
+  const [agentPendingDelete, setAgentPendingDelete] = useState<Agent | null>(null)
 
   // Create form state
   const [createFormData, setCreateFormData] = useState<Omit<CreateAgentRequest, 'tools'>>({
@@ -226,11 +227,16 @@ export default function AgentManagementDialog({
     }
   }
 
-  const handleDelete = async (agentId: string, agentName: string) => {
-    if (!confirm(`Are you sure you want to delete agent "${agentName}"?`)) {
-      return
-    }
+  const handleDelete = (agentId: string, agentName: string) => {
+    const agent = agents.find(a => a.id === agentId) || { id: agentId, name: agentName } as Agent
+    setAgentPendingDelete(agent)
+  }
 
+  const handleConfirmDelete = async () => {
+    if (!agentPendingDelete) return
+    const agentId = agentPendingDelete.id
+    const agentName = agentPendingDelete.name
+    
     setLoading(true)
     setError(null)
     try {
@@ -242,7 +248,13 @@ export default function AgentManagementDialog({
       setError(err.message || 'Failed to delete agent')
     } finally {
       setLoading(false)
+      setAgentPendingDelete(null)
     }
+  }
+
+  const handleCancelDelete = () => {
+    if (loading) return
+    setAgentPendingDelete(null)
   }
 
   const handleCancelEdit = () => {
@@ -499,6 +511,46 @@ export default function AgentManagementDialog({
               </Button>
             </>
           )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Modern delete confirmation dialog */}
+      <Dialog
+        open={!!agentPendingDelete}
+        onClose={handleCancelDelete}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 600 }}>
+          Delete agent
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 0.5 }}>
+            <Typography variant="body1">
+              Are you sure you want to delete{' '}
+              <Box component="span" sx={{ fontWeight: 600 }}>
+                {agentPendingDelete?.name}
+              </Box>
+              ?
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              This will remove the agent from your Foundry project and may break any workflows or tools that reference it.
+              This action cannot be undone.
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, pt: 1 }}>
+          <Button onClick={handleCancelDelete} disabled={loading}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmDelete}
+            color="error"
+            variant="contained"
+            disabled={loading}
+          >
+            Delete
+          </Button>
         </DialogActions>
       </Dialog>
 
