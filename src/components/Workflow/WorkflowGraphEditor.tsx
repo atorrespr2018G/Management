@@ -31,6 +31,7 @@ interface WorkflowGraphEditorProps {
   workflow: WorkflowDefinition | null
   onWorkflowChange?: (workflow: WorkflowDefinition) => void
   onNodeAdd?: (nodeType: string, position: { x: number; y: number }) => void
+  onNodeClick?: (nodeId: string) => void
   availableAgents?: Array<{ id: string; name: string }>
   readOnly?: boolean
 }

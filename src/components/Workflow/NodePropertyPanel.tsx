@@ -20,6 +20,7 @@ import {
 import { ExpandMore as ExpandMoreIcon, Link as LinkIcon } from '@mui/icons-material'
 import type { WorkflowNode, NodeType } from '@/types/workflow'
 import ConnectionConfigPanel from './ConnectionConfigPanel'
+import AgentManagementDialog from './AgentManagementDialog'
 import type { Agent } from '@/services/agentApi'
 import type { ConnectionConfig } from '@/utils/agentWorkflowGenerator'
 
@@ -29,6 +30,7 @@ interface NodePropertyPanelProps {
   onUpdate: (nodeId: string, updates: Partial<WorkflowNode>) => void
   onDelete?: (nodeId: string) => void
   onConnect?: (sourceNodeId: string, targetAgentId: string, config?: ConnectionConfig) => void
+  onAgentsUpdated?: () => void | Promise<void>
 }
 
 export default function NodePropertyPanel({
@@ -37,9 +39,11 @@ export default function NodePropertyPanel({
   onUpdate,
   onDelete,
   onConnect,
+  onAgentsUpdated,
 }: NodePropertyPanelProps) {
   const [connectionDialogOpen, setConnectionDialogOpen] = useState(false)
   const [selectedTargetAgent, setSelectedTargetAgent] = useState<Agent | null>(null)
+  const [agentManagementDialogOpen, setAgentManagementDialogOpen] = useState(false)
   if (!node) {
     return (
       <Box sx={{ p: 2 }}>
@@ -129,6 +133,68 @@ export default function NodePropertyPanel({
                 <MenuItem value="merge">Merge</MenuItem>
               </Select>
             </FormControl>
+            
+            {/* Agent Information - Show when agent node has selected agent */}
+            {node.type === 'agent' && sourceAgent && (
+              <>
+                <Typography variant="subtitle2" sx={{ mt: 1, mb: 0.5, fontWeight: 600 }}>
+                  Agent Information
+                </Typography>
+                <TextField
+                  label="Agent Name"
+                  value={sourceAgent.name || 'N/A'}
+                  size="small"
+                  disabled
+                  fullWidth
+                />
+                <TextField
+                  label="Agent ID"
+                  value={sourceAgent.id || 'N/A'}
+                  size="small"
+                  disabled
+                  fullWidth
+                  sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}
+                />
+                {sourceAgent.model && (
+                  <TextField
+                    label="Model"
+                    value={sourceAgent.model}
+                    size="small"
+                    disabled
+                    fullWidth
+                  />
+                )}
+                {sourceAgent.description && (
+                  <TextField
+                    label="Description"
+                    value={sourceAgent.description}
+                    size="small"
+                    disabled
+                    fullWidth
+                    multiline
+                    rows={2}
+                  />
+                )}
+                {sourceAgent.instructions && (
+                  <TextField
+                    label="Instructions"
+                    value={sourceAgent.instructions}
+                    size="small"
+                    disabled
+                    fullWidth
+                    multiline
+                    rows={4}
+                  />
+                )}
+              </>
+            )}
+            
+            {/* Show message if agent node but no agent selected */}
+            {node.type === 'agent' && !sourceAgent && node.agent_id && (
+              <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                Agent {node.agent_id} not found in available agents list
+              </Typography>
+            )}
           </Box>
         </AccordionDetails>
       </Accordion>
@@ -175,6 +241,16 @@ export default function NodePropertyPanel({
                   Select an agent from the dropdown above to configure this node
                 </Typography>
               )}
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="small"
+                  onClick={() => setAgentManagementDialogOpen(true)}
+                >
+                  Manage Agents
+                </Button>
+              </Box>
             </Box>
           </AccordionDetails>
         </Accordion>
@@ -428,6 +504,15 @@ export default function NodePropertyPanel({
           availableAgents={availableAgents as Agent[]}
         />
       )}
+
+      {/* Agent Management Dialog */}
+      <AgentManagementDialog
+        open={agentManagementDialogOpen}
+        onClose={() => setAgentManagementDialogOpen(false)}
+        onAgentsUpdated={() => {
+          onAgentsUpdated?.()
+        }}
+      />
     </Box>
   )
 }
