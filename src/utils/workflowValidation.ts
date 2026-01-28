@@ -47,11 +47,33 @@ export function validateWorkflow(workflow: WorkflowDefinition | null): Validatio
       })
     }
 
-    if (node.type === 'fanout' && (!node.branches || node.branches.length === 0)) {
-      errors.push({
-        field: `nodes[${index}].branches`,
-        message: `Fanout node ${node.id} must have at least one branch`,
-      })
+    if (node.type === 'fanout') {
+      // Derive branches from graph edges (graph is source of truth)
+      const outgoingEdges = workflow.edges?.filter(e => e.from_node === node.id) || []
+      const branchTargets = [...new Set(outgoingEdges.map(e => e.to_node))]
+
+      // Validate: Fanout must have at least 2 branch targets (parallel requires ≥2)
+      if (branchTargets.length < 2) {
+        errors.push({
+          field: `nodes[${index}]`,
+          //         message: `Fanout node ${node.id} must have at least one branch`,
+          message: `Fanout node ${node.id} must connect to at least two branch nodes. Current connections: ${branchTargets.length}`,
+        })
+      }
+
+      // Optional: warn if branches property exists but doesn't match graph
+      if (node.branches && node.branches.length > 0) {
+        const branchSet = new Set(node.branches)
+        const edgeSet = new Set(branchTargets)
+        const same = branchSet.size === edgeSet.size && [...branchSet].every(b => edgeSet.has(b))
+
+        if (!same) {
+          errors.push({
+            field: `nodes[${index}].branches`,
+            message: `Fanout node ${node.id} branches property [${node.branches.join(', ')}] doesn't match graph connections [${branchTargets.join(', ')}]. Connections are used.`,
+          })
+        }
+      }
     }
 
     if (node.type === 'loop' && !node.max_iters) {
