@@ -791,6 +791,7 @@ export default function WorkflowBuilderPage() {
         <Box sx={{ width: 350, borderLeft: 1, borderColor: 'divider' }}>
           <NodePropertyPanel
             node={selectedNode}
+            workflow={currentWorkflow}
             availableAgents={availableAgents}
             onUpdate={(nodeId, updates) => {
               // Update node in workflow
