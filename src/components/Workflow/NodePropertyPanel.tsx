@@ -17,7 +17,7 @@ import {
   AccordionDetails,
   Chip,
 } from '@mui/material'
-import { ExpandMore as ExpandMoreIcon, Link as LinkIcon } from '@mui/icons-material'
+import { ExpandMore as ExpandMoreIcon, Link as LinkIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import type { WorkflowNode, NodeType } from '@/types/workflow'
 import ConnectionConfigPanel from './ConnectionConfigPanel'
 import AgentManagementDialog from './AgentManagementDialog'
@@ -26,6 +26,7 @@ import type { ConnectionConfig } from '@/utils/agentWorkflowGenerator'
 
 interface NodePropertyPanelProps {
   node: WorkflowNode | null
+  workflow?: { nodes: WorkflowNode[]; edges: Array<{ from_node: string; to_node: string }> } | null
   availableAgents?: Array<{ id: string; name: string }>
   onUpdate: (nodeId: string, updates: Partial<WorkflowNode>) => void
   onDelete?: (nodeId: string) => void
@@ -35,6 +36,7 @@ interface NodePropertyPanelProps {
 
 export default function NodePropertyPanel({
   node,
+  workflow,
   availableAgents = [],
   onUpdate,
   onDelete,
@@ -82,7 +84,7 @@ export default function NodePropertyPanel({
     setSelectedTargetAgent(null)
   }
 
-  const sourceAgent = node && node.type === 'agent' 
+  const sourceAgent = node && node.type === 'agent'
     ? availableAgents.find((a) => a.id === node.agent_id) || null
     : null
 
@@ -97,6 +99,7 @@ export default function NodePropertyPanel({
             variant="outlined"
             color="error"
             size="small"
+            startIcon={<DeleteIcon />}
             onClick={() => onDelete(node.id)}
           >
             Delete
@@ -133,7 +136,7 @@ export default function NodePropertyPanel({
                 <MenuItem value="merge">Merge</MenuItem>
               </Select>
             </FormControl>
-            
+
             {/* Agent Information - Show when agent node has selected agent */}
             {node.type === 'agent' && sourceAgent && (
               <>
@@ -188,7 +191,7 @@ export default function NodePropertyPanel({
                 )}
               </>
             )}
-            
+
             {/* Show message if agent node but no agent selected */}
             {node.type === 'agent' && !sourceAgent && node.agent_id && (
               <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
@@ -231,7 +234,7 @@ export default function NodePropertyPanel({
                   </MenuItem>
                   {availableAgents.map((agent) => (
                     <MenuItem key={agent.id} value={agent.id}>
-                      {agent.name} ({agent.id})
+                      <strong>{agent.name}</strong> &ensp; ({agent.id})
                     </MenuItem>
                   ))}
                 </Select>
@@ -279,31 +282,52 @@ export default function NodePropertyPanel({
       )}
 
       {/* Fanout-specific properties */}
-      {node.type === 'fanout' && (
-        <Accordion defaultExpanded>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="subtitle2">Branches</Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                Branch Node IDs (comma-separated)
+      {node.type === 'fanout' && (() => {
+        // Derive branches from graph edges
+        const outgoingEdges = workflow?.edges?.filter(e => e.from_node === node.id) || []
+        const derivedBranches = [...new Set(outgoingEdges.map(e => e.to_node))]
+
+        return (
+          <Accordion defaultExpanded>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="subtitle2">Branches</Typography>
+              &ensp;
+              <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0 }}>
+                (Derived from connections)
               </Typography>
-              <TextField
-                value={node.branches?.join(', ') || ''}
-                onChange={(e) =>
-                  handleUpdate(
-                    'branches',
-                    e.target.value.split(',').map((s) => s.trim()).filter(Boolean)
-                  )
-                }
-                size="small"
-                placeholder="branch1, branch2"
-              />
-            </Box>
-          </AccordionDetails>
-        </Accordion>
-      )}
+            </AccordionSummary>
+            <AccordionDetails>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  Branch nodes are automatically derived from outgoing connections.
+                </Typography>
+                {derivedBranches.length > 0 ? (
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                    {derivedBranches.map(branchId => (
+                      <Chip
+                        key={branchId}
+                        label={branchId}
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                      />
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                    Connect at least two nodes to create parallel branches.
+                  </Typography>
+                )}
+                {derivedBranches.length === 1 && (
+                  <Typography variant="caption" sx={{ color: 'warning.main' }}>
+                    ⚠️ Parallel workflows require at least 2 branches.
+                  </Typography>
+                )}
+              </Box>
+            </AccordionDetails>
+          </Accordion>
+        )
+      })()}
 
       {/* Loop-specific properties */}
       {node.type === 'loop' && (
@@ -346,7 +370,7 @@ export default function NodePropertyPanel({
               <FormControl size="small" fullWidth>
                 <InputLabel>Merge Strategy</InputLabel>
                 <Select
-                  value={node.params?.strategy || 'stitch'}
+                  value={node.params?.strategy || 'concat_text'}
                   label="Merge Strategy"
                   onChange={(e) => handleParamsUpdate('strategy', e.target.value)}
                 >

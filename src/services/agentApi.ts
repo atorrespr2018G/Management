@@ -35,7 +35,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787'
  */
 export async function getAgents(): Promise<Agent[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/agents`, {
+    // const response = await fetch(`${API_BASE_URL}/api/agents`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/workflows/agents`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

@@ -32,8 +32,10 @@ import {
   Save as SaveIcon,
   FileUpload as ImportIcon,
   FileDownload as ExportIcon,
-  Delete as ClearIcon,
+  Delete as DeleteIcon,
+  Cancel as ClearIcon,
   CheckCircle as ValidateIcon,
+  PlayArrow as PlayIcon,
   Add as AddIcon,
   MoreVert as MoreVertIcon,
 } from '@mui/icons-material'
@@ -45,6 +47,7 @@ import {
   clearWorkflow,
   setSelectedNode,
   setError,
+  deleteNode,
 } from '@/store/slices/workflowSlice'
 import WorkflowGraphEditor from '@/components/Workflow/WorkflowGraphEditor'
 import NodePropertyPanel from '@/components/Workflow/NodePropertyPanel'
@@ -52,6 +55,7 @@ import NodePalette from '@/components/Workflow/NodePalette'
 import {
   saveWorkflowDefinition,
   validateWorkflowDefinition,
+  executeWorkflow,
   getWorkflowDefinition,
   listWorkflows,
   deleteWorkflow,
@@ -76,6 +80,9 @@ export default function WorkflowBuilderPage() {
   )
   const [workflowName, setWorkflowName] = useState('')
   const [workflowDescription, setWorkflowDescription] = useState('')
+  const [executeDialogOpen, setExecuteDialogOpen] = useState(false)
+  const [executeGoal, setExecuteGoal] = useState('')
+  const [isExecuting, setIsExecuting] = useState(false)
   const [availableAgents, setAvailableAgents] = useState<Agent[]>([])
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(null)
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>('')
@@ -107,54 +114,63 @@ export default function WorkflowBuilderPage() {
 
   const loadAgents = async () => {
     try {
-      // Fetch agents from both config and Foundry, then combine and deduplicate
-      const [configAgentsResult, foundryAgentsResult] = await Promise.allSettled([
-        getAgents(), // Config-based agents
-        getAllAgents().catch(() => []), // Foundry agents (fallback to empty array on error)
-      ])
-      
-      const configAgents = configAgentsResult.status === 'fulfilled' ? configAgentsResult.value : []
-      const foundryAgents = foundryAgentsResult.status === 'fulfilled' ? foundryAgentsResult.value : []
-      
-      // Combine and deduplicate by ID
-      const agentMap = new Map<string, Agent>()
-      
-      // Add config agents first
-      configAgents.forEach(agent => {
-        if (agent.id) {
-          agentMap.set(agent.id, agent)
-        }
-      })
-      
-      // Add Foundry agents (will overwrite config agents with same ID if they have more info)
-      foundryAgents.forEach(agent => {
-        if (agent.id) {
-          // If agent already exists, merge the data (prefer Foundry data for name/description)
-          const existing = agentMap.get(agent.id)
-          if (existing) {
-            agentMap.set(agent.id, {
-              ...existing,
-              ...agent, // Foundry data takes precedence
-            })
-          } else {
-            agentMap.set(agent.id, agent)
-          }
-        }
-      })
-      
-      setAvailableAgents(Array.from(agentMap.values()))
+      const agents = await getAgents()
+      setAvailableAgents(agents)
     } catch (error) {
       console.error('Failed to load agents:', error)
-      // Fallback to just config agents
-      try {
-        const configAgents = await getAgents()
-        setAvailableAgents(configAgents)
-      } catch (fallbackError) {
-        console.error('Failed to load config agents:', fallbackError)
-        setAvailableAgents([])
-      }
     }
   }
+
+  // const loadAgents = async () => {
+  //   try {
+  //     // Fetch agents from both config and Foundry, then combine and deduplicate
+  //     const [configAgentsResult, foundryAgentsResult] = await Promise.allSettled([
+  //       getAgents(), // Config-based agents
+  //       getAllAgents().catch(() => []), // Foundry agents (fallback to empty array on error)
+  //     ])
+
+  //     const configAgents = configAgentsResult.status === 'fulfilled' ? configAgentsResult.value : []
+  //     const foundryAgents = foundryAgentsResult.status === 'fulfilled' ? foundryAgentsResult.value : []
+
+  //     // Combine and deduplicate by ID
+  //     const agentMap = new Map<string, Agent>()
+
+  //     // Add config agents first
+  //     configAgents.forEach(agent => {
+  //       if (agent.id) {
+  //         agentMap.set(agent.id, agent)
+  //       }
+  //     })
+
+  //     // Add Foundry agents (will overwrite config agents with same ID if they have more info)
+  //     foundryAgents.forEach(agent => {
+  //       if (agent.id) {
+  //         // If agent already exists, merge the data (prefer Foundry data for name/description)
+  //         const existing = agentMap.get(agent.id)
+  //         if (existing) {
+  //           agentMap.set(agent.id, {
+  //             ...existing,
+  //             ...agent, // Foundry data takes precedence
+  //           })
+  //         } else {
+  //           agentMap.set(agent.id, agent)
+  //         }
+  //       }
+  //     })
+
+  //     setAvailableAgents(Array.from(agentMap.values()))
+  //   } catch (error) {
+  //     console.error('Failed to load agents:', error)
+  //     // Fallback to just config agents
+  //     try {
+  //       const configAgents = await getAgents()
+  //       setAvailableAgents(configAgents)
+  //     } catch (fallbackError) {
+  //       console.error('Failed to load config agents:', fallbackError)
+  //       setAvailableAgents([])
+  //     }
+  //   }
+  // }
 
   const handleAgentsUpdated = async () => {
     // Refresh agents list when agents are created/updated/deleted
@@ -203,10 +219,10 @@ export default function WorkflowBuilderPage() {
       dispatch(setWorkflow(workflowWithId))
       setWorkflowName(workflow.name || '')
       setWorkflowDescription(workflow.description || '')
-      
+
       // Check if this workflow is active
       await checkActiveWorkflow()
-      
+
       setSnackbar({ open: true, message: 'Workflow loaded successfully', severity: 'success' })
     } catch (error: any) {
       setSnackbar({ open: true, message: error.message || 'Failed to load workflow', severity: 'error' })
@@ -215,7 +231,7 @@ export default function WorkflowBuilderPage() {
 
   const handleDeleteWorkflow = async () => {
     const workflowIdToDelete = currentWorkflow?.workflow_id || selectedWorkflowId
-    
+
     if (!workflowIdToDelete) {
       setSnackbar({ open: true, message: 'No workflow loaded to delete', severity: 'error' })
       return
@@ -298,7 +314,7 @@ export default function WorkflowBuilderPage() {
         description: workflowDescription || currentWorkflow.description,
       }
       const saveResult = await saveWorkflowDefinition(workflowToSave, workflowName)
-      
+
       // Set as active workflow if isActiveWorkflow is true
       if (isActiveWorkflow && saveResult.workflow_id) {
         try {
@@ -311,7 +327,7 @@ export default function WorkflowBuilderPage() {
       } else {
         setSnackbar({ open: true, message: 'Workflow saved successfully', severity: 'success' })
       }
-      
+
       // Refresh the workflow list to include the newly saved workflow
       await loadWorkflows()
     } catch (err: any) {
@@ -353,6 +369,32 @@ export default function WorkflowBuilderPage() {
     }
   }
 
+  const handleExecute = async () => {
+    if (!currentWorkflow || !executeGoal) {
+      setSnackbar({ open: true, message: 'Please enter a goal', severity: 'error' })
+      return
+    }
+
+    setIsExecuting(true)
+    try {
+      const result = await executeWorkflow({
+        goal: executeGoal,
+        use_graph: true,
+        workflow_definition: currentWorkflow, // Pass the workflow definition directly
+      })
+      setSnackbar({
+        open: true,
+        message: `Workflow executed successfully. Run ID: ${result.run_id}`,
+        severity: 'success',
+      })
+      setExecuteDialogOpen(false)
+      setExecuteGoal('')
+    } catch (err: any) {
+      setSnackbar({ open: true, message: err.message || 'Execution failed', severity: 'error' })
+    } finally {
+      setIsExecuting(false)
+    }
+  }
 
   const handleExport = () => {
     if (!currentWorkflow) {
@@ -418,7 +460,7 @@ export default function WorkflowBuilderPage() {
           console.debug('Backend visualization failed, using client-side generation')
         }
       }
-      
+
       // Client-side visualization generation
       if (visualizationFormat === 'json') {
         setVisualizationContent(JSON.stringify(currentWorkflow, null, 2))
@@ -426,14 +468,14 @@ export default function WorkflowBuilderPage() {
         // Generate simple Mermaid or DOT format
         const nodes = currentWorkflow.nodes.map(n => n.id).join(', ')
         const edges = currentWorkflow.edges.map(e => `${e.from_node} --> ${e.to_node}`).join('\n    ')
-        
+
         if (visualizationFormat === 'mermaid') {
           setVisualizationContent(`graph LR\n    ${currentWorkflow.nodes.map(n => `${n.id}[${n.id}]`).join('\n    ')}\n    ${edges}`)
         } else {
           setVisualizationContent(`digraph workflow {\n    ${currentWorkflow.nodes.map(n => `"${n.id}"`).join('; ')}\n    ${currentWorkflow.edges.map(e => `"${e.from_node}" -> "${e.to_node}"`).join('\n    ')}\n}`)
         }
       }
-      
+
       setVisualizationDialogOpen(true)
     } catch (error: any) {
       setSnackbar({ open: true, message: error.message || 'Failed to generate visualization', severity: 'error' })
@@ -459,23 +501,23 @@ export default function WorkflowBuilderPage() {
           console.debug('Backend summary failed, using client-side generation')
         }
       }
-      
+
       // Client-side summary generation
       const nodeTypes = [...new Set(currentWorkflow.nodes.map(n => n.type))]
       const terminalNodes = currentWorkflow.nodes
         .filter(n => !currentWorkflow.edges.some(e => e.from_node === n.id))
         .map(n => n.id)
       const hasLoops = currentWorkflow.nodes.some(n => n.type === 'loop')
-      
+
       const summary = {
         total_nodes: currentWorkflow.nodes.length,
         total_edges: currentWorkflow.edges.length,
         entry_node: currentWorkflow.entry_node_id || currentWorkflow.nodes[0]?.id || 'N/A',
-        hasLoops,
+        has_loops: hasLoops,
         node_types: nodeTypes,
-        terminalNodes,
+        terminal_nodes: terminalNodes,
       }
-      
+
       setWorkflowSummary(summary)
       setSummaryDialogOpen(true)
     } catch (error: any) {
@@ -568,7 +610,7 @@ export default function WorkflowBuilderPage() {
 
     // Check if target node already exists
     let targetNode = currentWorkflow.nodes.find((n) => n.agent_id === targetAgentId && n.type === 'agent')
-    
+
     // Create target node if it doesn't exist
     if (!targetNode) {
       const newNodeId = targetAgentId.toLowerCase().replace(/\s+/g, '_')
@@ -664,7 +706,7 @@ export default function WorkflowBuilderPage() {
               variant="outlined"
               size="small"
               color="error"
-              startIcon={<ClearIcon />}
+              startIcon={<DeleteIcon />}
               onClick={handleDeleteWorkflow}
               disabled={!currentWorkflow?.workflow_id && !selectedWorkflowId}
               title="Delete the currently loaded workflow"
@@ -692,7 +734,7 @@ export default function WorkflowBuilderPage() {
             {isActiveWorkflow && (
               <Chip
                 label="Will be set as active"
-                color="primary"
+                color="success"
                 size="small"
                 sx={{ ml: 1 }}
               />
@@ -715,6 +757,15 @@ export default function WorkflowBuilderPage() {
             >
               Validate
             </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<PlayIcon />}
+              onClick={() => setExecuteDialogOpen(true)}
+              disabled={!currentWorkflow}
+            >
+              Execute
+            </Button>
             <IconButton
               size="small"
               onClick={(e) => setMoreMenuAnchor(e.currentTarget)}
@@ -727,6 +778,16 @@ export default function WorkflowBuilderPage() {
               open={Boolean(moreMenuAnchor)}
               onClose={() => setMoreMenuAnchor(null)}
             >
+              <MenuItem
+                onClick={() => {
+                  handleClear()
+                  setMoreMenuAnchor(null)
+                }}
+                sx={{ color: 'warning.main' }}
+              >
+                <ClearIcon sx={{ mr: 1, fontSize: 20 }} />
+                Clear
+              </MenuItem>
               <MenuItem
                 onClick={() => {
                   handleExport()
@@ -785,16 +846,6 @@ export default function WorkflowBuilderPage() {
                   </MenuItem>
                 </>
               )}
-              <MenuItem
-                onClick={() => {
-                  handleClear()
-                  setMoreMenuAnchor(null)
-                }}
-                sx={{ color: 'error.main' }}
-              >
-                <ClearIcon sx={{ mr: 1, fontSize: 20 }} />
-                Clear
-              </MenuItem>
             </Menu>
           </Box>
         </Toolbar>
@@ -823,6 +874,7 @@ export default function WorkflowBuilderPage() {
         <Box sx={{ width: 350, borderLeft: 1, borderColor: 'divider' }}>
           <NodePropertyPanel
             node={selectedNode}
+            workflow={currentWorkflow}
             availableAgents={availableAgents}
             onUpdate={(nodeId, updates) => {
               // Update node in workflow
@@ -841,18 +893,44 @@ export default function WorkflowBuilderPage() {
             }}
             onAgentsUpdated={handleAgentsUpdated}
             onDelete={(nodeId) => {
-              if (currentWorkflow) {
-                const updatedNodes = currentWorkflow.nodes.filter((n) => n.id !== nodeId)
-                const updatedEdges = currentWorkflow.edges.filter(
-                  (e) => e.from_node !== nodeId && e.to_node !== nodeId
-                )
-                dispatch(setWorkflow({ ...currentWorkflow, nodes: updatedNodes, edges: updatedEdges }))
-                dispatch(setSelectedNode(null))
-              }
+              // if (currentWorkflow) {
+              //   const updatedNodes = currentWorkflow.nodes.filter((n) => n.id !== nodeId)
+              //   const updatedEdges = currentWorkflow.edges.filter(
+              //     (e) => e.from_node !== nodeId && e.to_node !== nodeId
+              //   )
+              //   dispatch(setWorkflow({ ...currentWorkflow, nodes: updatedNodes, edges: updatedEdges }))
+              //   dispatch(setSelectedNode(null))
+              // }
+              // Use Redux deleteNode for splice delete support
+              dispatch(deleteNode(nodeId))
             }}
           />
         </Box>
       </Box>
+
+      {/* Execute Dialog */}
+      <Dialog open={executeDialogOpen} onClose={() => setExecuteDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Execute Workflow</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Goal"
+            fullWidth
+            multiline
+            rows={4}
+            value={executeGoal}
+            onChange={(e) => setExecuteGoal(e.target.value)}
+            placeholder="Enter the goal for this workflow execution..."
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setExecuteDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleExecute} variant="contained" disabled={isExecuting || !executeGoal}>
+            {isExecuting ? 'Executing...' : 'Execute'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Snackbar for notifications */}
       <Snackbar
@@ -1058,8 +1136,8 @@ export default function WorkflowBuilderPage() {
                             rec.severity === 'high'
                               ? 'error'
                               : rec.severity === 'medium'
-                              ? 'warning'
-                              : 'default'
+                                ? 'warning'
+                                : 'default'
                           }
                         />
                         <Box sx={{ flex: 1 }}>

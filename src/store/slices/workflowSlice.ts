@@ -10,6 +10,7 @@ import type {
   WorkflowNode,
   WorkflowEdge,
 } from '@/types/workflow'
+import { deleteNodeAndSplice } from '@/utils/workflowGraph'
 
 interface WorkflowState {
   currentWorkflow: WorkflowDefinition | null
@@ -57,13 +58,20 @@ const workflowSlice = createSlice({
     },
     deleteNode: (state, action: PayloadAction<string>) => {
       if (state.currentWorkflow) {
-        state.currentWorkflow.nodes = state.currentWorkflow.nodes.filter(
-          (n) => n.id !== action.payload
-        )
-        // Remove edges connected to this node
-        state.currentWorkflow.edges = state.currentWorkflow.edges.filter(
-          (e) => e.from_node !== action.payload && e.to_node !== action.payload
-        )
+        // state.currentWorkflow.nodes = state.currentWorkflow.nodes.filter(
+        //   (n) => n.id !== action.payload
+        // )
+        // // Remove edges connected to this node
+        // state.currentWorkflow.edges = state.currentWorkflow.edges.filter(
+        //   (e) => e.from_node !== action.payload && e.to_node !== action.payload
+        // )
+        const { graph } = deleteNodeAndSplice(state.currentWorkflow, action.payload)
+        state.currentWorkflow = graph
+
+        // Clear selection if deleted node was selected
+        if (state.selectedNodeId === action.payload) {
+          state.selectedNodeId = null
+        }
       }
     },
     addEdge: (state, action: PayloadAction<WorkflowEdge>) => {
