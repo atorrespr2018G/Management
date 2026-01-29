@@ -26,15 +26,18 @@ import {
   FormControlLabel,
   Checkbox,
   Chip,
+  Menu,
 } from '@mui/material'
 import {
   Save as SaveIcon,
-  PlayArrow as PlayIcon,
   FileUpload as ImportIcon,
   FileDownload as ExportIcon,
-  Delete as ClearIcon,
+  Delete as DeleteIcon,
+  Cancel as ClearIcon,
   CheckCircle as ValidateIcon,
+  PlayArrow as PlayIcon,
   Add as AddIcon,
+  MoreVert as MoreVertIcon,
 } from '@mui/icons-material'
 import { useDispatch, useSelector } from 'react-redux'
 import type { AppDispatch, RootState } from '@/store/store'
@@ -64,7 +67,7 @@ import {
   getWorkflowVersion,
   getAIRecommendations,
 } from '@/services/workflowApi'
-import { getAgents } from '@/services/agentApi'
+import { getAgents, getAllAgents } from '@/services/agentApi'
 import type { WorkflowDefinition, NodeType } from '@/types/workflow'
 import type { Agent } from '@/services/agentApi'
 import { validateWorkflow as validateWorkflowClient } from '@/utils/workflowValidation'
@@ -81,6 +84,7 @@ export default function WorkflowBuilderPage() {
   const [executeGoal, setExecuteGoal] = useState('')
   const [isExecuting, setIsExecuting] = useState(false)
   const [availableAgents, setAvailableAgents] = useState<Agent[]>([])
+  const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(null)
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>('')
   const [savedWorkflows, setSavedWorkflows] = useState<Array<{ workflow_id: string; name: string; description?: string; created_at?: string; updated_at?: string }>>([])
   const [isLoadingWorkflows, setIsLoadingWorkflows] = useState(false)
@@ -115,6 +119,62 @@ export default function WorkflowBuilderPage() {
     } catch (error) {
       console.error('Failed to load agents:', error)
     }
+  }
+
+  // const loadAgents = async () => {
+  //   try {
+  //     // Fetch agents from both config and Foundry, then combine and deduplicate
+  //     const [configAgentsResult, foundryAgentsResult] = await Promise.allSettled([
+  //       getAgents(), // Config-based agents
+  //       getAllAgents().catch(() => []), // Foundry agents (fallback to empty array on error)
+  //     ])
+
+  //     const configAgents = configAgentsResult.status === 'fulfilled' ? configAgentsResult.value : []
+  //     const foundryAgents = foundryAgentsResult.status === 'fulfilled' ? foundryAgentsResult.value : []
+
+  //     // Combine and deduplicate by ID
+  //     const agentMap = new Map<string, Agent>()
+
+  //     // Add config agents first
+  //     configAgents.forEach(agent => {
+  //       if (agent.id) {
+  //         agentMap.set(agent.id, agent)
+  //       }
+  //     })
+
+  //     // Add Foundry agents (will overwrite config agents with same ID if they have more info)
+  //     foundryAgents.forEach(agent => {
+  //       if (agent.id) {
+  //         // If agent already exists, merge the data (prefer Foundry data for name/description)
+  //         const existing = agentMap.get(agent.id)
+  //         if (existing) {
+  //           agentMap.set(agent.id, {
+  //             ...existing,
+  //             ...agent, // Foundry data takes precedence
+  //           })
+  //         } else {
+  //           agentMap.set(agent.id, agent)
+  //         }
+  //       }
+  //     })
+
+  //     setAvailableAgents(Array.from(agentMap.values()))
+  //   } catch (error) {
+  //     console.error('Failed to load agents:', error)
+  //     // Fallback to just config agents
+  //     try {
+  //       const configAgents = await getAgents()
+  //       setAvailableAgents(configAgents)
+  //     } catch (fallbackError) {
+  //       console.error('Failed to load config agents:', fallbackError)
+  //       setAvailableAgents([])
+  //     }
+  //   }
+  // }
+
+  const handleAgentsUpdated = async () => {
+    // Refresh agents list when agents are created/updated/deleted
+    await loadAgents()
   }
 
   const loadWorkflows = async () => {
@@ -610,12 +670,12 @@ export default function WorkflowBuilderPage() {
   return (
     <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Toolbar */}
-      <Paper sx={{ p: 1, mb: 1 }}>
-        <Toolbar disableGutters>
+      <Paper sx={{ p: 1, mb: 1, overflow: 'auto' }}>
+        <Toolbar disableGutters sx={{ flexWrap: 'wrap', minHeight: '64px !important' }}>
           <Typography variant="h6" sx={{ flexGrow: 0, mr: 2, fontWeight: 600 }}>
             Workflow Builder
           </Typography>
-          <Box sx={{ display: 'flex', gap: 1, flexGrow: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1, flexGrow: 1, flexWrap: 'wrap', alignItems: 'center' }}>
             <FormControl size="small" sx={{ minWidth: 200 }}>
               <InputLabel>Load Workflow</InputLabel>
               <Select
@@ -646,7 +706,7 @@ export default function WorkflowBuilderPage() {
               variant="outlined"
               size="small"
               color="error"
-              startIcon={<ClearIcon />}
+              startIcon={<DeleteIcon />}
               onClick={handleDeleteWorkflow}
               disabled={!currentWorkflow?.workflow_id && !selectedWorkflowId}
               title="Delete the currently loaded workflow"
@@ -674,7 +734,7 @@ export default function WorkflowBuilderPage() {
             {isActiveWorkflow && (
               <Chip
                 label="Will be set as active"
-                color="primary"
+                color="success"
                 size="small"
                 sx={{ ml: 1 }}
               />
@@ -706,64 +766,87 @@ export default function WorkflowBuilderPage() {
             >
               Execute
             </Button>
-            <Button
-              variant="outlined"
+            <IconButton
               size="small"
-              startIcon={<ExportIcon />}
-              onClick={handleExport}
-              disabled={!currentWorkflow}
+              onClick={(e) => setMoreMenuAnchor(e.currentTarget)}
+              sx={{ border: 1, borderColor: 'divider', ml: 0.5 }}
             >
-              Export
-            </Button>
-            <Button variant="outlined" size="small" component="label" startIcon={<ImportIcon />}>
-              Import
-              <input type="file" accept=".json" hidden onChange={handleImport} />
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={handleVisualize}
-              disabled={!currentWorkflow}
+              <MoreVertIcon />
+            </IconButton>
+            <Menu
+              anchorEl={moreMenuAnchor}
+              open={Boolean(moreMenuAnchor)}
+              onClose={() => setMoreMenuAnchor(null)}
             >
-              Visualize
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={handleViewSummary}
-              disabled={!currentWorkflow}
-            >
-              Summary
-            </Button>
-            {currentWorkflow?.workflow_id && (
-              <>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={handleViewVersions}
-                  disabled={!currentWorkflow.workflow_id}
-                >
-                  Versions
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={handleAnalyze}
-                  disabled={!currentWorkflow.workflow_id}
-                >
-                  Analyze
-                </Button>
-              </>
-            )}
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<ClearIcon />}
-              onClick={handleClear}
-              color="error"
-            >
-              Clear
-            </Button>
+              <MenuItem
+                onClick={() => {
+                  handleClear()
+                  setMoreMenuAnchor(null)
+                }}
+                sx={{ color: 'warning.main' }}
+              >
+                <ClearIcon sx={{ mr: 1, fontSize: 20 }} />
+                Clear
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  handleExport()
+                  setMoreMenuAnchor(null)
+                }}
+                disabled={!currentWorkflow}
+              >
+                <ExportIcon sx={{ mr: 1, fontSize: 20 }} />
+                Export
+              </MenuItem>
+              <MenuItem
+                component="label"
+                onClick={() => setMoreMenuAnchor(null)}
+              >
+                <ImportIcon sx={{ mr: 1, fontSize: 20 }} />
+                Import
+                <input type="file" accept=".json" hidden onChange={handleImport} />
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  handleVisualize()
+                  setMoreMenuAnchor(null)
+                }}
+                disabled={!currentWorkflow}
+              >
+                Visualize
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  handleViewSummary()
+                  setMoreMenuAnchor(null)
+                }}
+                disabled={!currentWorkflow}
+              >
+                Summary
+              </MenuItem>
+              {currentWorkflow?.workflow_id && (
+                <>
+                  <MenuItem
+                    onClick={() => {
+                      handleViewVersions()
+                      setMoreMenuAnchor(null)
+                    }}
+                    disabled={!currentWorkflow.workflow_id}
+                  >
+                    Versions
+                  </MenuItem>
+                  <MenuItem
+                    onClick={() => {
+                      handleAnalyze()
+                      setMoreMenuAnchor(null)
+                    }}
+                    disabled={!currentWorkflow.workflow_id}
+                  >
+                    Analyze
+                  </MenuItem>
+                </>
+              )}
+            </Menu>
           </Box>
         </Toolbar>
       </Paper>
@@ -781,7 +864,7 @@ export default function WorkflowBuilderPage() {
             workflow={currentWorkflow}
             onWorkflowChange={handleWorkflowChange}
             onNodeAdd={handleNodeDrop}
-            onNodeClick={(nodeId) => dispatch(setSelectedNode(nodeId))}
+            onNodeClick={(nodeId: string) => dispatch(setSelectedNode(nodeId))}
             availableAgents={availableAgents}
             readOnly={false}
           />
@@ -808,6 +891,7 @@ export default function WorkflowBuilderPage() {
                 dispatch(setWorkflow({ ...currentWorkflow, nodes: updatedNodes }))
               }
             }}
+            onAgentsUpdated={handleAgentsUpdated}
             onDelete={(nodeId) => {
               // if (currentWorkflow) {
               //   const updatedNodes = currentWorkflow.nodes.filter((n) => n.id !== nodeId)
@@ -941,9 +1025,9 @@ export default function WorkflowBuilderPage() {
                 <Typography variant="body2">
                   <strong>Entry Node:</strong> {workflowSummary.entry_node || 'N/A'}
                 </Typography>
-                {workflowSummary.has_loops !== undefined && (
+                {(workflowSummary.hasLoops !== undefined || workflowSummary.has_loops !== undefined) && (
                   <Typography variant="body2">
-                    <strong>Has Loops:</strong> {workflowSummary.has_loops ? 'Yes' : 'No'}
+                    <strong>Has Loops:</strong> {(workflowSummary.hasLoops ?? workflowSummary.has_loops) ? 'Yes' : 'No'}
                   </Typography>
                 )}
                 {workflowSummary.node_types && (
@@ -952,13 +1036,13 @@ export default function WorkflowBuilderPage() {
                   </Typography>
                 )}
               </Box>
-              {workflowSummary.terminal_nodes && workflowSummary.terminal_nodes.length > 0 && (
+              {((workflowSummary.terminalNodes && workflowSummary.terminalNodes.length > 0) || (workflowSummary.terminal_nodes && workflowSummary.terminal_nodes.length > 0)) && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
                     Terminal Nodes
                   </Typography>
                   <Typography variant="body2">
-                    {workflowSummary.terminal_nodes.join(', ')}
+                    {(workflowSummary.terminalNodes || workflowSummary.terminal_nodes || []).join(', ')}
                   </Typography>
                 </Box>
               )}

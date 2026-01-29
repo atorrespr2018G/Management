@@ -143,7 +143,8 @@ const ScanResultsDisplay = ({
       if (node.type === 'file') {
         const fileKey = buildStableId(machineId || '', node)
         if (selectedForGraph[fileKey]) {
-          selected.push({ fileId: node.id, stableId: fileKey })
+          console.log(`[DEBUG] Selected file for graph: ${fileKey}`)
+          selected.push({ fileId: fileKey, stableId: fileKey })
         }
       }
       if (node.children && Array.isArray(node.children)) {
@@ -151,12 +152,14 @@ const ScanResultsDisplay = ({
       }
     }
     traverse(node)
+    console.log(`[DEBUG] Total selected files: ${selected.length}`, selected)
     return selected
   }
 
   const handleCreateSemanticRelationships = async (directoryNode: FileStructure) => {
     if (!machineId) {
       // setRelationshipStatus(prev => ({ ...prev, [directoryNode.fullPath || directoryNode.id]: 'Error: Machine ID not found' }))
+      console.log('[GRAPH] No machine ID found')
       dispatch(
         setRelationshipStatus({
           ...relationshipStatus,
@@ -179,6 +182,7 @@ const ScanResultsDisplay = ({
         //   ...prev,
         //   [directoryPath]: 'No files selected. Click on Graph badges to select files.',
         // }))
+        console.log('[GRAPH] No files selected for graph creation')
         dispatch(
           setRelationshipStatus({
             ...relationshipStatus,
@@ -202,6 +206,7 @@ const ScanResultsDisplay = ({
       // Process each selected file
       for (const { fileId } of selectedFiles) {
         try {
+          console.log(`[DEBUG] Sending to backend - fileId: ${fileId}`)
           const res = await createSemanticRelationships(machineId, directoryPath, {
             similarity_threshold: relationshipSettings.similarity_threshold,
             top_k: relationshipSettings.top_k,

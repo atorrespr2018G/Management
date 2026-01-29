@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useSelector } from 'react-redux'
 import {
   Box,
   Typography,
@@ -32,6 +33,7 @@ export default function ScannedDirectoryStructureCard({
   areActionsEnabled = true
 }: DirectoryStructuresProps) {
   const [copied, setCopied] = useState(false)
+  const { neo4jDirectoryStructure } = useSelector((state: any) => state.neo)
 
   const handleCopy = () => {
     const dataStr = JSON.stringify(node, null, 2)
@@ -110,6 +112,10 @@ export default function ScannedDirectoryStructureCard({
         node={node}
         fetchNeo4jStructure={fetchNeo4jStructure}
         areActionsEnabled={areActionsEnabled}
+        isLocal={true}
+        storedRoot={neo4jDirectoryStructure}
+        storeLocalDirectory={onStoreInNeo4j}
+        localRootNode={node}
       />
     </DirectoryStructureContainer>
   )
