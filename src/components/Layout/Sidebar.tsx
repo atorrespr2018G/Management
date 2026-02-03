@@ -124,6 +124,15 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
       defaultOpen: true,
     },
     {
+      title: 'Setup Connectors',
+      items: [
+        { text: 'Data Source', icon: <StorageIcon />, href: '/connectors' },
+        { text: 'Databases', icon: <WorkIcon />, href: '/data-source' },
+        { text: 'API', icon: <BusinessIcon />, href: '/enterprise' },
+      ],
+      defaultOpen: true,
+    },
+    {
       title: 'Orchestration',
       items: [
         { text: 'Agents', icon: <AutoAwesomeIcon />, href: '/agents' },
@@ -133,22 +142,9 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
           subItems: [
             { text: 'All Workflows', icon: <TimelineIcon />, href: '/workflows' },
             { text: 'Builder', icon: <AccountTreeIcon />, href: '/workflows/builder' },
-            { text: 'Monitor', icon: <MonitorIcon />, href: '/workflows/monitor' },
-            { text: 'Templates', icon: <DescriptionIcon />, href: '/workflows/templates' },
           ],
         },
-        { text: 'Templates', icon: <CodeIcon />, href: '/templates' },
-        { text: 'Fine-tuning', icon: <TuneIcon />, href: '/fine-tuning' },
         { text: 'Content Understanding', icon: <DescriptionIcon />, href: '/content-understanding', badge: 'PREVIEW' },
-      ],
-      defaultOpen: true,
-    },
-    {
-      title: 'Setup',
-      items: [
-        { text: 'Connectors', icon: <StorageIcon />, href: '/connectors' },
-        { text: 'Databases', icon: <WorkIcon />, href: '/data-source' },
-        { text: 'API', icon: <BusinessIcon />, href: '/enterprise' },
       ],
       defaultOpen: true,
     },
