@@ -68,8 +68,8 @@ import {
   getWorkflowVersion,
   getAIRecommendations,
 } from '@/services/workflowApi'
-import { getAgents, getAllAgents } from '@/services/agentApi'
-import type { WorkflowDefinition, NodeType, WorkflowEdge } from '@/types/workflow'
+import { getAgents } from '@/services/agentApi'
+import type { WorkflowDefinition, NodeType } from '@/types/workflow'
 import type { Agent } from '@/services/agentApi'
 import { validateWorkflow as validateWorkflowClient } from '@/utils/workflowValidation'
 import { createLoopCluster } from '@/utils/loopClusterUtils'
@@ -120,60 +120,15 @@ export default function WorkflowBuilderPage() {
       const agents = await getAgents()
       setAvailableAgents(agents)
     } catch (error) {
-      console.error('Failed to load agents:', error)
+      console.error('Failed to load agents from Foundry:', error)
+      setAvailableAgents([])
+      setSnackbar({
+        open: true,
+        message: error instanceof Error ? error.message : 'No se pudieron cargar los agentes desde Foundry',
+        severity: 'error',
+      })
     }
   }
-
-  // const loadAgents = async () => {
-  //   try {
-  //     // Fetch agents from both config and Foundry, then combine and deduplicate
-  //     const [configAgentsResult, foundryAgentsResult] = await Promise.allSettled([
-  //       getAgents(), // Config-based agents
-  //       getAllAgents().catch(() => []), // Foundry agents (fallback to empty array on error)
-  //     ])
-
-  //     const configAgents = configAgentsResult.status === 'fulfilled' ? configAgentsResult.value : []
-  //     const foundryAgents = foundryAgentsResult.status === 'fulfilled' ? foundryAgentsResult.value : []
-
-  //     // Combine and deduplicate by ID
-  //     const agentMap = new Map<string, Agent>()
-
-  //     // Add config agents first
-  //     configAgents.forEach(agent => {
-  //       if (agent.id) {
-  //         agentMap.set(agent.id, agent)
-  //       }
-  //     })
-
-  //     // Add Foundry agents (will overwrite config agents with same ID if they have more info)
-  //     foundryAgents.forEach(agent => {
-  //       if (agent.id) {
-  //         // If agent already exists, merge the data (prefer Foundry data for name/description)
-  //         const existing = agentMap.get(agent.id)
-  //         if (existing) {
-  //           agentMap.set(agent.id, {
-  //             ...existing,
-  //             ...agent, // Foundry data takes precedence
-  //           })
-  //         } else {
-  //           agentMap.set(agent.id, agent)
-  //         }
-  //       }
-  //     })
-
-  //     setAvailableAgents(Array.from(agentMap.values()))
-  //   } catch (error) {
-  //     console.error('Failed to load agents:', error)
-  //     // Fallback to just config agents
-  //     try {
-  //       const configAgents = await getAgents()
-  //       setAvailableAgents(configAgents)
-  //     } catch (fallbackError) {
-  //       console.error('Failed to load config agents:', fallbackError)
-  //       setAvailableAgents([])
-  //     }
-  //   }
-  // }
 
   const handleAgentsUpdated = async () => {
     // Refresh agents list when agents are created/updated/deleted
@@ -1012,6 +967,7 @@ export default function WorkflowBuilderPage() {
               }
             }}
             onAgentsUpdated={handleAgentsUpdated}
+            onShowMessage={(msg, sev) => setSnackbar({ open: true, message: msg, severity: sev })}
             onDelete={(nodeId) => {
               // if (currentWorkflow) {
               //   const updatedNodes = currentWorkflow.nodes.filter((n) => n.id !== nodeId)

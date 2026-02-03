@@ -31,46 +31,28 @@ export interface UpdateAgentRequest {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787'
 
 /**
- * Get list of available agents (from config)
+ * Get list of available agents from Foundry API only (no fallback).
+ * Used for dropdowns and workflow builder.
  */
 export async function getAgents(): Promise<Agent[]> {
-  try {
-    // const response = await fetch(`${API_BASE_URL}/api/agents`, {
-    const response = await fetch(`${API_BASE_URL}/api/v1/workflows/agents`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-
-    if (response.ok) {
-      const data = await response.json()
-      return Array.isArray(data) ? data : data.agents || []
-    }
-  } catch (error) {
-    console.warn('Failed to fetch agents from API, using fallback', error)
-  }
-
-  return []
+  return getAllAgents()
 }
 
 /**
- * Get all agents from Foundry (not just config)
+ * Get all agents from Foundry API (/api/agents/all).
  */
 export async function getAllAgents(): Promise<Agent[]> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/agents/all`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    })
-    if (response.ok) {
-      return await response.json()
-    }
-    throw new Error(`Failed to fetch agents: ${response.statusText}`)
-  } catch (error) {
-    console.error('Failed to fetch all agents', error)
-    throw error
+  const response = await fetch(`${API_BASE_URL}/api/foundry/agents`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  if (!response.ok) {
+    const err = (await response.json().catch(() => ({}))) as { detail?: string; message?: string }
+    const msg = err.detail ?? err.message ?? response.statusText
+    throw new Error(msg || `Failed to fetch agents: ${response.status}`)
   }
+  const data = await response.json()
+  return Array.isArray(data) ? data : []
 }
 
 /**

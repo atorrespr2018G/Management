@@ -2,7 +2,7 @@
  * Node Property Panel - Dynamic form for editing node properties
  */
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Box,
   Typography,
@@ -16,36 +16,100 @@ import {
   AccordionSummary,
   AccordionDetails,
   Chip,
+  Checkbox,
+  ListItemText,
+  CircularProgress,
 } from '@mui/material'
-import { ExpandMore as ExpandMoreIcon, Link as LinkIcon, Delete as DeleteIcon } from '@mui/icons-material'
+import { ExpandMore as ExpandMoreIcon, Link as LinkIcon, Delete as DeleteIcon, Build as BuildIcon, Save as SaveIcon } from '@mui/icons-material'
 import type { WorkflowNode, NodeType } from '@/types/workflow'
 import ConnectionConfigPanel from './ConnectionConfigPanel'
 import AgentManagementDialog from './AgentManagementDialog'
-import type { Agent } from '@/services/agentApi'
+import ManageToolsDialog from './ManageToolsDialog'
+import { type Agent } from '@/services/agentApi'
+import { getAgentTools, assignToolsToAgent, type Tool } from '@/services/toolsApi'
 import type { ConnectionConfig } from '@/utils/agentWorkflowGenerator'
 
 interface NodePropertyPanelProps {
   node: WorkflowNode | null
   workflow?: { nodes: WorkflowNode[]; edges: Array<{ from_node: string; to_node: string }> } | null
-  availableAgents?: Array<{ id: string; name: string }>
+  availableAgents?: Agent[]
   onUpdate: (nodeId: string, updates: Partial<WorkflowNode>) => void
   onDelete?: (nodeId: string) => void
   onConnect?: (sourceNodeId: string, targetAgentId: string, config?: ConnectionConfig) => void
   onAgentsUpdated?: () => void | Promise<void>
+  onShowMessage?: (message: string, severity: 'success' | 'error') => void
 }
 
 export default function NodePropertyPanel({
   node,
   workflow,
-  availableAgents = [],
+  availableAgents = [] as Agent[],
   onUpdate,
   onDelete,
   onConnect,
   onAgentsUpdated,
+  onShowMessage,
 }: NodePropertyPanelProps) {
   const [connectionDialogOpen, setConnectionDialogOpen] = useState(false)
   const [selectedTargetAgent, setSelectedTargetAgent] = useState<Agent | null>(null)
   const [agentManagementDialogOpen, setAgentManagementDialogOpen] = useState(false)
+  const [manageToolsDialogOpen, setManageToolsDialogOpen] = useState(false)
+  const [tools, setTools] = useState<Tool[]>([])
+  const [assignedToolIds, setAssignedToolIds] = useState<string[]>([])
+  const [selectedToolIds, setSelectedToolIds] = useState<string[]>([])
+  const [loadingAgentTools, setLoadingAgentTools] = useState(false)
+  const [savingTools, setSavingTools] = useState(false)
+
+  const fetchAgentTools = React.useCallback(async (agentId: string) => {
+    setLoadingAgentTools(true)
+    try {
+      const { tools: t, assigned_ids: a } = await getAgentTools(agentId)
+      setTools(t)
+      const validIds = a.filter((id) => t.some((x) => x.id === id))
+      setAssignedToolIds(validIds)
+      setSelectedToolIds(validIds)
+    } catch {
+      setTools([])
+      setAssignedToolIds([])
+      setSelectedToolIds([])
+    } finally {
+      setLoadingAgentTools(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!node || node.type !== 'agent' || !node.agent_id) {
+      setTools([])
+      setAssignedToolIds([])
+      setSelectedToolIds([])
+      return
+    }
+    fetchAgentTools(node.agent_id)
+  }, [node?.id, node?.type, node?.agent_id, fetchAgentTools])
+
+  useEffect(() => {
+    setSelectedToolIds((prev) => prev.filter((id) => tools.some((x) => x.id === id)))
+  }, [tools])
+
+  const handleToolsSave = async () => {
+    if (!node?.agent_id || node.type !== 'agent') return
+    setSavingTools(true)
+    try {
+      await assignToolsToAgent(node.agent_id, selectedToolIds)
+      setAssignedToolIds(selectedToolIds)
+      onAgentsUpdated?.()
+      onShowMessage?.('Tools saved to agent successfully', 'success')
+    } catch (e) {
+      onShowMessage?.(e instanceof Error ? e.message : 'Failed to save tools', 'error')
+    } finally {
+      setSavingTools(false)
+    }
+  }
+
+  const handleToolCreated = () => {
+    if (node?.agent_id && node.type === 'agent') fetchAgentTools(node.agent_id)
+  }
+
   if (!node) {
     return (
       <Box sx={{ p: 2 }}>
@@ -254,6 +318,102 @@ export default function NodePropertyPanel({
                   Manage Agents
                 </Button>
               </Box>
+            </Box>
+          </AccordionDetails>
+        </Accordion>
+      )}
+
+      {/* Tools Configuration - only for agent nodes. No agent: message only; no dropdown, Manage Tools, or Save. */}
+      {node.type === 'agent' && (
+        <Accordion defaultExpanded>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="subtitle2">Tools Configuration</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {!node.agent_id && (
+                <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                  Select an agent above to configure tools.
+                </Typography>
+              )}
+              {node.agent_id && (
+                <>
+                  <FormControl size="small" fullWidth disabled={loadingAgentTools}>
+                    <InputLabel id="tools-select-label" shrink>
+                      Select Tools
+                    </InputLabel>
+                    <Select
+                      multiple
+                      value={selectedToolIds}
+                      labelId="tools-select-label"
+                      label="Select Tools"
+                      onChange={(e) => setSelectedToolIds(e.target.value as string[])}
+                      displayEmpty
+                      notched
+                      renderValue={(sel) => {
+                        const validSel = sel.filter((id) => tools.some((x) => x.id === id))
+                        if (validSel.length === 0) {
+                          return <span style={{ color: 'rgba(0, 0, 0, 0.6)' }}>No tools selected</span>
+                        }
+                        return (
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {validSel.map((id) => {
+                              const o = tools.find((x) => x.id === id)
+                              return <Chip key={id} label={o?.name || id} size="small" sx={{ height: 24 }} />
+                            })}
+                          </Box>
+                        )
+                      }}
+                    >
+                      {tools.length === 0 ? (
+                        <MenuItem disabled value="__empty__">
+                          <ListItemText primary="No tools available" primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }} />
+                        </MenuItem>
+                      ) : (
+                        tools.map((opt) => (
+                          <MenuItem key={opt.id} value={opt.id}>
+                            <Checkbox checked={selectedToolIds.indexOf(opt.id) > -1} />
+                            <ListItemText primary={opt.name} />
+                          </MenuItem>
+                        ))
+                      )}
+                    </Select>
+                    {tools.length === 0 && !loadingAgentTools && (
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                        Create tools with Manage Tools, then assign them here.
+                      </Typography>
+                    )}
+                  </FormControl>
+                  {loadingAgentTools && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CircularProgress size={16} />
+                      <Typography variant="caption" color="text.secondary">
+                        Loading agent tools…
+                      </Typography>
+                    </Box>
+                  )}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<BuildIcon />}
+                      onClick={() => setManageToolsDialogOpen(true)}
+                    >
+                      Manage Tools
+                    </Button>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      size="small"
+                      startIcon={savingTools ? <CircularProgress size={14} /> : <SaveIcon />}
+                      disabled={savingTools}
+                      onClick={handleToolsSave}
+                    >
+                      Save
+                    </Button>
+                  </Box>
+                </>
+              )}
             </Box>
           </AccordionDetails>
         </Accordion>
@@ -525,7 +685,7 @@ export default function NodePropertyPanel({
           onConfirm={handleConnectionConfirm}
           sourceAgent={sourceAgent}
           targetAgent={selectedTargetAgent}
-          availableAgents={availableAgents as Agent[]}
+          availableAgents={availableAgents}
         />
       )}
 
@@ -536,6 +696,13 @@ export default function NodePropertyPanel({
         onAgentsUpdated={() => {
           onAgentsUpdated?.()
         }}
+      />
+
+      {/* Manage Tools Dialog */}
+      <ManageToolsDialog
+        open={manageToolsDialogOpen}
+        onClose={() => setManageToolsDialogOpen(false)}
+        onToolChange={handleToolCreated}
       />
     </Box>
   )

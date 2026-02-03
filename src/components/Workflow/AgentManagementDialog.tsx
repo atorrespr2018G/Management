@@ -32,7 +32,6 @@ import {
 import { Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import {
   getAllAgents,
-  getAgents,
   getAgent,
   createAgent,
   updateAgent,
@@ -90,52 +89,12 @@ export default function AgentManagementDialog({
     setLoading(true)
     setError(null)
     try {
-      // Fetch agents from both config and Foundry, then combine and deduplicate
-      const [configAgentsResult, foundryAgentsResult] = await Promise.allSettled([
-        getAgents(), // Config-based agents
-        getAllAgents().catch(() => []), // Foundry agents (fallback to empty array on error)
-      ])
-      
-      const configAgents = configAgentsResult.status === 'fulfilled' ? configAgentsResult.value : []
-      const foundryAgents = foundryAgentsResult.status === 'fulfilled' ? foundryAgentsResult.value : []
-      
-      // Combine and deduplicate by ID
-      const agentMap = new Map<string, Agent>()
-      
-      // Add config agents first
-      configAgents.forEach(agent => {
-        if (agent.id) {
-          agentMap.set(agent.id, agent)
-        }
-      })
-      
-      // Add Foundry agents (will overwrite config agents with same ID if they have more info)
-      foundryAgents.forEach(agent => {
-        if (agent.id) {
-          // If agent already exists, merge the data (prefer Foundry data for name/description)
-          const existing = agentMap.get(agent.id)
-          if (existing) {
-            agentMap.set(agent.id, {
-              ...existing,
-              ...agent, // Foundry data takes precedence
-            })
-          } else {
-            agentMap.set(agent.id, agent)
-          }
-        }
-      })
-      
-      setAgents(Array.from(agentMap.values()))
-    } catch (err: any) {
-      setError(err.message || 'Failed to load agents')
-      // Fallback to just config agents
-      try {
-        const configAgents = await getAgents()
-        setAgents(configAgents)
-      } catch (fallbackError) {
-        console.error('Failed to load config agents:', fallbackError)
-        setAgents([])
-      }
+      const foundryAgents = await getAllAgents()
+      setAgents(Array.isArray(foundryAgents) ? foundryAgents : [])
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'No se pudieron cargar los agentes desde Foundry'
+      setError(message)
+      setAgents([])
     } finally {
       setLoading(false)
     }
