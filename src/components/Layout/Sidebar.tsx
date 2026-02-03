@@ -112,20 +112,19 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
         { text: 'Overview', icon: <HomeIcon />, href: '/' },
         { text: 'Chat', icon: <ChatBubbleOutlineIcon />, href: '/chat' },
         { text: 'Chat SQL', icon: <DataObjectIcon />, href: '/chat-sql' },
-        { text: 'Playgrounds', icon: <ChatBubbleOutlineIcon />, href: '/playgrounds' },
       ],
     },
     {
       title: 'Repositories',
       items: [
-        { text: 'Database', icon: <StorageIcon />, href: '/repositories/database', subItems: [] },
         { text: 'Data Source', icon: <WorkIcon />, href: '/repositories/data-source', subItems: [] },
-        { text: 'Enterprise', icon: <BusinessIcon />, href: '/repositories/enterprise', subItems: [] },
+        { text: 'Databases', icon: <StorageIcon />, href: '/repositories/database', subItems: [] },
+        { text: 'API', icon: <BusinessIcon />, href: '/repositories/enterprise', subItems: [] },
       ],
       defaultOpen: true,
     },
     {
-      title: 'Build and customize',
+      title: 'Orchestration',
       items: [
         { text: 'Agents', icon: <AutoAwesomeIcon />, href: '/agents' },
         {
@@ -148,20 +147,20 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
       title: 'Setup',
       items: [
         { text: 'Connectors', icon: <StorageIcon />, href: '/connectors' },
-        { text: 'Structured', icon: <WorkIcon />, href: '/data-source' },
-        { text: 'Enterprise', icon: <BusinessIcon />, href: '/enterprise' },
+        { text: 'Databases', icon: <WorkIcon />, href: '/data-source' },
+        { text: 'API', icon: <BusinessIcon />, href: '/enterprise' },
       ],
       defaultOpen: true,
     },
-    {
+    /*{
       title: 'Observe and optimize',
       items: [
         { text: 'Tracing', icon: <TimelineIcon />, href: '/tracing', badge: 'PREVIEW' },
         { text: 'Monitoring', icon: <MonitorIcon />, href: '/monitoring' },
       ],
       defaultOpen: true,
-    },
-    {
+    }*/
+    /*{
       title: 'Protect and govern',
       items: [
         { text: 'Evaluation', icon: <BalanceIcon />, href: '/evaluation', badge: 'PREVIEW' },
@@ -170,8 +169,8 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
         { text: 'Governance', icon: <AccountBalanceIcon />, href: '/governance', badge: 'PREVIEW' },
       ],
       defaultOpen: true,
-    },
-    {
+    }*/
+    /*{
       title: 'My assets',
       items: [
         { text: 'Data + indexes', icon: <FolderIcon />, href: '/data-indexes' },
@@ -179,7 +178,7 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
       ],
       defaultOpen: true,
       specialStyle: true,
-    },
+    }*/
   ]
 
   return (
@@ -238,11 +237,10 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
                 <Typography
                   variant="body2"
                   sx={{
-                    fontWeight: 600,
-                    color: 'text.secondary',
-                    textTransform: 'uppercase',
-                    fontSize: '0.975rem',
-                    letterSpacing: '0.5px',
+                    fontWeight: 400,
+                    color: 'text.primary',
+                    fontSize: '1.3125rem',
+                    letterSpacing: '0px',
                     pl: 2,
                   }}
                 >

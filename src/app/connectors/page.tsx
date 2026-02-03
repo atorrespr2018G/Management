@@ -52,7 +52,6 @@ const connectors: Connector[] = [
   { name: 'FTP / SFTP', icon: <DnsIcon sx={{ fontSize: 64, color: 'primary.main' }} /> },
   { name: 'Network Attached Storage (NAS)', icon: <StorageIcon sx={{ fontSize: 64, color: 'primary.main' }} /> },
   { name: 'Confluence', icon: <DescriptionIcon sx={{ fontSize: 64, color: 'primary.main' }} /> },
-  { name: 'Slab', icon: <ArticleIcon sx={{ fontSize: 64, color: 'primary.main' }} /> },
 ]
 
 export default function ConnectorsPage() {
