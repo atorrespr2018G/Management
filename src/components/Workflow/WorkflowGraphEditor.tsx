@@ -33,8 +33,7 @@ interface WorkflowGraphEditorProps {
   onNodeAdd?: (nodeType: string, position: { x: number; y: number }) => void
   onNodeClick?: (nodeId: string) => void
   availableAgents?: Array<{ id: string; name: string }>
-  readOnly?: boolean,
-  onNodeClick?: (nodeId: string) => void,
+  readOnly?: boolean
 }
 
 const edgeTypes: EdgeTypes = {
@@ -69,6 +68,13 @@ function workflowToReactFlow(workflow: WorkflowDefinition | null, availableAgent
       agentName = agent?.name
     }
 
+    // For Loop Body nodes, get max_iters from parent loop
+    let maxIters: number | undefined
+    if (node.type === 'loop_body' && node.linkedLoopId) {
+      const parentLoop = workflow.nodes.find(n => n.id === node.linkedLoopId)
+      maxIters = parentLoop?.max_iters
+    }
+
     return {
       id: node.id,
       type: node.type,
@@ -77,6 +83,7 @@ function workflowToReactFlow(workflow: WorkflowDefinition | null, availableAgent
         ...node,
         label: node.id,
         agentName,
+        max_iters: maxIters !== undefined ? maxIters : node.max_iters,
       },
     }
   })
@@ -216,6 +223,64 @@ export default function WorkflowGraphEditor({
     (params: Connection) => {
       if (readOnly) return
 
+      // Validate loop cluster connections  
+      if (workflow && params.source && params.target) {
+        let sourceNode = workflow.nodes.find(n => n.id === params.source)
+        let targetNode = workflow.nodes.find(n => n.id === params.target)
+
+        // Helper to identify loop helper nodes
+        const isHelper = (type?: string) => type === 'loop_body' || type === 'loop_exit'
+
+        // Auto-reverse: if user dragged into a helper (B → LoopBody), interpret as LoopBody → B
+        if (isHelper(targetNode?.type) && !isHelper(sourceNode?.type)) {
+          params = {
+            ...params,
+            source: params.target,
+            target: params.source,
+            sourceHandle: params.targetHandle,
+            targetHandle: params.sourceHandle,
+          }
+          // Update node references after swap
+          const temp = sourceNode
+          sourceNode = targetNode as any
+          targetNode = temp as any
+        }
+
+        // Rule 1: Loop can only connect to helper cards (enforces proper loop cluster usage)
+        if (sourceNode?.type === 'loop' && !isHelper(targetNode?.type)) {
+          alert('Loop can only connect to Loop Body or Exit Loop helper cards. Use the helper cards to attach body/exit nodes.')
+          return
+        }
+
+        // Rule 2: Cannot connect between loop helper cards
+        if (isHelper(targetNode?.type) && isHelper(sourceNode?.type)) {
+          alert('Cannot connect between loop helper cards.')
+          return
+        }
+
+        // Rule 3: Loop Body can only connect to ONE real node (ignore UI cluster edges)
+        if (sourceNode?.type === 'loop_body') {
+          const existingBodyEdges = workflow.edges.filter(e =>
+            e.from_node === params.source && e.condition !== '__ui_cluster__'
+          )
+          if (existingBodyEdges.length >= 1) {
+            alert('Loop Body can connect to only one body entry node.')
+            return
+          }
+        }
+
+        // Rule 3: Exit Loop can only connect to ONE real node (ignore UI cluster edges)
+        if (sourceNode?.type === 'loop_exit') {
+          const existingExitEdges = workflow.edges.filter(e =>
+            e.from_node === params.source && e.condition !== '__ui_cluster__'
+          )
+          if (existingExitEdges.length >= 1) {
+            alert('Exit Loop can connect to only one exit node.')
+            return
+          }
+        }
+      }
+
       const newEdge: Edge = {
         ...params,
         id: `edge-${params.source}-${params.target}`,
@@ -223,7 +288,7 @@ export default function WorkflowGraphEditor({
       }
       setEdges((eds) => addEdge(newEdge, eds))
     },
-    [readOnly, setEdges]
+    [readOnly, setEdges, workflow]
   )
 
   const handleNodeClick = useCallback(

@@ -3,9 +3,15 @@
  * Matches backend GraphDefinition schema
  */
 
-export type NodeType = 'agent' | 'fanout' | 'loop' | 'conditional' | 'merge'
+export type NodeType = 'agent' | 'fanout' | 'loop' | 'conditional' | 'merge' | 'loop_body' | 'loop_exit'
 
 export type ExecutionStatus = 'running' | 'completed' | 'failed' | 'paused' | 'cancelled'
+
+export interface LoopCluster {
+  loopNodeId: string
+  bodyNodeId: string
+  exitNodeId: string
+}
 
 export interface WorkflowNode {
   id: string
@@ -18,6 +24,9 @@ export interface WorkflowNode {
   max_iters?: number
   loop_condition?: string
   condition?: string
+  // UI-only fields for loop cluster
+  isUIHelper?: boolean  // true for loop_body and loop_exit
+  linkedLoopId?: string  // for helper nodes, points to parent loop
 }
 
 export interface WorkflowEdge {

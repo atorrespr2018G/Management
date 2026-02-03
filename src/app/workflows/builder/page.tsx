@@ -44,6 +44,7 @@ import type { AppDispatch, RootState } from '@/store/store'
 import {
   setWorkflow,
   addNode,
+  addEdge,
   clearWorkflow,
   setSelectedNode,
   setError,
@@ -68,9 +69,11 @@ import {
   getAIRecommendations,
 } from '@/services/workflowApi'
 import { getAgents, getAllAgents } from '@/services/agentApi'
-import type { WorkflowDefinition, NodeType } from '@/types/workflow'
+import type { WorkflowDefinition, NodeType, WorkflowEdge } from '@/types/workflow'
 import type { Agent } from '@/services/agentApi'
 import { validateWorkflow as validateWorkflowClient } from '@/utils/workflowValidation'
+import { createLoopCluster } from '@/utils/loopClusterUtils'
+import { serializeWorkflowForBackend, deserializeWorkflowFromBackend, validateBeforeSave } from '@/utils/workflowSerialization'
 import { v4 as uuidv4 } from 'uuid'
 
 export default function WorkflowBuilderPage() {
@@ -214,8 +217,18 @@ export default function WorkflowBuilderPage() {
 
     try {
       const workflow = await getWorkflowDefinition(undefined, selectedWorkflowId)
+
+      // Deserialize backend format to UI format (reconstitute loop clusters)
+      const { nodes: uiNodes, edges: uiEdges } = deserializeWorkflowFromBackend(workflow)
+
       // Ensure workflow_id is preserved
-      const workflowWithId = { ...workflow, workflow_id: workflow.workflow_id || selectedWorkflowId }
+      const workflowWithId = {
+        ...workflow,
+        nodes: uiNodes,
+        edges: uiEdges,
+        workflow_id: workflow.workflow_id || selectedWorkflowId
+      }
+
       dispatch(setWorkflow(workflowWithId))
       setWorkflowName(workflow.name || '')
       setWorkflowDescription(workflow.description || '')
@@ -266,6 +279,24 @@ export default function WorkflowBuilderPage() {
 
   const handleNodeTypeSelect = useCallback(
     (type: NodeType) => {
+      // Special handling for loop: create 3-card cluster
+      if (type === 'loop') {
+        const { loopNode, bodyNode, exitNode } = createLoopCluster()
+
+        // Add all three nodes
+        dispatch(addNode(loopNode))
+        dispatch(addNode(bodyNode))
+        dispatch(addNode(exitNode))
+
+        // Add UI-only visual connections using two-port topology: Loop → Body, Loop → Exit
+        dispatch(addEdge({ from_node: loopNode.id, to_node: bodyNode.id, condition: '__ui_cluster__' }))
+        dispatch(addEdge({ from_node: loopNode.id, to_node: exitNode.id, condition: '__ui_cluster__' }))
+
+        dispatch(setSelectedNode(loopNode.id))
+
+        return
+      }
+
       // For click-based addition, add to center of viewport
       // Position will be set by ReactFlow's default layout
       const newNodeId = `${type}_${uuidv4().substring(0, 8)}`
@@ -284,6 +315,30 @@ export default function WorkflowBuilderPage() {
 
   const handleNodeDrop = useCallback(
     (nodeType: string, position: { x: number; y: number }) => {
+      // Special handling for loop: create 3-card cluster
+      if (nodeType === 'loop') {
+        const { loopNode, bodyNode, exitNode } = createLoopCluster()
+
+        // Add position to loop node
+        // Add position to nodes, merging with existing params
+        loopNode.params = { ...loopNode.params, position }
+        bodyNode.params = { ...bodyNode.params, position: { x: position.x + 200, y: position.y } }
+        exitNode.params = { ...exitNode.params, position: { x: position.x + 400, y: position.y } }
+
+        // Add all three nodes
+        dispatch(addNode(loopNode))
+        dispatch(addNode(bodyNode))
+        dispatch(addNode(exitNode))
+
+        // Add UI-only visual connections using two-port topology: Loop → Body, Loop → Exit
+        dispatch(addEdge({ from_node: loopNode.id, to_node: bodyNode.id, condition: '__ui_cluster__' }))
+        dispatch(addEdge({ from_node: loopNode.id, to_node: exitNode.id, condition: '__ui_cluster__' }))
+
+        dispatch(setSelectedNode(loopNode.id))
+
+        return
+      }
+
       const newNodeId = `${nodeType}_${uuidv4().substring(0, 8)}`
       const newNode = {
         id: newNodeId,
@@ -308,11 +363,76 @@ export default function WorkflowBuilderPage() {
     }
 
     try {
+      // Validate loop clusters before save
+      const validationErrors = validateBeforeSave(currentWorkflow.nodes, currentWorkflow.edges)
+      if (validationErrors.length > 0) {
+        setSnackbar({
+          open: true,
+          message: `Validation errors: ${validationErrors.join('. ')}`,
+          severity: 'error'
+        })
+        return
+      }
+
+      // Serialize UI format to backend format
+      const { nodes: backendNodes, edges: backendEdges } = serializeWorkflowForBackend(
+        currentWorkflow.nodes,
+        currentWorkflow.edges
+      )
+
+      // PHASE 1 RESTRICTION: Loop cannot be graph entry
+      const entryNode = currentWorkflow.nodes.find(n => n.id === currentWorkflow.entry_node_id)
+      if (entryNode?.type === 'loop') {
+        setSnackbar({
+          open: true,
+          message: 'Loop cannot be the graph entry in Phase 1. Add an upstream node that produces non-empty output.',
+          severity: 'error'
+        })
+        return
+      }
+
+      // CRITICAL: Assert no UI cluster edges leaked through
+      const leakedUIEdges = backendEdges.filter(e =>
+        e.condition?.includes('ui_cluster')
+      )
+
+      if (leakedUIEdges.length > 0) {
+        console.error('🚨 UI CLUSTER LEAK DETECTED:', leakedUIEdges)
+        setSnackbar({
+          open: true,
+          message: `Cannot save: ${leakedUIEdges.length} UI cluster edge(s) leaked into backend payload. This is a bug - please report it.`,
+          severity: 'error'
+        })
+        return
+      }
+
+      // Verify all loop nodes have required edges
+      const loopNodes = backendNodes.filter(n => n.type === 'loop')
+      for (const loop of loopNodes) {
+        const loopEdges = backendEdges.filter(e => e.from_node === loop.id)
+        const hasContinue = loopEdges.some(e => e.condition === 'loop_continue')
+        const hasExit = loopEdges.some(e => e.condition === 'loop_exit')
+
+        if (!hasContinue || !hasExit) {
+          console.error(`Loop ${loop.id} missing required edges:`, { hasContinue, hasExit, edges: loopEdges })
+          setSnackbar({
+            open: true,
+            message: `Loop ${loop.id} is missing ${!hasContinue ? 'loop_continue' : ''} ${!hasExit ? 'loop_exit' : ''} edge(s)`,
+            severity: 'error'
+          })
+          return
+        }
+      }
+
       const workflowToSave: WorkflowDefinition = {
         ...currentWorkflow,
+        nodes: backendNodes,
+        edges: backendEdges,
         name: workflowName || currentWorkflow.name || 'Untitled Workflow',
         description: workflowDescription || currentWorkflow.description,
       }
+
+      console.log('[Save] Sending to backend:', JSON.stringify(workflowToSave, null, 2))
       const saveResult = await saveWorkflowDefinition(workflowToSave, workflowName)
 
       // Set as active workflow if isActiveWorkflow is true
@@ -415,6 +535,9 @@ export default function WorkflowBuilderPage() {
   const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
+
+    // Close the menu now that file is selected
+    setMoreMenuAnchor(null)
 
     const reader = new FileReader()
     reader.onload = (e) => {
@@ -798,10 +921,7 @@ export default function WorkflowBuilderPage() {
                 <ExportIcon sx={{ mr: 1, fontSize: 20 }} />
                 Export
               </MenuItem>
-              <MenuItem
-                component="label"
-                onClick={() => setMoreMenuAnchor(null)}
-              >
+              <MenuItem component="label">
                 <ImportIcon sx={{ mr: 1, fontSize: 20 }} />
                 Import
                 <input type="file" accept=".json" hidden onChange={handleImport} />
