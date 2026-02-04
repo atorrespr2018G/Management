@@ -68,6 +68,7 @@ function recomputeEntryNode(nodes: WorkflowNode[], edges: WorkflowEdge[]): strin
  * Delete a node with linear splicing
  * 
  * For linear agent nodes (1 in + 1 out), reconnects neighbors.
+ * For loop nodes, also deletes associated loop_body and loop_exit helpers.
  * Otherwise, performs simple delete (removes node + incident edges).
  * 
  * @param graph - Current workflow graph
@@ -84,17 +85,29 @@ export function deleteNodeAndSplice(
         return { graph, spliced: false }
     }
 
-    // Collect incident edges
+    // If deleting a loop node, also delete its helper nodes (loop_body and loop_exit)
+    let nodesToDelete = [nodeId]
+    if (node.type === 'loop') {
+        const bodyNode = graph.nodes.find(n => n.type === 'loop_body' && n.linkedLoopId === nodeId)
+        const exitNode = graph.nodes.find(n => n.type === 'loop_exit' && n.linkedLoopId === nodeId)
+
+        if (bodyNode) nodesToDelete.push(bodyNode.id)
+        if (exitNode) nodesToDelete.push(exitNode.id)
+    }
+
+    // Collect incident edges for the primary node (for splicing logic)
     const incoming = graph.edges.filter(e => e.to_node === nodeId)
     const outgoing = graph.edges.filter(e => e.from_node === nodeId)
 
-    // Create new graph without the node and its edges
-    let newNodes = graph.nodes.filter(n => n.id !== nodeId)
-    let newEdges = graph.edges.filter(e => e.from_node !== nodeId && e.to_node !== nodeId)
+    // Create new graph without the nodes and their edges
+    let newNodes = graph.nodes.filter(n => !nodesToDelete.includes(n.id))
+    let newEdges = graph.edges.filter(e =>
+        !nodesToDelete.includes(e.from_node) && !nodesToDelete.includes(e.to_node)
+    )
     let spliced = false
 
-    // Attempt splice if linear
-    if (incoming.length === 1 && outgoing.length === 1) {
+    // Attempt splice if linear (only for non-loop nodes)
+    if (node.type !== 'loop' && incoming.length === 1 && outgoing.length === 1) {
         const canSplice = isLinearNode(graph, nodeId)
 
         if (canSplice) {
@@ -121,7 +134,7 @@ export function deleteNodeAndSplice(
     let newEntryNodeId = graph.entry_node_id
 
     // If deleted node was entry, or entry doesn't exist in new graph
-    if (graph.entry_node_id === nodeId || !newNodes.find(n => n.id === graph.entry_node_id)) {
+    if (nodesToDelete.includes(graph.entry_node_id || '') || !newNodes.find(n => n.id === graph.entry_node_id)) {
         newEntryNodeId = recomputeEntryNode(newNodes, newEdges)
     }
 
