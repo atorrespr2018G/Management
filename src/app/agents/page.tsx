@@ -20,13 +20,9 @@ import {
   Select,
   MenuItem,
   FormControl,
-  Slider,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Link,
-  Divider,
   Checkbox,
+  Snackbar,
+  Alert,
 } from '@mui/material'
 import {
   Refresh as RefreshIcon,
@@ -35,73 +31,45 @@ import {
   ViewColumn as ColumnsIcon,
   KeyboardArrowDown as ArrowDownIcon,
   CheckCircle as CheckCircleIcon,
-  ExpandMore as ExpandMoreIcon,
-  PlayArrow as PlayArrowIcon,
-  Add as AddIcon,
 } from '@mui/icons-material'
-
-interface Agent {
-  name: string
-  id: string
-  model: string
-  created: string
-  description: string
-  tools: string
-}
-
-const agents: Agent[] = [
-    {
-      name: 'GraphRAGAgent',
-      id: 'asst_F3zxRSJtjOIJYVXLtGGOI0Xx',
-      model: 'gpt-4o-mini',
-      created: 'Oct 16, 2025 1...',
-      description: '',
-      tools: '',
-    },
-    {
-      name: 'ReviewAgent',
-      id: 'asst_hih0dA6Xc2sC5tRzyaiQyGRF',
-      model: 'o3-mini',
-      created: 'Oct 14, 2025 1...',
-      description: "Classifies the user's re...",
-      tools: '',
-    },
-    {
-      name: 'NewsReporterAgent',
-      id: 'asst_2CYLm2SZUNQYMPxYrftrgzJB',
-      model: 'o3-mini',
-      created: 'Oct 14, 2025 9...',
-      description: "Classifies the user's re...",
-      tools: '',
-    },
-    {
-      name: 'AiSearchAgent',
-      id: 'asst_EOiaaKe3CtL5penJUc6ELHrN',
-      model: 'o3-mini',
-      created: 'Oct 14, 2025 9...',
-      description: "Classifies the user's re...",
-      tools: '',
-    },
-    {
-      name: 'TriageAgent',
-      id: 'asst_wFLqOr6s8dX3Sp1KNfZYwpkZ',
-      model: 'o3-mini',
-      created: 'Oct 14, 2025 9...',
-      description: "Classifies the user's re...",
-      tools: '',
-    },
-  ]
+import AgentSetupPanel from '@/components/Workflow/AgentSetupPanel'
+import { getAgents, updateAgent, type Agent } from '@/services/agentApi'
 
 export default function AgentsPage() {
   const [tabValue, setTabValue] = useState(0)
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
-  const [temperature, setTemperature] = useState(1)
-  const [topP, setTopP] = useState(1)
-  const [instructions, setInstructions] = useState('You are a helpful AI assistant. Be concise and friendly.')
+  const [agents, setAgents] = useState<Agent[]>([])
+  const [loadingAgents, setLoadingAgents] = useState(false)
   const [panelWidth, setPanelWidth] = useState(50) // Percentage width of setup panel
   const [isResizing, setIsResizing] = useState(false)
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  })
+
+  useEffect(() => {
+    loadAgents()
+  }, [])
+
+  const loadAgents = async () => {
+    setLoadingAgents(true)
+    try {
+      const loadedAgents = await getAgents()
+      setAgents(loadedAgents)
+    } catch (error) {
+      console.error('Failed to load agents:', error)
+      setSnackbar({
+        open: true,
+        message: error instanceof Error ? error.message : 'Failed to load agents',
+        severity: 'error',
+      })
+    } finally {
+      setLoadingAgents(false)
+    }
+  }
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue)
@@ -115,6 +83,10 @@ export default function AgentsPage() {
       // Select the new agent
       setSelectedAgent(agent)
     }
+  }
+
+  const handleRefresh = () => {
+    loadAgents()
   }
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -175,7 +147,7 @@ export default function AgentsPage() {
             <Button variant="contained" size="small" sx={{ textTransform: 'none' }}>
               + New agent
             </Button>
-            <IconButton size="small" sx={{ color: 'text.secondary' }}>
+            <IconButton size="small" sx={{ color: 'text.secondary' }} onClick={handleRefresh} disabled={loadingAgents}>
               <RefreshIcon />
             </IconButton>
           </Box>
@@ -343,206 +315,47 @@ export default function AgentsPage() {
 
           {/* Right: Setup Panel */}
           {selectedAgent && (
-            <Box sx={{ flex: `0 0 ${panelWidth}%`, display: 'flex', flexDirection: 'column', pl: 2, minWidth: 0, borderLeft: 1, borderColor: 'divider' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  Setup
-                </Typography>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<PlayArrowIcon />}
-                  sx={{ textTransform: 'none' }}
-                >
-                  Try in playground
-                </Button>
-              </Box>
-
-              {/* Agent ID */}
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5, fontSize: '0.75rem' }}>
-                  Agent ID
-                </Typography>
-                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
-                  {selectedAgent.id}
-                </Typography>
-              </Box>
-
-              {/* Agent Name */}
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5, fontSize: '0.75rem' }}>
-                  Agent name
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={selectedAgent.name}
-                  sx={{ fontSize: '0.875rem' }}
-                />
-              </Box>
-
-              {/* Deployment */}
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5, fontSize: '0.75rem' }}>
-                  Deployment
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                  <FormControl size="small" sx={{ flexGrow: 1 }}>
-                    <Select
-                      value={`${selectedAgent.model} (version:2024-07-18)`}
-                      sx={{ fontSize: '0.875rem' }}
-                    >
-                      <MenuItem value={`${selectedAgent.model} (version:2024-07-18)`}>
-                        {selectedAgent.model} (version:2024-07-18)
-                      </MenuItem>
-                    </Select>
-                  </FormControl>
-                  <Link href="#" sx={{ fontSize: '0.875rem', textDecoration: 'none' }}>
-                    + Create new deployment
-                  </Link>
-                </Box>
-              </Box>
-
-              {/* Instructions */}
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5, fontSize: '0.75rem' }}>
-                  Instructions
-                </Typography>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={4}
-                  value={instructions}
-                  onChange={(e) => setInstructions(e.target.value)}
-                  size="small"
-                  sx={{ fontSize: '0.875rem' }}
-                />
-              </Box>
-
-              {/* Agent Description */}
-              <Accordion sx={{ mb: 1, boxShadow: 'none', border: 1, borderColor: 'divider' }}>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-                    Agent Description
-                  </Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <TextField fullWidth size="small" placeholder="Enter description" />
-                </AccordionDetails>
-              </Accordion>
-
-              {/* Knowledge */}
-              <Accordion sx={{ mb: 1, boxShadow: 'none', border: 1, borderColor: 'divider' }}>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-                    Knowledge (0)
-                  </Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.secondary', mb: 1 }}>
-                    Knowledge gives the agent access to data sources for grounding responses.{' '}
-                    <Link href="#" sx={{ fontSize: '0.875rem' }}>
-                      Learn more
-                    </Link>
-                  </Typography>
-                  <Button size="small" startIcon={<AddIcon />} sx={{ textTransform: 'none' }}>
-                    + Add
-                  </Button>
-                </AccordionDetails>
-              </Accordion>
-
-              {/* Actions */}
-              <Accordion sx={{ mb: 1, boxShadow: 'none', border: 1, borderColor: 'divider' }}>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-                    Actions (0)
-                  </Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.secondary', mb: 1 }}>
-                    Actions give the agent the ability to perform tasks.{' '}
-                    <Link href="#" sx={{ fontSize: '0.875rem' }}>
-                      Learn more
-                    </Link>
-                  </Typography>
-                  <Button size="small" startIcon={<AddIcon />} sx={{ textTransform: 'none' }}>
-                    + Add
-                  </Button>
-                </AccordionDetails>
-              </Accordion>
-
-              {/* Connected agents */}
-              <Accordion sx={{ mb: 1, boxShadow: 'none', border: 1, borderColor: 'divider' }}>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-                    Connected agents (0)
-                  </Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Typography variant="body2" sx={{ fontSize: '0.875rem', color: 'text.secondary', mb: 1 }}>
-                    Hand-off thread context to other agents to focus on specialized tasks.{' '}
-                    <Link href="#" sx={{ fontSize: '0.875rem' }}>
-                      Learn more
-                    </Link>
-                  </Typography>
-                  <Button size="small" startIcon={<AddIcon />} sx={{ textTransform: 'none' }}>
-                    + Add
-                  </Button>
-                </AccordionDetails>
-              </Accordion>
-
-              <Divider sx={{ my: 2 }} />
-
-              {/* Model settings */}
-              <Typography variant="body2" sx={{ fontWeight: 600, mb: 2, fontSize: '0.875rem' }}>
-                Model settings
-              </Typography>
-
-              {/* Temperature */}
-              <Box sx={{ mb: 3 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                  <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-                    Temperature
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontSize: '0.875rem', fontWeight: 600 }}>
-                    {temperature}
-                  </Typography>
-                </Box>
-                <Slider
-                  value={temperature}
-                  onChange={(e, newValue) => setTemperature(newValue as number)}
-                  min={0}
-                  max={2}
-                  step={0.1}
-                  valueLabelDisplay="auto"
-                  sx={{ mt: 1 }}
-                />
-              </Box>
-
-              {/* Top P */}
-              <Box sx={{ mb: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                  <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-                    Top P
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontSize: '0.875rem', fontWeight: 600 }}>
-                    {topP}
-                  </Typography>
-                </Box>
-                <Slider
-                  value={topP}
-                  onChange={(e, newValue) => setTopP(newValue as number)}
-                  min={0}
-                  max={1}
-                  step={0.1}
-                  valueLabelDisplay="auto"
-                  sx={{ mt: 1 }}
-                />
-              </Box>
+            <Box sx={{ flex: `0 0 ${panelWidth}%`, display: 'flex', flexDirection: 'column', pl: 2, minWidth: 0, borderLeft: 1, borderColor: 'divider', overflow: 'auto' }}>
+              <AgentSetupPanel
+                agent={selectedAgent}
+                onSave={async (agentId, updates) => {
+                  try {
+                    const updatedAgent = await updateAgent(agentId, updates)
+                    // Refresh agents list after update
+                    await loadAgents()
+                    // Update selected agent if it's the same one
+                    if (selectedAgent.id === agentId) {
+                      setSelectedAgent(updatedAgent)
+                    }
+                    return updatedAgent
+                  } catch (error) {
+                    throw error
+                  }
+                }}
+                onShowMessage={(message, severity) => {
+                  setSnackbar({ open: true, message, severity: severity as 'success' | 'error' | 'info' | 'warning' })
+                }}
+                showPlaygroundButton={true}
+                onPlaygroundClick={() => {
+                  // TODO: Implement playground functionality
+                  setSnackbar({ open: true, message: 'Playground functionality coming soon', severity: 'info' })
+                }}
+              />
             </Box>
           )}
         </Box>
       </Box>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }
