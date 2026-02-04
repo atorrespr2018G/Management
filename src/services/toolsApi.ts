@@ -112,3 +112,24 @@ export async function assignToolsToAgent(agentId: string, toolIds: string[]): Pr
   })
   if (!res.ok) await handleError(res)
 }
+
+export interface TestToolRequest {
+  parameters: Record<string, unknown>
+}
+
+export interface TestToolResponse {
+  success: boolean
+  result?: string
+  error?: string
+  tool_name?: string
+}
+
+export async function testTool(toolId: string, request: TestToolRequest): Promise<TestToolResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/tools/${encodeURIComponent(toolId)}/test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(request),
+  })
+  if (!res.ok) await handleError(res)
+  return res.json()
+}

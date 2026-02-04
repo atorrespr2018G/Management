@@ -22,6 +22,7 @@ import {
 } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
+import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import {
   getTools,
   getTool,
@@ -32,6 +33,7 @@ import {
   type CreateToolRequest,
   type UpdateToolRequest,
 } from '@/services/toolsApi'
+import TestToolDialog from './TestToolDialog'
 
 interface ManageToolsDialogProps {
   open: boolean
@@ -64,6 +66,7 @@ export default function ManageToolsDialog({ open, onClose, onToolChange }: Manag
   const [specJson, setSpecJson] = useState(defaultSpecJson)
   const [submitting, setSubmitting] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [testingTool, setTestingTool] = useState<Tool | null>(null)
 
   const fetchTools = useCallback(async () => {
     setLoading(true)
@@ -315,6 +318,16 @@ export default function ManageToolsDialog({ open, onClose, onToolChange }: Manag
                       sx={{ flex: 1, minWidth: 0, py: 0.5 }}
                     />
                     <Box sx={{ display: 'flex', gap: 0.25, flexShrink: 0, pt: 0.25 }}>
+                      {t.source === 'code' && (
+                        <IconButton
+                          size="small"
+                          aria-label="Test"
+                          onClick={() => setTestingTool(t)}
+                          title="Test tool"
+                        >
+                          <PlayArrowIcon fontSize="small" />
+                        </IconButton>
+                      )}
                       <IconButton
                         size="small"
                         aria-label="Edit"
@@ -384,6 +397,13 @@ export default function ManageToolsDialog({ open, onClose, onToolChange }: Manag
           </>
         )}
       </DialogActions>
+
+      {/* Test Tool Dialog */}
+      <TestToolDialog
+        open={testingTool !== null}
+        onClose={() => setTestingTool(null)}
+        tool={testingTool}
+      />
     </Dialog>
   )
 }
