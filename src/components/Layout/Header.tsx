@@ -131,18 +131,6 @@ export default function Header({ onMenuClick, sidebarOpen = false }: HeaderProps
           <Button color="primary" component={Link} href="/about" sx={{ fontSize: '1.1rem', py: 1 }}>
             About
           </Button>
-          <Button color="primary" component={Link} href="/features" sx={{ fontSize: '1.1rem', py: 1 }}>
-            Features
-          </Button>
-          <Button color="primary" component={Link} href="/rag-dashboard" sx={{ fontSize: '1.1rem', py: 1 }}>
-            RAG Dashboard
-          </Button>
-          <Button color="primary" component={Link} href="/scanner" sx={{ fontSize: '1.1rem', py: 1 }}>
-            Scanner
-          </Button>
-          <Button color="primary" component={Link} href="/results" sx={{ fontSize: '1.1rem', py: 1 }}>
-            Results
-          </Button>
           <Button color="primary" component={Link} href="/retrieve" sx={{ fontSize: '1.1rem', py: 1 }}>
             Retrieve
           </Button>

@@ -54,10 +54,10 @@ export default function Footer({ sidebarOpen = false }: FooterProps) {
               Contact
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Email: info@nextjsapp.com
+              Email: 
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Phone: +1 (555) 123-4567
+              Phone: 
             </Typography>
           </Grid>
         </Grid>
