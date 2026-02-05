@@ -53,6 +53,7 @@ export interface WorkflowDefinition {
   toolsets?: string[]
   policy_profile?: string
   limits?: GraphLimits
+  is_active?: boolean  // Whether this workflow is the active workflow
 }
 
 export interface WorkflowRequest {

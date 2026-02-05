@@ -4,8 +4,8 @@
 
 'use client'
 
-import React, { useState, useCallback, useEffect } from 'react'
-import { useSearchParams } from 'next/navigation'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import {
   Box,
   Typography,
@@ -110,20 +110,21 @@ export default function WorkflowBuilderPage() {
 
   const selectedNode = currentWorkflow?.nodes.find((n) => n.id === selectedNodeId) || null
   const searchParams = useSearchParams()
+  const router = useRouter()
 
   useEffect(() => {
     loadAgents()
     loadWorkflows()
-    checkActiveWorkflow()
+    // No need to check active workflow on mount 
+    // is_active field is used directly when loading workflows
   }, [])
 
-  // Auto-load workflow from URL query parameter
+  // Auto-load workflow from URL - URL is the single source of truth
   useEffect(() => {
     const workflowIdFromUrl = searchParams.get('workflowId')
-    if (workflowIdFromUrl && !currentWorkflow) {
-      // Load the workflow specified in the URL
-      setSelectedWorkflowId(workflowIdFromUrl)
-      // Trigger load after workflows list is loaded
+
+    // Load if URL has a workflow ID that differs from current workflow
+    if (workflowIdFromUrl && currentWorkflow?.workflow_id !== workflowIdFromUrl) {
       const loadFromUrl = async () => {
         try {
           const workflow = await getWorkflowDefinition(undefined, workflowIdFromUrl)
@@ -142,9 +143,10 @@ export default function WorkflowBuilderPage() {
           dispatch(setWorkflow(workflowWithId))
           setWorkflowName(workflow.name || '')
           setWorkflowDescription(workflow.description || '')
+          setSelectedWorkflowId(workflowIdFromUrl)
 
-          // Check if this workflow is active
-          await checkActiveWorkflow()
+          // Set checkbox based on workflow's is_active field
+          setIsActiveWorkflow(workflow.is_active === true)
 
           setSnackbar({ open: true, message: `Workflow "${workflow.name}" loaded successfully`, severity: 'success' })
         } catch (error: any) {
@@ -153,7 +155,7 @@ export default function WorkflowBuilderPage() {
       }
       loadFromUrl()
     }
-  }, [searchParams, currentWorkflow, dispatch])
+  }, [searchParams.get('workflowId'), currentWorkflow?.workflow_id, dispatch])
 
   const loadAgents = async () => {
     try {
@@ -206,37 +208,18 @@ export default function WorkflowBuilderPage() {
 
   const handleLoadWorkflow = async () => {
     if (!selectedWorkflowId) {
-      setSnackbar({ open: true, message: 'Please select a workflow to load', severity: 'error' })
+      setSnackbar({ open: true, message: 'Please select a workflow', severity: 'error' })
       return
     }
 
-    try {
-      const workflow = await getWorkflowDefinition(undefined, selectedWorkflowId)
+    // Navigate to URL with workflow ID - auto-load effect will handle loading
+    router.push(`/workflows/builder?workflowId=${selectedWorkflowId}`)
 
-      // Deserialize backend format to UI format (reconstitute loop clusters)
-      const { nodes: uiNodes, edges: uiEdges } = deserializeWorkflowFromBackend(workflow)
-
-      // Ensure workflow_id is preserved
-      const workflowWithId = {
-        ...workflow,
-        nodes: uiNodes,
-        edges: uiEdges,
-        workflow_id: workflow.workflow_id || selectedWorkflowId
-      }
-
-      dispatch(setWorkflow(workflowWithId))
-      setWorkflowName(workflow.name || '')
-      setWorkflowDescription(workflow.description || '')
-
-      // Check if this workflow is active
-      await checkActiveWorkflow()
-
-      setSnackbar({ open: true, message: 'Workflow loaded successfully', severity: 'success' })
-    } catch (error: any) {
-      setSnackbar({ open: true, message: error.message || 'Failed to load workflow', severity: 'error' })
+    // Close menu after loading
+    if (moreMenuAnchor) {
+      setMoreMenuAnchor(null)
     }
   }
-
   const handleDeleteWorkflow = async () => {
     const workflowIdToDelete = currentWorkflow?.workflow_id || selectedWorkflowId
 
@@ -428,17 +411,29 @@ export default function WorkflowBuilderPage() {
       }
 
       console.log('[Save] Sending to backend:', JSON.stringify(workflowToSave, null, 2))
-      const saveResult = await saveWorkflowDefinition(workflowToSave, workflowName)
 
-      // Set as active workflow if isActiveWorkflow is true
-      if (isActiveWorkflow && saveResult.workflow_id) {
-        try {
-          await setActiveWorkflow(saveResult.workflow_id)
-          setSnackbar({ open: true, message: 'Workflow saved and set as active successfully', severity: 'success' })
-        } catch (error: any) {
-          // Workflow saved but failed to set as active
-          setSnackbar({ open: true, message: `Workflow saved but failed to set as active: ${error.message}`, severity: 'error' })
+      // Save workflow with is_active parameter - backend handles deactivating others
+      const saveResult = await saveWorkflowDefinition(
+        workflowToSave,
+        workflowName,
+        isActiveWorkflow
+      )
+
+      // Update currentWorkflow with the saved workflow_id and is_active status
+      if (saveResult.workflow_id) {
+        const updatedWorkflow = {
+          ...currentWorkflow,
+          workflow_id: saveResult.workflow_id,
+          is_active: isActiveWorkflow,
+          name: workflowName || currentWorkflow.name || 'Untitled Workflow',
+          description: workflowDescription || currentWorkflow.description,
         }
+        dispatch(setWorkflow(updatedWorkflow))
+      }
+
+      // Show appropriate success message
+      if (isActiveWorkflow) {
+        setSnackbar({ open: true, message: 'Workflow saved and set as active successfully', severity: 'success' })
       } else {
         setSnackbar({ open: true, message: 'Workflow saved successfully', severity: 'success' })
       }
@@ -553,6 +548,10 @@ export default function WorkflowBuilderPage() {
     dispatch(clearWorkflow())
     setWorkflowName('')
     setWorkflowDescription('')
+    setIsActiveWorkflow(false)
+
+    // Clear URL params - this prevents auto-reload since URL won't have workflowId
+    router.push('/workflows/builder')
   }
 
   const handleVisualize = async () => {
@@ -851,7 +850,7 @@ export default function WorkflowBuilderPage() {
             />
             {isActiveWorkflow && (
               <Chip
-                label="Will be set as active"
+                label={currentWorkflow?.workflow_id && currentWorkflow?.is_active ? "Active" : "Will be set as active"}
                 color="success"
                 size="small"
                 sx={{ ml: 1 }}
