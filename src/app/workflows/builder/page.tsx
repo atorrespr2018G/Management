@@ -5,6 +5,7 @@
 'use client'
 
 import React, { useState, useCallback, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   Box,
   Typography,
@@ -73,7 +74,7 @@ import type { WorkflowDefinition, NodeType } from '@/types/workflow'
 import type { Agent } from '@/services/agentApi'
 import { validateWorkflow as validateWorkflowClient } from '@/utils/workflowValidation'
 import { createLoopCluster } from '@/utils/loopClusterUtils'
-import { serializeWorkflowForBackend, deserializeWorkflowFromBackend, validateBeforeSave } from '@/utils/workflowSerialization'
+import { serializeWorkflowForBackend, deserializeWorkflowFromBackend } from '@/utils/workflowSerialization'
 import { v4 as uuidv4 } from 'uuid'
 
 export default function WorkflowBuilderPage() {
@@ -108,12 +109,51 @@ export default function WorkflowBuilderPage() {
   })
 
   const selectedNode = currentWorkflow?.nodes.find((n) => n.id === selectedNodeId) || null
+  const searchParams = useSearchParams()
 
   useEffect(() => {
     loadAgents()
     loadWorkflows()
     checkActiveWorkflow()
   }, [])
+
+  // Auto-load workflow from URL query parameter
+  useEffect(() => {
+    const workflowIdFromUrl = searchParams.get('workflowId')
+    if (workflowIdFromUrl && !currentWorkflow) {
+      // Load the workflow specified in the URL
+      setSelectedWorkflowId(workflowIdFromUrl)
+      // Trigger load after workflows list is loaded
+      const loadFromUrl = async () => {
+        try {
+          const workflow = await getWorkflowDefinition(undefined, workflowIdFromUrl)
+
+          // Deserialize backend format to UI format (reconstitute loop clusters)
+          const { nodes: uiNodes, edges: uiEdges } = deserializeWorkflowFromBackend(workflow)
+
+          // Ensure workflow_id is preserved
+          const workflowWithId = {
+            ...workflow,
+            nodes: uiNodes,
+            edges: uiEdges,
+            workflow_id: workflow.workflow_id || workflowIdFromUrl
+          }
+
+          dispatch(setWorkflow(workflowWithId))
+          setWorkflowName(workflow.name || '')
+          setWorkflowDescription(workflow.description || '')
+
+          // Check if this workflow is active
+          await checkActiveWorkflow()
+
+          setSnackbar({ open: true, message: `Workflow "${workflow.name}" loaded successfully`, severity: 'success' })
+        } catch (error: any) {
+          setSnackbar({ open: true, message: error.message || 'Failed to load workflow from URL', severity: 'error' })
+        }
+      }
+      loadFromUrl()
+    }
+  }, [searchParams, currentWorkflow, dispatch])
 
   const loadAgents = async () => {
     try {
@@ -318,16 +358,16 @@ export default function WorkflowBuilderPage() {
     }
 
     try {
-      // Validate loop clusters before save
-      const validationErrors = validateBeforeSave(currentWorkflow.nodes, currentWorkflow.edges)
-      if (validationErrors.length > 0) {
-        setSnackbar({
-          open: true,
-          message: `Validation errors: ${validationErrors.join('. ')}`,
-          severity: 'error'
-        })
-        return
-      }
+      // REMOVED: Loop cluster validation - allow saving incomplete workflows
+      // const validationErrors = validateBeforeSave(currentWorkflow.nodes, currentWorkflow.edges)
+      // if (validationErrors.length > 0) {
+      //   setSnackbar({
+      //     open: true,
+      //     message: `Validation errors: ${validationErrors.join('. ')}`,
+      //     severity: 'error'
+      //   })
+      //   return
+      // }
 
       // Serialize UI format to backend format
       const { nodes: backendNodes, edges: backendEdges } = serializeWorkflowForBackend(
@@ -335,16 +375,16 @@ export default function WorkflowBuilderPage() {
         currentWorkflow.edges
       )
 
-      // PHASE 1 RESTRICTION: Loop cannot be graph entry
-      const entryNode = currentWorkflow.nodes.find(n => n.id === currentWorkflow.entry_node_id)
-      if (entryNode?.type === 'loop') {
-        setSnackbar({
-          open: true,
-          message: 'Loop cannot be the graph entry in Phase 1. Add an upstream node that produces non-empty output.',
-          severity: 'error'
-        })
-        return
-      }
+      // REMOVED: Loop entry node restriction - allow loops as entry nodes
+      // const entryNode = currentWorkflow.nodes.find(n => n.id === currentWorkflow.entry_node_id)
+      // if (entryNode?.type === 'loop') {
+      //   setSnackbar({
+      //     open: true,
+      //     message: 'Loop cannot be the graph entry in Phase 1. Add an upstream node that produces non-empty output.',
+      //     severity: 'error'
+      //   })
+      //   return
+      // }
 
       // CRITICAL: Assert no UI cluster edges leaked through
       const leakedUIEdges = backendEdges.filter(e =>
@@ -361,23 +401,23 @@ export default function WorkflowBuilderPage() {
         return
       }
 
-      // Verify all loop nodes have required edges
-      const loopNodes = backendNodes.filter(n => n.type === 'loop')
-      for (const loop of loopNodes) {
-        const loopEdges = backendEdges.filter(e => e.from_node === loop.id)
-        const hasContinue = loopEdges.some(e => e.condition === 'loop_continue')
-        const hasExit = loopEdges.some(e => e.condition === 'loop_exit')
+      // REMOVED: Loop required edges validation - allow incomplete loop configurations
+      // const loopNodes = backendNodes.filter(n => n.type === 'loop')
+      // for (const loop of loopNodes) {
+      //   const loopEdges = backendEdges.filter(e => e.from_node === loop.id)
+      //   const hasContinue = loopEdges.some(e => e.condition === 'loop_continue')
+      //   const hasExit = loopEdges.some(e => e.condition === 'loop_exit')
 
-        if (!hasContinue || !hasExit) {
-          console.error(`Loop ${loop.id} missing required edges:`, { hasContinue, hasExit, edges: loopEdges })
-          setSnackbar({
-            open: true,
-            message: `Loop ${loop.id} is missing ${!hasContinue ? 'loop_continue' : ''} ${!hasExit ? 'loop_exit' : ''} edge(s)`,
-            severity: 'error'
-          })
-          return
-        }
-      }
+      //   if (!hasContinue || !hasExit) {
+      //     console.error(`Loop ${loop.id} missing required edges:`, { hasContinue, hasExit, edges: loopEdges })
+      //     setSnackbar({
+      //       open: true,
+      //       message: `Loop ${loop.id} is missing ${!hasContinue ? 'loop_continue' : ''} ${!hasExit ? 'loop_exit' : ''} edge(s)`,
+      //       severity: 'error'
+      //     })
+      //     return
+      //   }
+      // }
 
       const workflowToSave: WorkflowDefinition = {
         ...currentWorkflow,
