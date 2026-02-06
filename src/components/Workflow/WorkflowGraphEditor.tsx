@@ -156,13 +156,17 @@ export default function WorkflowGraphEditor({
   const isUpdatingFromProps = React.useRef(false)
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
 
-  // Update nodes/edges when workflow prop changes
+  // Track previous availableAgents count to detect when agents finish loading
+  const prevAgentsCountRef = React.useRef(0)
+
+  // Update nodes/edges when workflow prop changes OR when agents finish loading
   React.useEffect(() => {
     if (!workflow) {
       setNodes([])
       setEdges([])
       workflowRef.current = null
       workflowNodesRef.current = ''
+      prevAgentsCountRef.current = 0
       return
     }
 
@@ -171,7 +175,15 @@ export default function WorkflowGraphEditor({
     const workflowChanged = workflow !== workflowRef.current
     const nodesChanged = nodesKey !== workflowNodesRef.current
 
-    if (workflowChanged || nodesChanged) {
+    // Detect when agents finish loading (count goes from 0 to > 0, or changes)
+    const agentsCount = availableAgents?.length || 0
+    const agentsLoaded = agentsCount > 0 && prevAgentsCountRef.current !== agentsCount
+
+    // Trigger update when workflow changes, nodes change, OR agents finish loading
+    // This ensures agent names display even if agents load after workflow
+    const needsUpdate = workflowChanged || nodesChanged || agentsLoaded
+
+    if (needsUpdate) {
       isUpdatingFromProps.current = true
       const newFlow = workflowToReactFlow(workflow, availableAgents)
 
@@ -195,6 +207,7 @@ export default function WorkflowGraphEditor({
       setEdges(newFlow.edges)
       workflowRef.current = workflow
       workflowNodesRef.current = nodesKey
+      prevAgentsCountRef.current = agentsCount
       // Reset flag after update completes
       setTimeout(() => {
         isUpdatingFromProps.current = false
