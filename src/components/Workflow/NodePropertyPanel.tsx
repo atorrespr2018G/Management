@@ -25,7 +25,8 @@ import type { WorkflowNode, NodeType } from '@/types/workflow'
 import ConnectionConfigPanel from './ConnectionConfigPanel'
 import AgentManagementDialog from './AgentManagementDialog'
 import ManageToolsDialog from './ManageToolsDialog'
-import { type Agent } from '@/services/agentApi'
+import AgentSetupPanel from './AgentSetupPanel'
+import { type Agent, updateAgent } from '@/services/agentApi'
 import { getAgentTools, assignToolsToAgent, type Tool } from '@/services/toolsApi'
 import type { ConnectionConfig } from '@/utils/agentWorkflowGenerator'
 
@@ -171,7 +172,7 @@ export default function NodePropertyPanel({
         )}
       </Box>
 
-      {/* Basic Properties */}
+      {/* Basic Properties - First */}
       <Accordion defaultExpanded>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography variant="subtitle2">Basic Properties</Typography>
@@ -266,7 +267,7 @@ export default function NodePropertyPanel({
         </AccordionDetails>
       </Accordion>
 
-      {/* Agent-specific properties */}
+      {/* Agent Configuration - Second for agent nodes */}
       {node.type === 'agent' && (
         <Accordion defaultExpanded>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
@@ -323,101 +324,172 @@ export default function NodePropertyPanel({
         </Accordion>
       )}
 
-      {/* Tools Configuration - only for agent nodes. No agent: message only; no dropdown, Manage Tools, or Save. */}
-      {node.type === 'agent' && (
+      {/* Setup Panel - Third for agent nodes with selected agent */}
+      {node.type === 'agent' && sourceAgent && (
+        <Accordion defaultExpanded>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="subtitle2">Setup</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <AgentSetupPanel
+              agent={sourceAgent}
+              onSave={async (agentId, updates) => {
+                try {
+                  const updatedAgent = await updateAgent(agentId, updates)
+                  // Refresh agents list after update to get the latest data
+                  await onAgentsUpdated?.()
+                  // Return the updated agent so the component can use it if needed
+                  return updatedAgent
+                } catch (error) {
+                  throw error
+                }
+              }}
+              onShowMessage={onShowMessage}
+            />
+          </AccordionDetails>
+        </Accordion>
+      )}
+
+      {/* Tools Configuration - Fourth for agent nodes with selected agent */}
+      {node.type === 'agent' && sourceAgent && (
         <Accordion defaultExpanded>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="subtitle2">Tools Configuration</Typography>
           </AccordionSummary>
           <AccordionDetails>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {!node.agent_id && (
-                <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                  Select an agent above to configure tools.
-                </Typography>
-              )}
-              {node.agent_id && (
-                <>
-                  <FormControl size="small" fullWidth disabled={loadingAgentTools}>
-                    <InputLabel id="tools-select-label" shrink>
-                      Select Tools
-                    </InputLabel>
-                    <Select
-                      multiple
-                      value={selectedToolIds}
-                      labelId="tools-select-label"
-                      label="Select Tools"
-                      onChange={(e) => setSelectedToolIds(e.target.value as string[])}
-                      displayEmpty
-                      notched
-                      renderValue={(sel) => {
-                        const validSel = sel.filter((id) => tools.some((x) => x.id === id))
-                        if (validSel.length === 0) {
-                          return <span style={{ color: 'rgba(0, 0, 0, 0.6)' }}>No tools selected</span>
-                        }
-                        return (
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                            {validSel.map((id) => {
-                              const o = tools.find((x) => x.id === id)
-                              return <Chip key={id} label={o?.name || id} size="small" sx={{ height: 24 }} />
-                            })}
-                          </Box>
-                        )
-                      }}
-                    >
-                      {tools.length === 0 ? (
-                        <MenuItem disabled value="__empty__">
-                          <ListItemText primary="No tools available" primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }} />
-                        </MenuItem>
-                      ) : (
-                        tools.map((opt) => (
-                          <MenuItem key={opt.id} value={opt.id}>
-                            <Checkbox checked={selectedToolIds.indexOf(opt.id) > -1} />
-                            <ListItemText primary={opt.name} />
-                          </MenuItem>
-                        ))
-                      )}
-                    </Select>
-                    {tools.length === 0 && !loadingAgentTools && (
-                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                        Create tools with Manage Tools, then assign them here.
-                      </Typography>
-                    )}
-                  </FormControl>
-                  {loadingAgentTools && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <CircularProgress size={16} />
-                      <Typography variant="caption" color="text.secondary">
-                        Loading agent tools…
-                      </Typography>
-                    </Box>
+              <FormControl size="small" fullWidth disabled={loadingAgentTools}>
+                <InputLabel id="tools-select-label" shrink>
+                  Select Tools
+                </InputLabel>
+                <Select
+                  multiple
+                  value={selectedToolIds}
+                  labelId="tools-select-label"
+                  label="Select Tools"
+                  onChange={(e) => setSelectedToolIds(e.target.value as string[])}
+                  displayEmpty
+                  notched
+                  renderValue={(sel) => {
+                    const validSel = sel.filter((id) => tools.some((x) => x.id === id))
+                    if (validSel.length === 0) {
+                      return <span style={{ color: 'rgba(0, 0, 0, 0.6)' }}>No tools selected</span>
+                    }
+                    return (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {validSel.map((id) => {
+                          const o = tools.find((x) => x.id === id)
+                          return <Chip key={id} label={o?.name || id} size="small" sx={{ height: 24 }} />
+                        })}
+                      </Box>
+                    )
+                  }}
+                >
+                  {tools.length === 0 ? (
+                    <MenuItem disabled value="__empty__">
+                      <ListItemText primary="No tools available" primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }} />
+                    </MenuItem>
+                  ) : (
+                    tools.map((opt) => (
+                      <MenuItem key={opt.id} value={opt.id}>
+                        <Checkbox checked={selectedToolIds.indexOf(opt.id) > -1} />
+                        <ListItemText primary={opt.name} />
+                      </MenuItem>
+                    ))
                   )}
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<BuildIcon />}
-                      onClick={() => setManageToolsDialogOpen(true)}
-                    >
-                      Manage Tools
-                    </Button>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      size="small"
-                      startIcon={savingTools ? <CircularProgress size={14} /> : <SaveIcon />}
-                      disabled={savingTools}
-                      onClick={handleToolsSave}
-                    >
-                      Save
-                    </Button>
-                  </Box>
-                </>
+                </Select>
+                {tools.length === 0 && !loadingAgentTools && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                    Create tools with Manage Tools, then assign them here.
+                  </Typography>
+                )}
+              </FormControl>
+              {loadingAgentTools && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CircularProgress size={16} />
+                  <Typography variant="caption" color="text.secondary">
+                    Loading agent tools…
+                  </Typography>
+                </Box>
               )}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<BuildIcon />}
+                  onClick={() => setManageToolsDialogOpen(true)}
+                >
+                  Manage Tools
+                </Button>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="small"
+                  startIcon={savingTools ? <CircularProgress size={14} /> : <SaveIcon />}
+                  disabled={savingTools}
+                  onClick={handleToolsSave}
+                >
+                  Save
+                </Button>
+              </Box>
             </Box>
           </AccordionDetails>
         </Accordion>
       )}
+
+      {/* Input/Output Mappings - Fifth */}
+      <Accordion>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="subtitle2">Input/Output Mappings</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box>
+              <Typography variant="caption" sx={{ fontWeight: 600, mb: 1, display: 'block' }}>
+                Inputs
+              </Typography>
+              {node.inputs && Object.keys(node.inputs).length > 0 ? (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {Object.entries(node.inputs).map(([key, value]) => (
+                    <Chip
+                      key={key}
+                      label={`${key}: ${value}`}
+                      size="small"
+                      variant="outlined"
+                    />
+                  ))}
+                </Box>
+              ) : (
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  No inputs configured
+                </Typography>
+              )}
+            </Box>
+            <Box>
+              <Typography variant="caption" sx={{ fontWeight: 600, mb: 1, display: 'block' }}>
+                Outputs
+              </Typography>
+              {node.outputs && Object.keys(node.outputs).length > 0 ? (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {Object.entries(node.outputs).map(([key, value]) => (
+                    <Chip
+                      key={key}
+                      label={`${key}: ${value}`}
+                      size="small"
+                      variant="outlined"
+                      color="primary"
+                    />
+                  ))}
+                </Box>
+              ) : (
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  No outputs configured
+                </Typography>
+              )}
+            </Box>
+          </Box>
+        </AccordionDetails>
+      </Accordion>
 
       {/* Conditional-specific properties */}
       {node.type === 'conditional' && (
@@ -619,60 +691,6 @@ export default function NodePropertyPanel({
           </AccordionDetails>
         </Accordion>
       )}
-
-      {/* Input/Output Mappings */}
-      <Accordion>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="subtitle2">Input/Output Mappings</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Box>
-              <Typography variant="caption" sx={{ fontWeight: 600, mb: 1, display: 'block' }}>
-                Inputs
-              </Typography>
-              {node.inputs && Object.keys(node.inputs).length > 0 ? (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {Object.entries(node.inputs).map(([key, value]) => (
-                    <Chip
-                      key={key}
-                      label={`${key}: ${value}`}
-                      size="small"
-                      variant="outlined"
-                    />
-                  ))}
-                </Box>
-              ) : (
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  No inputs configured
-                </Typography>
-              )}
-            </Box>
-            <Box>
-              <Typography variant="caption" sx={{ fontWeight: 600, mb: 1, display: 'block' }}>
-                Outputs
-              </Typography>
-              {node.outputs && Object.keys(node.outputs).length > 0 ? (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {Object.entries(node.outputs).map(([key, value]) => (
-                    <Chip
-                      key={key}
-                      label={`${key}: ${value}`}
-                      size="small"
-                      variant="outlined"
-                      color="primary"
-                    />
-                  ))}
-                </Box>
-              ) : (
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  No outputs configured
-                </Typography>
-              )}
-            </Box>
-          </Box>
-        </AccordionDetails>
-      </Accordion>
 
       {/* Connection Config Dialog */}
       {onConnect && (
