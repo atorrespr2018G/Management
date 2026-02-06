@@ -121,6 +121,7 @@ export default function WorkflowBuilderPage() {
 
   // Auto-load workflow from URL - URL is the single source of truth
   useEffect(() => {
+    // URL with the workflow ID for shareable links and browser navigation
     const workflowIdFromUrl = searchParams.get('workflowId')
 
     // Load if URL has a workflow ID that differs from current workflow
@@ -155,7 +156,7 @@ export default function WorkflowBuilderPage() {
       }
       loadFromUrl()
     }
-  }, [searchParams.get('workflowId'), currentWorkflow?.workflow_id, dispatch])
+  }, [searchParams.get('workflowId'), dispatch])
 
   const loadAgents = async () => {
     try {
@@ -234,12 +235,17 @@ export default function WorkflowBuilderPage() {
 
     try {
       await deleteWorkflow(workflowIdToDelete)
+
       // Clear the current workflow from the screen
       dispatch(clearWorkflow())
       setWorkflowName('')
       setWorkflowDescription('')
       setSelectedWorkflowId('')
       setIsActiveWorkflow(false)
+
+      // Clear URL params to remove workflowId from URL
+      router.push('/workflows/builder')
+
       // Refresh the workflow list
       await loadWorkflows()
       setSnackbar({ open: true, message: 'Workflow deleted successfully', severity: 'success' })
@@ -410,7 +416,7 @@ export default function WorkflowBuilderPage() {
         description: workflowDescription || currentWorkflow.description,
       }
 
-      console.log('[Save] Sending to backend:', JSON.stringify(workflowToSave, null, 2))
+      console.log('[Save] Sending to backend:')
 
       // Save workflow with is_active parameter - backend handles deactivating others
       const saveResult = await saveWorkflowDefinition(
@@ -429,6 +435,8 @@ export default function WorkflowBuilderPage() {
           description: workflowDescription || currentWorkflow.description,
         }
         dispatch(setWorkflow(updatedWorkflow))
+
+        router.push(`/workflows/builder?workflowId=${saveResult.workflow_id}`)
       }
 
       // Show appropriate success message
@@ -848,7 +856,7 @@ export default function WorkflowBuilderPage() {
               label="Set as Active"
               sx={{ ml: 1 }}
             />
-            {isActiveWorkflow && (
+            {(isActiveWorkflow || currentWorkflow?.is_active) && (
               <Chip
                 label={currentWorkflow?.workflow_id && currentWorkflow?.is_active ? "Active" : "Will be set as active"}
                 color="success"
