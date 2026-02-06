@@ -119,6 +119,19 @@ export default function WorkflowBuilderPage() {
     // is_active field is used directly when loading workflows
   }, [])
 
+  // Sync form fields from Redux state when workflow exists (e.g., when navigating back)
+  useEffect(() => {
+    if (currentWorkflow) {
+      // Only update if fields are empty and workflow has values
+      if (!workflowName && currentWorkflow.name)
+        setWorkflowName(currentWorkflow.name)
+      if (!workflowDescription && currentWorkflow.description)
+        setWorkflowDescription(currentWorkflow.description)
+      if (!selectedWorkflowId && currentWorkflow.workflow_id)
+        setSelectedWorkflowId(currentWorkflow.workflow_id)
+    }
+  }, [currentWorkflow?.workflow_id]) // Re-run when workflow ID changes
+
   // Auto-load workflow from URL - URL is the single source of truth
   useEffect(() => {
     // URL with the workflow ID for shareable links and browser navigation
