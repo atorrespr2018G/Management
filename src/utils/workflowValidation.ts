@@ -31,7 +31,7 @@ export function validateWorkflow(workflow: WorkflowDefinition | null): Validatio
     nodeIds.add(node.id)
 
     // Validate node type
-    const validTypes = ['agent', 'conditional', 'fanout', 'loop', 'merge']
+    const validTypes = ['agent', 'conditional', 'fanout', 'loop', 'merge', 'loop_body', 'loop_exit']
     if (!validTypes.includes(node.type)) {
       errors.push({
         field: `nodes[${index}].type`,

@@ -39,7 +39,7 @@ export default function ConditionalEdge({
         d={edgePath}
         markerEnd={markerEnd}
       />
-      {data?.condition && (
+      {/* {data?.condition && (
         <foreignObject
           width={150}
           height={40}
@@ -64,7 +64,7 @@ export default function ConditionalEdge({
               : data.condition}
           </Box>
         </foreignObject>
-      )}
+      )} */}
     </>
   )
 }

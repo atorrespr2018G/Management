@@ -4,7 +4,8 @@
 
 'use client'
 
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import {
   Box,
   Typography,
@@ -44,6 +45,7 @@ import type { AppDispatch, RootState } from '@/store/store'
 import {
   setWorkflow,
   addNode,
+  addEdge,
   clearWorkflow,
   setSelectedNode,
   setError,
@@ -71,6 +73,8 @@ import { getAgents } from '@/services/agentApi'
 import type { WorkflowDefinition, NodeType } from '@/types/workflow'
 import type { Agent } from '@/services/agentApi'
 import { validateWorkflow as validateWorkflowClient } from '@/utils/workflowValidation'
+import { createLoopCluster } from '@/utils/loopClusterUtils'
+import { serializeWorkflowForBackend, deserializeWorkflowFromBackend } from '@/utils/workflowSerialization'
 import { v4 as uuidv4 } from 'uuid'
 
 export default function WorkflowBuilderPage() {
@@ -105,12 +109,67 @@ export default function WorkflowBuilderPage() {
   })
 
   const selectedNode = currentWorkflow?.nodes.find((n) => n.id === selectedNodeId) || null
+  const searchParams = useSearchParams()
+  const router = useRouter()
 
   useEffect(() => {
     loadAgents()
     loadWorkflows()
-    checkActiveWorkflow()
+    // No need to check active workflow on mount 
+    // is_active field is used directly when loading workflows
   }, [])
+
+  // Sync form fields from Redux state when workflow exists (e.g., when navigating back)
+  useEffect(() => {
+    if (currentWorkflow) {
+      // Only update if fields are empty and workflow has values
+      if (!workflowName && currentWorkflow.name)
+        setWorkflowName(currentWorkflow.name)
+      if (!workflowDescription && currentWorkflow.description)
+        setWorkflowDescription(currentWorkflow.description)
+      if (!selectedWorkflowId && currentWorkflow.workflow_id)
+        setSelectedWorkflowId(currentWorkflow.workflow_id)
+    }
+  }, [currentWorkflow?.workflow_id]) // Re-run when workflow ID changes
+
+  // Auto-load workflow from URL - URL is the single source of truth
+  useEffect(() => {
+    // URL with the workflow ID for shareable links and browser navigation
+    const workflowIdFromUrl = searchParams.get('workflowId')
+
+    // Load if URL has a workflow ID that differs from current workflow
+    if (workflowIdFromUrl && currentWorkflow?.workflow_id !== workflowIdFromUrl) {
+      const loadFromUrl = async () => {
+        try {
+          const workflow = await getWorkflowDefinition(undefined, workflowIdFromUrl)
+
+          // Deserialize backend format to UI format (reconstitute loop clusters)
+          const { nodes: uiNodes, edges: uiEdges } = deserializeWorkflowFromBackend(workflow)
+
+          // Ensure workflow_id is preserved
+          const workflowWithId = {
+            ...workflow,
+            nodes: uiNodes,
+            edges: uiEdges,
+            workflow_id: workflow.workflow_id || workflowIdFromUrl
+          }
+
+          dispatch(setWorkflow(workflowWithId))
+          setWorkflowName(workflow.name || '')
+          setWorkflowDescription(workflow.description || '')
+          setSelectedWorkflowId(workflowIdFromUrl)
+
+          // Set checkbox based on workflow's is_active field
+          setIsActiveWorkflow(workflow.is_active === true)
+
+          setSnackbar({ open: true, message: `Workflow "${workflow.name}" loaded successfully`, severity: 'success' })
+        } catch (error: any) {
+          setSnackbar({ open: true, message: error.message || 'Failed to load workflow from URL', severity: 'error' })
+        }
+      }
+      loadFromUrl()
+    }
+  }, [searchParams.get('workflowId'), dispatch])
 
   const loadAgents = async () => {
     try {
@@ -163,27 +222,18 @@ export default function WorkflowBuilderPage() {
 
   const handleLoadWorkflow = async () => {
     if (!selectedWorkflowId) {
-      setSnackbar({ open: true, message: 'Please select a workflow to load', severity: 'error' })
+      setSnackbar({ open: true, message: 'Please select a workflow', severity: 'error' })
       return
     }
 
-    try {
-      const workflow = await getWorkflowDefinition(undefined, selectedWorkflowId)
-      // Ensure workflow_id is preserved
-      const workflowWithId = { ...workflow, workflow_id: workflow.workflow_id || selectedWorkflowId }
-      dispatch(setWorkflow(workflowWithId))
-      setWorkflowName(workflow.name || '')
-      setWorkflowDescription(workflow.description || '')
+    // Navigate to URL with workflow ID - auto-load effect will handle loading
+    router.push(`/workflows/builder?workflowId=${selectedWorkflowId}`)
 
-      // Check if this workflow is active
-      await checkActiveWorkflow()
-
-      setSnackbar({ open: true, message: 'Workflow loaded successfully', severity: 'success' })
-    } catch (error: any) {
-      setSnackbar({ open: true, message: error.message || 'Failed to load workflow', severity: 'error' })
+    // Close menu after loading
+    if (moreMenuAnchor) {
+      setMoreMenuAnchor(null)
     }
   }
-
   const handleDeleteWorkflow = async () => {
     const workflowIdToDelete = currentWorkflow?.workflow_id || selectedWorkflowId
 
@@ -198,12 +248,17 @@ export default function WorkflowBuilderPage() {
 
     try {
       await deleteWorkflow(workflowIdToDelete)
+
       // Clear the current workflow from the screen
       dispatch(clearWorkflow())
       setWorkflowName('')
       setWorkflowDescription('')
       setSelectedWorkflowId('')
       setIsActiveWorkflow(false)
+
+      // Clear URL params to remove workflowId from URL
+      router.push('/workflows/builder')
+
       // Refresh the workflow list
       await loadWorkflows()
       setSnackbar({ open: true, message: 'Workflow deleted successfully', severity: 'success' })
@@ -221,6 +276,24 @@ export default function WorkflowBuilderPage() {
 
   const handleNodeTypeSelect = useCallback(
     (type: NodeType) => {
+      // Special handling for loop: create 3-card cluster
+      if (type === 'loop') {
+        const { loopNode, bodyNode, exitNode } = createLoopCluster()
+
+        // Add all three nodes
+        dispatch(addNode(loopNode))
+        dispatch(addNode(bodyNode))
+        dispatch(addNode(exitNode))
+
+        // Add UI-only visual connections using two-port topology: Loop → Body, Loop → Exit
+        dispatch(addEdge({ from_node: loopNode.id, to_node: bodyNode.id, condition: '__ui_cluster__' }))
+        dispatch(addEdge({ from_node: loopNode.id, to_node: exitNode.id, condition: '__ui_cluster__' }))
+
+        dispatch(setSelectedNode(loopNode.id))
+
+        return
+      }
+
       // For click-based addition, add to center of viewport
       // Position will be set by ReactFlow's default layout
       const newNodeId = `${type}_${uuidv4().substring(0, 8)}`
@@ -239,6 +312,30 @@ export default function WorkflowBuilderPage() {
 
   const handleNodeDrop = useCallback(
     (nodeType: string, position: { x: number; y: number }) => {
+      // Special handling for loop: create 3-card cluster
+      if (nodeType === 'loop') {
+        const { loopNode, bodyNode, exitNode } = createLoopCluster()
+
+        // Add position to loop node
+        // Add position to nodes, merging with existing params
+        loopNode.params = { ...loopNode.params, position }
+        bodyNode.params = { ...bodyNode.params, position: { x: position.x + 200, y: position.y } }
+        exitNode.params = { ...exitNode.params, position: { x: position.x + 400, y: position.y } }
+
+        // Add all three nodes
+        dispatch(addNode(loopNode))
+        dispatch(addNode(bodyNode))
+        dispatch(addNode(exitNode))
+
+        // Add UI-only visual connections using two-port topology: Loop → Body, Loop → Exit
+        dispatch(addEdge({ from_node: loopNode.id, to_node: bodyNode.id, condition: '__ui_cluster__' }))
+        dispatch(addEdge({ from_node: loopNode.id, to_node: exitNode.id, condition: '__ui_cluster__' }))
+
+        dispatch(setSelectedNode(loopNode.id))
+
+        return
+      }
+
       const newNodeId = `${nodeType}_${uuidv4().substring(0, 8)}`
       const newNode = {
         id: newNodeId,
@@ -263,22 +360,101 @@ export default function WorkflowBuilderPage() {
     }
 
     try {
+      // REMOVED: Loop cluster validation - allow saving incomplete workflows
+      // const validationErrors = validateBeforeSave(currentWorkflow.nodes, currentWorkflow.edges)
+      // if (validationErrors.length > 0) {
+      //   setSnackbar({
+      //     open: true,
+      //     message: `Validation errors: ${validationErrors.join('. ')}`,
+      //     severity: 'error'
+      //   })
+      //   return
+      // }
+
+      // Serialize UI format to backend format
+      const { nodes: backendNodes, edges: backendEdges } = serializeWorkflowForBackend(
+        currentWorkflow.nodes,
+        currentWorkflow.edges
+      )
+
+      // REMOVED: Loop entry node restriction - allow loops as entry nodes
+      // const entryNode = currentWorkflow.nodes.find(n => n.id === currentWorkflow.entry_node_id)
+      // if (entryNode?.type === 'loop') {
+      //   setSnackbar({
+      //     open: true,
+      //     message: 'Loop cannot be the graph entry in Phase 1. Add an upstream node that produces non-empty output.',
+      //     severity: 'error'
+      //   })
+      //   return
+      // }
+
+      // CRITICAL: Assert no UI cluster edges leaked through
+      const leakedUIEdges = backendEdges.filter(e =>
+        e.condition?.includes('ui_cluster')
+      )
+
+      if (leakedUIEdges.length > 0) {
+        console.error('🚨 UI CLUSTER LEAK DETECTED:', leakedUIEdges)
+        setSnackbar({
+          open: true,
+          message: `Cannot save: ${leakedUIEdges.length} UI cluster edge(s) leaked into backend payload. This is a bug - please report it.`,
+          severity: 'error'
+        })
+        return
+      }
+
+      // REMOVED: Loop required edges validation - allow incomplete loop configurations
+      // const loopNodes = backendNodes.filter(n => n.type === 'loop')
+      // for (const loop of loopNodes) {
+      //   const loopEdges = backendEdges.filter(e => e.from_node === loop.id)
+      //   const hasContinue = loopEdges.some(e => e.condition === 'loop_continue')
+      //   const hasExit = loopEdges.some(e => e.condition === 'loop_exit')
+
+      //   if (!hasContinue || !hasExit) {
+      //     console.error(`Loop ${loop.id} missing required edges:`, { hasContinue, hasExit, edges: loopEdges })
+      //     setSnackbar({
+      //       open: true,
+      //       message: `Loop ${loop.id} is missing ${!hasContinue ? 'loop_continue' : ''} ${!hasExit ? 'loop_exit' : ''} edge(s)`,
+      //       severity: 'error'
+      //     })
+      //     return
+      //   }
+      // }
+
       const workflowToSave: WorkflowDefinition = {
         ...currentWorkflow,
+        nodes: backendNodes,
+        edges: backendEdges,
         name: workflowName || currentWorkflow.name || 'Untitled Workflow',
         description: workflowDescription || currentWorkflow.description,
       }
-      const saveResult = await saveWorkflowDefinition(workflowToSave, workflowName)
 
-      // Set as active workflow if isActiveWorkflow is true
-      if (isActiveWorkflow && saveResult.workflow_id) {
-        try {
-          await setActiveWorkflow(saveResult.workflow_id)
-          setSnackbar({ open: true, message: 'Workflow saved and set as active successfully', severity: 'success' })
-        } catch (error: any) {
-          // Workflow saved but failed to set as active
-          setSnackbar({ open: true, message: `Workflow saved but failed to set as active: ${error.message}`, severity: 'error' })
+      console.log('[Save] Sending to backend:')
+
+      // Save workflow with is_active parameter - backend handles deactivating others
+      const saveResult = await saveWorkflowDefinition(
+        workflowToSave,
+        workflowName,
+        isActiveWorkflow
+      )
+
+      // Update currentWorkflow with the saved workflow_id and is_active status
+      if (saveResult.workflow_id) {
+        const updatedWorkflow = {
+          ...currentWorkflow,
+          workflow_id: saveResult.workflow_id,
+          is_active: isActiveWorkflow,
+          name: workflowName || currentWorkflow.name || 'Untitled Workflow',
+          description: workflowDescription || currentWorkflow.description,
         }
+        dispatch(setWorkflow(updatedWorkflow))
+
+        router.push(`/workflows/builder?workflowId=${saveResult.workflow_id}`)
+      }
+
+      // Show appropriate success message
+      if (isActiveWorkflow) {
+        setSnackbar({ open: true, message: 'Workflow saved and set as active successfully', severity: 'success' })
       } else {
         setSnackbar({ open: true, message: 'Workflow saved successfully', severity: 'success' })
       }
@@ -371,6 +547,9 @@ export default function WorkflowBuilderPage() {
     const file = event.target.files?.[0]
     if (!file) return
 
+    // Close the menu now that file is selected
+    setMoreMenuAnchor(null)
+
     const reader = new FileReader()
     reader.onload = (e) => {
       try {
@@ -390,6 +569,10 @@ export default function WorkflowBuilderPage() {
     dispatch(clearWorkflow())
     setWorkflowName('')
     setWorkflowDescription('')
+    setIsActiveWorkflow(false)
+
+    // Clear URL params - this prevents auto-reload since URL won't have workflowId
+    router.push('/workflows/builder')
   }
 
   const handleVisualize = async () => {
@@ -686,9 +869,9 @@ export default function WorkflowBuilderPage() {
               label="Set as Active"
               sx={{ ml: 1 }}
             />
-            {isActiveWorkflow && (
+            {(isActiveWorkflow || currentWorkflow?.is_active) && (
               <Chip
-                label="Will be set as active"
+                label={currentWorkflow?.workflow_id && currentWorkflow?.is_active ? "Active" : "Will be set as active"}
                 color="success"
                 size="small"
                 sx={{ ml: 1 }}
@@ -753,10 +936,7 @@ export default function WorkflowBuilderPage() {
                 <ExportIcon sx={{ mr: 1, fontSize: 20 }} />
                 Export
               </MenuItem>
-              <MenuItem
-                component="label"
-                onClick={() => setMoreMenuAnchor(null)}
-              >
+              <MenuItem component="label">
                 <ImportIcon sx={{ mr: 1, fontSize: 20 }} />
                 Import
                 <input type="file" accept=".json" hidden onChange={handleImport} />

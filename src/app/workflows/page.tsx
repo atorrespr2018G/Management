@@ -115,7 +115,7 @@ export default function WorkflowsPage() {
   }
 
   const filteredExecutions = executions.filter((exec) => {
-    const matchesSearch = 
+    const matchesSearch =
       exec.goal.toLowerCase().includes(searchTerm.toLowerCase()) ||
       exec.run_id.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === 'all' || exec.status === statusFilter
@@ -156,7 +156,7 @@ export default function WorkflowsPage() {
                 key={wf.workflow_id}
                 label={wf.name || wf.workflow_id}
                 onClick={() => router.push(`/workflows/builder?workflowId=${wf.workflow_id}`)}
-                color={wf.is_active || wf.workflow_id === activeWorkflowId ? 'primary' : 'default'}
+                color={wf.is_active || wf.workflow_id === activeWorkflowId ? 'success' : 'default'}
                 variant={wf.is_active || wf.workflow_id === activeWorkflowId ? 'filled' : 'outlined'}
                 sx={{ cursor: 'pointer' }}
               />
@@ -198,8 +198,8 @@ export default function WorkflowsPage() {
         </FormControl>
         {activeWorkflowId && (
           <Chip
-            label={`Active: ${savedWorkflows.find(w => w.workflow_id === activeWorkflowId)?.name || 'Workflow'}`}
-            color="primary"
+            label={`Active: '${savedWorkflows.find(w => w.workflow_id === activeWorkflowId)?.name || 'Unknown'}'`}
+            color="success"
             size="small"
             sx={{ ml: 'auto' }}
           />
@@ -244,6 +244,7 @@ export default function WorkflowsPage() {
                       label={execution.status}
                       size="small"
                       color={getStatusColor(execution.status)}
+                      variant="outlined"
                     />
                   </TableCell>
                   <TableCell>

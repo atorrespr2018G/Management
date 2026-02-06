@@ -159,7 +159,7 @@ export default function NodePropertyPanel({
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
           Node Properties
         </Typography>
-        {onDelete && (
+        {onDelete && node.type !== 'loop_body' && node.type !== 'loop_exit' && (
           <Button
             variant="outlined"
             color="error"

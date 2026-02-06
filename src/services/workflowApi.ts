@@ -115,7 +115,7 @@ export async function getWorkflowDefinition(graphPath?: string, workflowId?: str
   const params = new URLSearchParams()
   if (graphPath) params.append('graph_path', graphPath)
   if (workflowId) params.append('workflow_id', workflowId)
-  
+
   const url = `${API_BASE_URL}/api/v1/workflows/definitions${params.toString() ? `?${params.toString()}` : ''}`
 
   const response = await fetch(url)
@@ -135,14 +135,19 @@ export async function getWorkflowDefinition(graphPath?: string, workflowId?: str
  */
 export async function saveWorkflowDefinition(
   definition: WorkflowDefinition,
-  name?: string
+  name?: string,
+  isActive?: boolean
 ): Promise<{ success: boolean; path?: string; workflow_id?: string }> {
   const response = await fetch(`${API_BASE_URL}/api/v1/workflows/definitions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ definition, name }),
+    body: JSON.stringify({
+      ...definition,
+      name: name || definition.name,
+      is_active: isActive ?? false  // Default to false
+    }),
   })
 
   if (!response.ok) {
