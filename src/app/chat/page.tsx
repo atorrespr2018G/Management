@@ -18,6 +18,8 @@ import {
   Drawer,
   useMediaQuery,
   useTheme,
+  Snackbar,
+  Alert,
 } from '@mui/material'
 import SendIcon from '@mui/icons-material/Send'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
@@ -44,6 +46,11 @@ export default function ChatPage() {
   const [isSending, setIsSending] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null)
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  })
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -78,13 +85,42 @@ export default function ChatPage() {
 
   const handleSend = async () => {
     const query = inputValue.trim()
-    if (!query || isSending || !currentUser) return
+    
+    if (!query) {
+      setSnackbar({
+        open: true,
+        message: 'Please enter a message',
+        severity: 'warning',
+      })
+      return
+    }
+    
+    if (!currentUser || !isAuthenticated) {
+      setSnackbar({
+        open: true,
+        message: 'Please log in to send messages',
+        severity: 'warning',
+      })
+      return
+    }
+    
+    if (isSending) return
 
     // If no active session, create one first
     let currentSessionId = activeSessionId
     if (!currentSessionId) {
-      const newSession = await dispatch(createSession()).unwrap()
-      currentSessionId = newSession.id
+      try {
+        const newSession = await dispatch(createSession()).unwrap()
+        currentSessionId = newSession.id
+      } catch (error) {
+        setSnackbar({
+          open: true,
+          message: error instanceof Error ? error.message : 'Failed to create chat session',
+          severity: 'error',
+        })
+        setIsSending(false)
+        return
+      }
     }
 
     // Add user message optimistically
@@ -141,10 +177,25 @@ export default function ChatPage() {
     }
   }
 
-  const handleNewChat = () => {
-    if (currentUser) {
-      dispatch(createSession())
+  const handleNewChat = async () => {
+    if (!currentUser || !isAuthenticated) {
+      setSnackbar({
+        open: true,
+        message: 'Please log in to create a new chat session',
+        severity: 'warning',
+      })
+      return
+    }
+
+    try {
+      await dispatch(createSession()).unwrap()
       if (isMobile) setMobileOpen(false)
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error instanceof Error ? error.message : 'Failed to create new chat session',
+        severity: 'error',
+      })
     }
   }
 
@@ -552,6 +603,21 @@ export default function ChatPage() {
         title="Delete Chat Session"
         content="Are you sure you want to delete this chat session? This action cannot be undone."
       />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }
