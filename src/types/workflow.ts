@@ -53,6 +53,7 @@ export interface WorkflowRequest {
   workflow_id?: string
   use_graph?: boolean
   checkpoint_dir?: string
+  rlm_enabled?: boolean
 }
 
 export interface WorkflowResponse {
