@@ -92,7 +92,7 @@ export default function WorkflowBuilderPage() {
   const [availableAgents, setAvailableAgents] = useState<Agent[]>([])
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(null)
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>('')
-  const [savedWorkflows, setSavedWorkflows] = useState<Array<{ workflow_id: string; name: string; description?: string; created_at?: string; updated_at?: string }>>([])
+  const [savedWorkflows, setSavedWorkflows] = useState<Array<{ workflow_id: string; name: string; description?: string; created_at?: string; updated_at?: string; is_active?: boolean }>>([])
   const [isLoadingWorkflows, setIsLoadingWorkflows] = useState(false)
   const [isActiveWorkflow, setIsActiveWorkflow] = useState(false)
   const [visualizationDialogOpen, setVisualizationDialogOpen] = useState(false)
@@ -985,7 +985,7 @@ export default function WorkflowBuilderPage() {
                 size="small"
                 startIcon={<VerifiedIcon />}
                 onClick={handleValidate}
-                disabled={!currentWorkflow}
+                disabled={!currentWorkflow?.workflow_id}
                 sx={{ color: 'warning.main', borderColor: 'warning.main' }}
               >
                 Validate
@@ -1129,6 +1129,10 @@ export default function WorkflowBuilderPage() {
                   label="Available Workflows"
                   onChange={(e) => setSelectedWorkflowId(e.target.value)}
                   disabled={isLoadingWorkflows}
+                  renderValue={(value) => {
+                    const selectedWf = savedWorkflows.find(wf => wf.workflow_id === value)
+                    return selectedWf?.name || selectedWf?.workflow_id || ''
+                  }}
                 >
                   {savedWorkflows.map((wf) => {
                     const isCurrentWorkflow = wf.workflow_id === currentWorkflow?.workflow_id
@@ -1138,12 +1142,27 @@ export default function WorkflowBuilderPage() {
                         value={wf.workflow_id}
                         sx={{
                           fontWeight: isCurrentWorkflow ? 600 : 400,
-                          color: isCurrentWorkflow ? 'success.main' : 'inherit'
+                          color: isCurrentWorkflow ? 'success.main' : 'inherit',
                         }}
                       >
-                        <Typography sx={{ fontWeight: isCurrentWorkflow ? 600 : 400, color: isCurrentWorkflow ? 'success.main' : 'inherit' }}>
-                          {wf.name || wf.workflow_id}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                          <Typography sx={{ fontWeight: isCurrentWorkflow ? 600 : 400, color: isCurrentWorkflow ? 'success.main' : 'inherit', flexGrow: 1, noWrap: true }}>
+                            {wf.name || wf.workflow_id}
+                          </Typography>
+                          {wf.is_active && (
+                            <Chip
+                              label="Active"
+                              color="success"
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: '0.65rem',
+                                ml: 1,
+                                flexShrink: 0
+                              }}
+                            />
+                          )}
+                        </Box>
                       </MenuItem>
                     )
                   })}
