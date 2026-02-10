@@ -36,9 +36,11 @@ import {
   Delete as DeleteIcon,
   Cancel as ClearIcon,
   CheckCircle as ValidateIcon,
+  Verified as VerifiedIcon,
   PlayArrow as PlayIcon,
   Add as AddIcon,
   MoreVert as MoreVertIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material'
 import { useDispatch, useSelector } from 'react-redux'
 import type { AppDispatch, RootState } from '@/store/store'
@@ -90,7 +92,7 @@ export default function WorkflowBuilderPage() {
   const [availableAgents, setAvailableAgents] = useState<Agent[]>([])
   const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(null)
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>('')
-  const [savedWorkflows, setSavedWorkflows] = useState<Array<{ workflow_id: string; name: string; description?: string; created_at?: string; updated_at?: string }>>([])
+  const [savedWorkflows, setSavedWorkflows] = useState<Array<{ workflow_id: string; name: string; description?: string; created_at?: string; updated_at?: string; is_active?: boolean }>>([])
   const [isLoadingWorkflows, setIsLoadingWorkflows] = useState(false)
   const [isActiveWorkflow, setIsActiveWorkflow] = useState(false)
   const [visualizationDialogOpen, setVisualizationDialogOpen] = useState(false)
@@ -107,6 +109,15 @@ export default function WorkflowBuilderPage() {
     message: '',
     severity: 'success',
   })
+
+  // Change detection states
+  const [originalWorkflow, setOriginalWorkflow] = useState<WorkflowDefinition | null>(null)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+
+  // Save dialog states (for new workflows)
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false)
+  const [saveDialogName, setSaveDialogName] = useState('')
+  const [saveDialogDescription, setSaveDialogDescription] = useState('')
 
   const selectedNode = currentWorkflow?.nodes.find((n) => n.id === selectedNodeId) || null
   const searchParams = useSearchParams()
@@ -137,6 +148,27 @@ export default function WorkflowBuilderPage() {
     // URL with the workflow ID for shareable links and browser navigation
     const workflowIdFromUrl = searchParams.get('workflowId')
 
+    // Initialize new workflow if no ID in URL
+    if (!workflowIdFromUrl) {
+      if (!currentWorkflow || currentWorkflow.workflow_id) {
+        const newWorkflow: WorkflowDefinition = {
+          name: '',
+          description: '',
+          nodes: [],
+          edges: [],
+          is_active: false,
+        }
+        dispatch(setWorkflow(newWorkflow))
+        setOriginalWorkflow(null)
+        setHasUnsavedChanges(false)
+        setWorkflowName('')
+        setWorkflowDescription('')
+        setSelectedWorkflowId('')
+        setIsActiveWorkflow(false)
+      }
+      return
+    }
+
     // Load if URL has a workflow ID that differs from current workflow
     if (workflowIdFromUrl && currentWorkflow?.workflow_id !== workflowIdFromUrl) {
       const loadFromUrl = async () => {
@@ -155,6 +187,8 @@ export default function WorkflowBuilderPage() {
           }
 
           dispatch(setWorkflow(workflowWithId))
+          setOriginalWorkflow(workflowWithId) // Store snapshot for change detection
+          setHasUnsavedChanges(false) // Reset changes after load
           setWorkflowName(workflow.name || '')
           setWorkflowDescription(workflow.description || '')
           setSelectedWorkflowId(workflowIdFromUrl)
@@ -170,6 +204,53 @@ export default function WorkflowBuilderPage() {
       loadFromUrl()
     }
   }, [searchParams.get('workflowId'), dispatch])
+
+  // Deep comparison to detect workflow changes
+  const hasWorkflowChanged = (current: WorkflowDefinition | null, original: WorkflowDefinition | null): boolean => {
+    if (!current || !original) return false
+
+    // Compare nodes count
+    if (current.nodes.length !== original.nodes.length) return true
+
+    // Compare edges count
+    if (current.edges.length !== original.edges.length) return true
+
+    // Deep compare nodes (id, type, agent_id, params, inputs, outputs)
+    for (const node of current.nodes) {
+      const origNode = original.nodes.find(n => n.id === node.id)
+      if (!origNode) return true // New node
+
+      if (node.type !== origNode.type) return true
+      if (node.agent_id !== origNode.agent_id) return true
+      if (JSON.stringify(node.params) !== JSON.stringify(origNode.params)) return true
+      if (JSON.stringify(node.inputs) !== JSON.stringify(origNode.inputs)) return true
+      if (JSON.stringify(node.outputs) !== JSON.stringify(origNode.outputs)) return true
+    }
+
+    // Deep compare edges (sort for consistent comparison)
+    const currentEdgesStr = JSON.stringify(
+      [...current.edges].sort((a, b) => `${a.from_node}-${a.to_node}`.localeCompare(`${b.from_node}-${b.to_node}`))
+    )
+    const originalEdgesStr = JSON.stringify(
+      [...original.edges].sort((a, b) => `${a.from_node}-${a.to_node}`.localeCompare(`${b.from_node}-${b.to_node}`))
+    )
+
+    return currentEdgesStr !== originalEdgesStr
+  }
+
+  // Detect changes in workflow
+  useEffect(() => {
+    if (currentWorkflow && originalWorkflow) {
+      const contentChanged = hasWorkflowChanged(currentWorkflow, originalWorkflow)
+      // Check if active status changed (compare against original snapshot)
+      const activeChanged = (originalWorkflow.is_active === true) !== isActiveWorkflow
+
+      setHasUnsavedChanges(contentChanged || activeChanged)
+    } else {
+      // No original workflow means new workflow
+      setHasUnsavedChanges(false)
+    }
+  }, [currentWorkflow, originalWorkflow, isActiveWorkflow])
 
   const loadAgents = async () => {
     try {
@@ -234,6 +315,7 @@ export default function WorkflowBuilderPage() {
       setMoreMenuAnchor(null)
     }
   }
+
   const handleDeleteWorkflow = async () => {
     const workflowIdToDelete = currentWorkflow?.workflow_id || selectedWorkflowId
 
@@ -353,13 +435,64 @@ export default function WorkflowBuilderPage() {
   )
 
 
-  const handleSave = async () => {
+  // Route to dialog for new workflows, direct save for existing
+  const handleSaveClick = () => {
+    if (!Boolean(searchParams.get('workflowId'))) {
+      // New workflow - open dialog to get name
+      setSaveDialogOpen(true)
+    } else {
+      // Existing workflow - save directly
+      handleSave()
+    }
+  }
+
+  // Save workflow after name entered in dialog
+  const handleSaveFromDialog = async () => {
+    const nameToSave = saveDialogName.trim()
+    const descToSave = saveDialogDescription.trim()
+
+    if (!nameToSave) {
+      setSnackbar({ open: true, message: 'Workflow name is required', severity: 'error' })
+      return
+    }
+
+    // Check for duplicate name (case insensitive)
+    const isDuplicate = savedWorkflows.some(w =>
+      w.name?.toLowerCase() === nameToSave.toLowerCase() &&
+      w.workflow_id !== currentWorkflow?.workflow_id
+    )
+
+    if (isDuplicate) {
+      setSnackbar({ open: true, message: 'A workflow with this name already exists. Please choose a different name.', severity: 'error' })
+      return
+    }
+
+    // Set the workflow name and description from dialog
+    setWorkflowName(nameToSave)
+    setWorkflowDescription(descToSave)
+
+    // Close dialog
+    setSaveDialogOpen(false)
+
+    // Save directly with the new name/desc to avoid state closure issues
+    await handleSave(nameToSave, descToSave)
+
+    // Clear dialog fields
+    setSaveDialogName('')
+    setSaveDialogDescription('')
+  }
+
+  const handleSave = async (nameOverride?: string, descOverride?: string) => {
     if (!currentWorkflow) {
       setSnackbar({ open: true, message: 'No workflow to save', severity: 'error' })
       return
     }
 
     try {
+      // Determines values to use: overrides > state > current > default
+      const effectiveName = nameOverride || workflowName || currentWorkflow.name || 'Untitled Workflow'
+      const effectiveDesc = descOverride || workflowDescription || currentWorkflow.description || ''
+
       // REMOVED: Loop cluster validation - allow saving incomplete workflows
       // const validationErrors = validateBeforeSave(currentWorkflow.nodes, currentWorkflow.edges)
       // if (validationErrors.length > 0) {
@@ -425,8 +558,8 @@ export default function WorkflowBuilderPage() {
         ...currentWorkflow,
         nodes: backendNodes,
         edges: backendEdges,
-        name: workflowName || currentWorkflow.name || 'Untitled Workflow',
-        description: workflowDescription || currentWorkflow.description,
+        name: effectiveName,
+        description: effectiveDesc,
       }
 
       console.log('[Save] Sending to backend:')
@@ -434,7 +567,7 @@ export default function WorkflowBuilderPage() {
       // Save workflow with is_active parameter - backend handles deactivating others
       const saveResult = await saveWorkflowDefinition(
         workflowToSave,
-        workflowName,
+        effectiveName,
         isActiveWorkflow
       )
 
@@ -444,19 +577,22 @@ export default function WorkflowBuilderPage() {
           ...currentWorkflow,
           workflow_id: saveResult.workflow_id,
           is_active: isActiveWorkflow,
-          name: workflowName || currentWorkflow.name || 'Untitled Workflow',
-          description: workflowDescription || currentWorkflow.description,
+          name: effectiveName,
+          description: effectiveDesc,
         }
         dispatch(setWorkflow(updatedWorkflow))
-
+        setOriginalWorkflow(updatedWorkflow) // Store snapshot for change detection
+        setHasUnsavedChanges(false) // Reset changes after save
+        setSelectedWorkflowId(saveResult.workflow_id)
+        setWorkflowName(effectiveName) // Ensure state reflects saved name
         router.push(`/workflows/builder?workflowId=${saveResult.workflow_id}`)
       }
 
       // Show appropriate success message
       if (isActiveWorkflow) {
-        setSnackbar({ open: true, message: 'Workflow saved and set as active successfully', severity: 'success' })
+        setSnackbar({ open: true, message: `Workflow "${effectiveName}" saved and set as active successfully`, severity: 'success' })
       } else {
-        setSnackbar({ open: true, message: 'Workflow saved successfully', severity: 'success' })
+        setSnackbar({ open: true, message: `Workflow "${effectiveName}" saved successfully`, severity: 'success' })
       }
 
       // Refresh the workflow list to include the newly saved workflow
@@ -807,181 +943,232 @@ export default function WorkflowBuilderPage() {
 
   return (
     <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Typography variant="h5" sx={{ fontWeight: 600, mb: 1 }}>
+        Workflow Builder
+      </Typography>
       {/* Toolbar */}
-      <Paper sx={{ p: 1, mb: 1, overflow: 'auto' }}>
-        <Toolbar disableGutters sx={{ flexWrap: 'wrap', minHeight: '64px !important' }}>
-          <Typography variant="h6" sx={{ flexGrow: 0, mr: 2, fontWeight: 600 }}>
-            Workflow Builder
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1, flexGrow: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>Load Workflow</InputLabel>
-              <Select
-                value={selectedWorkflowId}
-                label="Load Workflow"
-                onChange={(e) => setSelectedWorkflowId(e.target.value)}
-                disabled={isLoadingWorkflows}
-              >
-                <MenuItem value="">
-                  <em>Select a workflow...</em>
-                </MenuItem>
-                {savedWorkflows.map((wf) => (
-                  <MenuItem key={wf.workflow_id} value={wf.workflow_id}>
-                    {wf.name || wf.workflow_id}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={handleLoadWorkflow}
-              disabled={!selectedWorkflowId || isLoadingWorkflows}
-            >
-              Load
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              color="error"
-              startIcon={<DeleteIcon />}
-              onClick={handleDeleteWorkflow}
-              disabled={!currentWorkflow?.workflow_id && !selectedWorkflowId}
-              title="Delete the currently loaded workflow"
-            >
-              Delete
-            </Button>
-            <TextField
-              size="small"
-              placeholder="Workflow name"
-              value={workflowName}
-              onChange={(e) => setWorkflowName(e.target.value)}
-              sx={{ minWidth: 200 }}
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={isActiveWorkflow}
-                  onChange={(e) => setIsActiveWorkflow(e.target.checked)}
-                  size="small"
-                />
-              }
-              label="Set as Active"
-              sx={{ ml: 1 }}
-            />
-            {(isActiveWorkflow || currentWorkflow?.is_active) && (
-              <Chip
-                label={currentWorkflow?.workflow_id && currentWorkflow?.is_active ? "Active" : "Will be set as active"}
-                color="success"
-                size="small"
+      <Paper sx={{ px: 2, py: 1, mb: 0.1, overflow: 'auto' }}>
+        <Toolbar disableGutters sx={{ flexDirection: 'column', alignItems: 'flex-start', width: '100%', }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', pb: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', }}>
+              <Typography variant="h6" sx={{ flexGrow: 0, mr: 1, fontWeight: 600, }} color='success.main'>
+                {currentWorkflow?.name ? `${currentWorkflow?.name}` : 'Untitled Workflow'}
+              </Typography>
+
+              {(isActiveWorkflow || currentWorkflow?.is_active) && (
+                (currentWorkflow?.workflow_id && currentWorkflow?.is_active) && (
+                  <Chip
+                    label="Active"
+                    color="success"
+                    size="small"
+                  />
+                )
+              )}
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={isActiveWorkflow}
+                    onChange={(e) => setIsActiveWorkflow(e.target.checked)}
+                    size="small"
+                    color="success"
+                    sx={{ mr: -1 }}
+                  />
+                }
+                label="Set as Active"
                 sx={{ ml: 1 }}
               />
-            )}
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<SaveIcon />}
-              onClick={handleSave}
-              disabled={!currentWorkflow}
-            >
-              Save
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<ValidateIcon />}
-              onClick={handleValidate}
-              disabled={!currentWorkflow}
-            >
-              Validate
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<PlayIcon />}
-              onClick={() => setExecuteDialogOpen(true)}
-              disabled={!currentWorkflow}
-            >
-              Execute
-            </Button>
-            <IconButton
-              size="small"
-              onClick={(e) => setMoreMenuAnchor(e.currentTarget)}
-              sx={{ border: 1, borderColor: 'divider', ml: 0.5 }}
-            >
-              <MoreVertIcon />
-            </IconButton>
-            <Menu
-              anchorEl={moreMenuAnchor}
-              open={Boolean(moreMenuAnchor)}
-              onClose={() => setMoreMenuAnchor(null)}
-            >
-              <MenuItem
-                onClick={() => {
-                  handleClear()
-                  setMoreMenuAnchor(null)
-                }}
-                sx={{ color: 'warning.main' }}
+            </Box>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', width: '100%' }}>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<VerifiedIcon />}
+                onClick={handleValidate}
+                disabled={!currentWorkflow?.workflow_id}
+                sx={{ color: 'warning.main', borderColor: 'warning.main' }}
               >
-                <ClearIcon sx={{ mr: 1, fontSize: 20 }} />
-                Clear
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  handleExport()
-                  setMoreMenuAnchor(null)
-                }}
-                disabled={!currentWorkflow}
+                Validate
+              </Button>
+            </Box>
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', mb: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<SaveIcon />}
+                onClick={handleSaveClick} // Route to dialog or direct save
+                disabled={
+                  !currentWorkflow ||
+                  (Boolean(searchParams.get('workflowId')) ? !hasUnsavedChanges : currentWorkflow.nodes.length === 0)
+                } // New workflow: enabled if has nodes; Existing: enabled if has changes
               >
-                <ExportIcon sx={{ mr: 1, fontSize: 20 }} />
-                Export
-              </MenuItem>
-              <MenuItem component="label">
-                <ImportIcon sx={{ mr: 1, fontSize: 20 }} />
-                Import
-                <input type="file" accept=".json" hidden onChange={handleImport} />
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  handleVisualize()
-                  setMoreMenuAnchor(null)
-                }}
-                disabled={!currentWorkflow}
+                Save
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                color="error"
+                startIcon={<DeleteIcon />}
+                onClick={handleDeleteWorkflow}
+                disabled={!currentWorkflow?.workflow_id}
+                title="Delete the currently loaded workflow"
+                sx={{ ml: 1 }}
               >
-                Visualize
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  handleViewSummary()
-                  setMoreMenuAnchor(null)
-                }}
-                disabled={!currentWorkflow}
+                Delete
+              </Button>
+
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<PlayIcon />}
+                onClick={() => setExecuteDialogOpen(true)}
+                // disabled={!currentWorkflow}
+                disabled={!currentWorkflow?.workflow_id}
+                sx={{ ml: 1 }}
               >
-                Summary
-              </MenuItem>
-              {currentWorkflow?.workflow_id && (
-                <>
-                  <MenuItem
-                    onClick={() => {
-                      handleViewVersions()
-                      setMoreMenuAnchor(null)
-                    }}
-                    disabled={!currentWorkflow.workflow_id}
-                  >
-                    Versions
-                  </MenuItem>
-                  <MenuItem
-                    onClick={() => {
-                      handleAnalyze()
-                      setMoreMenuAnchor(null)
-                    }}
-                    disabled={!currentWorkflow.workflow_id}
-                  >
-                    Analyze
-                  </MenuItem>
-                </>
-              )}
-            </Menu>
+                Execute
+              </Button>
+              <IconButton
+                size="small"
+                onClick={(e) => setMoreMenuAnchor(e.currentTarget)}
+                sx={{ border: 1, borderColor: 'divider', ml: 1 }}
+              >
+                <MoreVertIcon />
+              </IconButton>
+              <Menu
+                anchorEl={moreMenuAnchor}
+                open={Boolean(moreMenuAnchor)}
+                onClose={() => setMoreMenuAnchor(null)}
+              >
+                <MenuItem
+                  onClick={() => {
+                    handleClear()
+                    setMoreMenuAnchor(null)
+                  }}
+                  sx={{ color: 'warning.main' }}
+                >
+                  <ClearIcon sx={{ mr: 1, fontSize: 20 }} />
+                  Clear
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    handleExport()
+                    setMoreMenuAnchor(null)
+                  }}
+                  disabled={!currentWorkflow}
+                >
+                  <ExportIcon sx={{ mr: 1, fontSize: 20 }} />
+                  Export
+                </MenuItem>
+                <MenuItem component="label">
+                  <ImportIcon sx={{ mr: 1, fontSize: 20 }} />
+                  Import
+                  <input type="file" accept=".json" hidden onChange={handleImport} />
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    handleVisualize()
+                    setMoreMenuAnchor(null)
+                  }}
+                  disabled={!currentWorkflow}
+                >
+                  Visualize
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    handleViewSummary()
+                    setMoreMenuAnchor(null)
+                  }}
+                  disabled={!currentWorkflow}
+                >
+                  Summary
+                </MenuItem>
+                {currentWorkflow?.workflow_id && (
+                  <>
+                    <MenuItem
+                      onClick={() => {
+                        handleViewVersions()
+                        setMoreMenuAnchor(null)
+                      }}
+                      disabled={!currentWorkflow.workflow_id}
+                    >
+                      Versions
+                    </MenuItem>
+                    <MenuItem
+                      onClick={() => {
+                        handleAnalyze()
+                        setMoreMenuAnchor(null)
+                      }}
+                      disabled={!currentWorkflow.workflow_id}
+                    >
+                      Analyze
+                    </MenuItem>
+                  </>
+                )}
+              </Menu>
+            </Box>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={handleLoadWorkflow}
+                sx={{ mr: 1 }}
+                disabled={!selectedWorkflowId || isLoadingWorkflows}
+              // color='success'
+              >
+                Load
+              </Button>
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel>Available Workflows</InputLabel>
+                <Select
+                  value={selectedWorkflowId}
+                  label="Available Workflows"
+                  onChange={(e) => setSelectedWorkflowId(e.target.value)}
+                  disabled={isLoadingWorkflows}
+                  renderValue={(value) => {
+                    const selectedWf = savedWorkflows.find(wf => wf.workflow_id === value)
+                    return selectedWf?.name || selectedWf?.workflow_id || ''
+                  }}
+                >
+                  {savedWorkflows.map((wf) => {
+                    const isCurrentWorkflow = wf.workflow_id === currentWorkflow?.workflow_id
+                    return (
+                      <MenuItem
+                        key={wf.workflow_id}
+                        value={wf.workflow_id}
+                        sx={{
+                          fontWeight: isCurrentWorkflow ? 600 : 400,
+                          color: isCurrentWorkflow ? 'success.main' : 'inherit',
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                          <Typography sx={{ fontWeight: isCurrentWorkflow ? 600 : 400, color: isCurrentWorkflow ? 'success.main' : 'inherit', flexGrow: 1, noWrap: true }}>
+                            {wf.name || wf.workflow_id}
+                          </Typography>
+                          {wf.is_active && (
+                            <Chip
+                              label="Active"
+                              color="success"
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: '0.65rem',
+                                ml: 1,
+                                flexShrink: 0
+                              }}
+                            />
+                          )}
+                        </Box>
+                      </MenuItem>
+                    )
+                  })}
+                </Select>
+              </FormControl>
+            </Box>
           </Box>
         </Toolbar>
       </Paper>
@@ -1004,7 +1191,6 @@ export default function WorkflowBuilderPage() {
             readOnly={false}
           />
         </Box>
-
         {/* Property Panel */}
         <Box sx={{ width: 350, borderLeft: 1, borderColor: 'divider' }}>
           <NodePropertyPanel
@@ -1305,6 +1491,95 @@ export default function WorkflowBuilderPage() {
           <Button onClick={() => setAnalysisDialogOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
-    </Box>
+
+      {/* Save Workflow Dialog - for new workflows */}
+      <Dialog
+        open={saveDialogOpen}
+        onClose={() => setSaveDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: 'grey.900',
+            color: 'white',
+            borderRadius: 2
+          }
+        }}
+      >
+        <DialogTitle sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          pb: 1
+        }}>
+          <Typography variant="h5" sx={{ fontWeight: 600, color: 'white' }}>
+            Give your workflow a name
+          </Typography>
+          <IconButton
+            onClick={() => setSaveDialogOpen(false)}
+            sx={{ color: 'grey.400' }}
+            size="small"
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: 'grey.400', mb: 3 }}>
+            Name your workflow once and this will be your workflow identifier in the API.
+            You can change the display name later on.
+          </Typography>
+
+          <TextField
+            label="Workflow name"
+            placeholder="Enter workflow name"
+            value={saveDialogName}
+            onChange={(e) => setSaveDialogName(e.target.value)}
+            fullWidth
+            required
+            autoFocus
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && saveDialogName.trim()) {
+                handleSaveFromDialog()
+              }
+            }}
+            sx={{
+              '& .MuiInputLabel-root': {
+                color: 'grey.400',
+                '&.Mui-focused': { color: 'primary.main' }
+              },
+              '& .MuiInputLabel-asterisk': { color: 'error.main' },
+              '& .MuiInputBase-root': {
+                color: 'white',
+                bgcolor: 'grey.800',
+                '& fieldset': { borderColor: 'grey.700' },
+                '&:hover fieldset': { borderColor: 'grey.600' },
+                '&.Mui-focused fieldset': { borderColor: 'primary.main' }
+              }
+            }}
+          />
+
+          <Typography variant="caption" sx={{ color: 'grey.500', mt: 0.5, display: 'block' }}>
+            Workflow name should be unique.
+          </Typography>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={() => setSaveDialogOpen(false)}
+            sx={{ color: 'grey.400' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveFromDialog}
+            disabled={!saveDialogName.trim()}
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box >
   )
 }
