@@ -947,9 +947,9 @@ export default function WorkflowBuilderPage() {
         Workflow Builder
       </Typography>
       {/* Toolbar */}
-      <Paper sx={{ p: 1, mb: 1, overflow: 'auto' }}>
-        <Toolbar disableGutters sx={{ flexDirection: 'column', alignItems: 'flex-start', width: '100%', py: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', mb: 1 }}>
+      <Paper sx={{ px: 2, py: 1, mb: 0.1, overflow: 'auto' }}>
+        <Toolbar disableGutters sx={{ flexDirection: 'column', alignItems: 'flex-start', width: '100%', }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', pb: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', }}>
               <Typography variant="h6" sx={{ flexGrow: 0, mr: 1, fontWeight: 600, }} color='success.main'>
                 {currentWorkflow?.name ? `${currentWorkflow?.name}` : 'Untitled Workflow'}
@@ -977,9 +977,7 @@ export default function WorkflowBuilderPage() {
                 label="Set as Active"
                 sx={{ ml: 1 }}
               />
-
             </Box>
-
 
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', width: '100%' }}>
               <Button
@@ -1132,9 +1130,6 @@ export default function WorkflowBuilderPage() {
                   onChange={(e) => setSelectedWorkflowId(e.target.value)}
                   disabled={isLoadingWorkflows}
                 >
-                  <MenuItem value="">
-                    <em>Select a workflow...</em>
-                  </MenuItem>
                   {savedWorkflows.map((wf) => {
                     const isCurrentWorkflow = wf.workflow_id === currentWorkflow?.workflow_id
                     return (
