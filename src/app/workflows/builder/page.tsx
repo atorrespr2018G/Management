@@ -941,8 +941,16 @@ export default function WorkflowBuilderPage() {
     setSnackbar({ open: true, message: 'Agents connected successfully', severity: 'success' })
   }
 
+  const ActiveGreenCircleCss = {
+    display: 'inline-block', // or 'flex', 'block'
+    width: '12px',
+    height: '12px',
+    backgroundColor: 'green',
+    borderRadius: '50%',
+  };
+
   return (
-    <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ width: '100%', height: 'calc(100vh - 96px)', display: 'flex', flexDirection: 'column' }}>
       <Typography variant="h5" sx={{ fontWeight: 600, mb: 1 }}>
         Workflow Builder
       </Typography>
@@ -1146,21 +1154,22 @@ export default function WorkflowBuilderPage() {
                         }}
                       >
                         <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                          <Typography sx={{ fontWeight: isCurrentWorkflow ? 600 : 400, color: isCurrentWorkflow ? 'success.main' : 'inherit', flexGrow: 1, noWrap: true }}>
+                          <Typography sx={{ fontWeight: isCurrentWorkflow ? 600 : 400, color: isCurrentWorkflow ? 'success.main' : 'inherit', flexGrow: 1 }}>
                             {wf.name || wf.workflow_id}
                           </Typography>
                           {wf.is_active && (
-                            <Chip
-                              label="Active"
-                              color="success"
-                              size="small"
-                              sx={{
-                                height: 20,
-                                fontSize: '0.65rem',
-                                ml: 1,
-                                flexShrink: 0
-                              }}
-                            />
+                            // <Chip
+                            //   label=""
+                            //   color="success"
+                            //   size="small"
+                            //   sx={{
+                            //     height: 20,
+                            //     fontSize: '0.65rem',
+                            //     ml: 1,
+                            //     flexShrink: 0,
+                            //   }}
+                            // />
+                            <Box sx={ActiveGreenCircleCss}></Box>
                           )}
                         </Box>
                       </MenuItem>
