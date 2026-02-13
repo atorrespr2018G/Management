@@ -4,7 +4,7 @@
 
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
   Box,
@@ -26,17 +26,19 @@ import {
   Stop as StopIcon,
 } from '@mui/icons-material'
 import WorkflowGraphEditor from '@/components/Workflow/WorkflowGraphEditor'
-import { getExecutionStatus, getWorkflowDefinition, cancelWorkflowExecution } from '@/services/workflowApi'
-import { useWorkflowExecution } from '@/hooks/useWorkflowExecution'
-import type { ExecutionStatusResponse, WorkflowDefinition } from '@/types/workflow'
+import { getExecutionStatus, getWorkflowDefinition, cancelWorkflowExecution, getWorkflowMetrics } from '@/services/workflowApi'
+import type { ExecutionStatusResponse, WorkflowDefinition, WorkflowMetrics } from '@/types/workflow'
 
-export default function WorkflowMonitorPage() {
+function WorkflowMonitorContent() {
   const searchParams = useSearchParams()
   const runId = searchParams.get('runId')
   const [tabValue, setTabValue] = useState(0)
   const [status, setStatus] = useState<ExecutionStatusResponse | null>(null)
   const [workflow, setWorkflow] = useState<WorkflowDefinition | null>(null)
   const [loading, setLoading] = useState(true)
+  const [metrics, setMetrics] = useState<WorkflowMetrics | null>(null)
+  const [events, setEvents] = useState<any[]>([])
+  const [eventSource, setEventSource] = useState<EventSource | null>(null)
 
   useEffect(() => {
     if (runId) {
@@ -44,6 +46,8 @@ export default function WorkflowMonitorPage() {
       loadWorkflow()
       loadMetrics()
       loadEvents()
+    } else {
+      setLoading(false)
     }
   }, [runId])
 
@@ -78,6 +82,7 @@ export default function WorkflowMonitorPage() {
     eventStream.onerror = (error) => {
       console.error('EventSource error:', error)
       eventStream.close()
+      setEventSource(null)
     }
     
     setEventSource(eventStream)
@@ -86,6 +91,7 @@ export default function WorkflowMonitorPage() {
       eventStream.close()
       setEventSource(null)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runId, status?.status])
 
   // Polling fallback for status updates
@@ -100,6 +106,7 @@ export default function WorkflowMonitorPage() {
     }, 2000)
     
     return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runId, status?.status])
 
   const loadStatus = async () => {
@@ -137,8 +144,9 @@ export default function WorkflowMonitorPage() {
   const loadEvents = async () => {
     if (!runId) return
     try {
-      const eventData = await getExecutionEvents(runId)
-      setEvents(eventData)
+      // Events are loaded via EventSource in the useEffect
+      // This function can be used for initial load if needed
+      // For now, we'll rely on EventSource for real-time events
     } catch (error) {
       console.error('Failed to load events:', error)
     }
@@ -167,6 +175,17 @@ export default function WorkflowMonitorPage() {
       default:
         return 'default'
     }
+  }
+
+  if (!runId) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>Workflow Execution Monitor</Typography>
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+          No run ID provided. Please select an execution from the workflow list.
+        </Typography>
+      </Box>
+    )
   }
 
   if (loading) {
@@ -380,5 +399,17 @@ export default function WorkflowMonitorPage() {
         )}
       </Box>
     </Box>
+  )
+}
+
+export default function WorkflowMonitorPage() {
+  return (
+    <Suspense fallback={
+      <Box sx={{ p: 2 }}>
+        <Typography>Loading...</Typography>
+      </Box>
+    }>
+      <WorkflowMonitorContent />
+    </Suspense>
   )
 }

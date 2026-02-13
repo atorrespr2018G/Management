@@ -36,7 +36,13 @@ import {
   Visibility as ViewIcon,
 } from '@mui/icons-material'
 import { useRouter } from 'next/navigation'
-import { getExecutionHistory, listWorkflows, getActiveWorkflow } from '@/services/workflowApi'
+import {
+  getExecutionHistory,
+  listWorkflows,
+  getActiveWorkflow,
+  getWorkflowDefinition,
+  saveWorkflowDefinition,
+} from '@/services/workflowApi'
 import type { WorkflowExecution, ExecutionStatus } from '@/types/workflow'
 
 export default function WorkflowsPage() {
@@ -114,6 +120,54 @@ export default function WorkflowsPage() {
     setSelectedExecution(null)
   }
 
+  const handleDuplicateExecution = async () => {
+    if (!selectedExecution) {
+      handleMenuClose()
+      return
+    }
+
+    const workflowId = selectedExecution.workflow_id
+    if (!workflowId) {
+      console.error('Cannot duplicate execution: workflow_id is missing on execution record')
+      handleMenuClose()
+      return
+    }
+
+    try {
+      setLoading(true)
+      // Fetch original workflow definition
+      const original = await getWorkflowDefinition(undefined, workflowId)
+
+      // Remove workflow_id so backend creates a new one
+      const { workflow_id: _omit, ...rest } = original as any
+      const baseName = original.name || 'Untitled Workflow'
+      const copyName = `${baseName} (Copy)`
+
+      const result = await saveWorkflowDefinition(
+        {
+          ...rest,
+          name: copyName,
+          is_active: false,
+        },
+        copyName,
+        false
+      )
+
+      const newWorkflowId = (result as any).workflow_id
+      if (newWorkflowId) {
+        router.push(`/workflows/builder?workflowId=${newWorkflowId}`)
+      } else {
+        // Fallback: go to builder without ID
+        router.push('/workflows/builder')
+      }
+    } catch (error) {
+      console.error('Failed to duplicate workflow from execution:', error)
+    } finally {
+      handleMenuClose()
+      setLoading(false)
+    }
+  }
+
   const filteredExecutions = executions.filter((exec) => {
     const matchesSearch =
       exec.goal.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -128,13 +182,6 @@ export default function WorkflowsPage() {
         <Typography variant="h5" sx={{ fontWeight: 600 }}>
           Workflow Executions
         </Typography>
-        <Button
-          variant="contained"
-          onClick={() => router.push('/workflows/builder')}
-          sx={{ textTransform: 'none' }}
-        >
-          Create New Workflow
-        </Button>
       </Box>
 
       {/* Saved Workflows Section */}
@@ -286,7 +333,12 @@ export default function WorkflowsPage() {
         <MenuItem
           onClick={() => {
             if (selectedExecution) {
-              router.push(`/workflows/builder?workflowId=${selectedExecution.run_id}`)
+              // Prefer workflow_id if available
+              if (selectedExecution.workflow_id) {
+                router.push(`/workflows/builder?workflowId=${selectedExecution.workflow_id}`)
+              } else {
+                console.error('Selected execution has no workflow_id; cannot open builder for edit')
+              }
             }
             handleMenuClose()
           }}
@@ -294,7 +346,7 @@ export default function WorkflowsPage() {
           <EditIcon sx={{ mr: 1, fontSize: 20 }} />
           Edit Workflow
         </MenuItem>
-        <MenuItem onClick={handleMenuClose}>
+        <MenuItem onClick={handleDuplicateExecution}>
           <DuplicateIcon sx={{ mr: 1, fontSize: 20 }} />
           Duplicate
         </MenuItem>
