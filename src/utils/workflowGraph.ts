@@ -10,6 +10,34 @@ import type { WorkflowDefinition, WorkflowNode, WorkflowEdge, NodeType } from '@
 type WorkflowGraph = Pick<WorkflowDefinition, 'nodes' | 'edges' | 'entry_node_id'>
 
 /**
+ * Create an empty workflow with only a Start node
+ * 
+ * This is the initial state for new workflows and when clearing an existing workflow.
+ * Always returns a new object to avoid mutation issues.
+ * 
+ * @returns A new empty workflow with a Start node at (100, 100)
+ */
+export function createEmptyWorkflow(): WorkflowDefinition {
+    return {
+        name: '',
+        description: '',
+        nodes: [
+            {
+                id: 'start',
+                type: 'start',
+                params: {
+                    position: { x: 100, y: 100 }
+                }
+            }
+        ],
+        edges: [],
+        is_active: false,
+        entry_node_id: 'start'
+    }
+}
+
+
+/**
  * Check if a node type is special (non-linear)
  */
 function isSpecialNodeType(nodeType: NodeType): boolean {

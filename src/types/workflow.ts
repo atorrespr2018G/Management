@@ -3,7 +3,7 @@
  * Matches backend GraphDefinition schema
  */
 
-export type NodeType = 'agent' | 'fanout' | 'loop' | 'conditional' | 'merge' | 'loop_body' | 'loop_exit'
+export type NodeType = 'agent' | 'fanout' | 'loop' | 'conditional' | 'merge' | 'loop_body' | 'loop_exit' | 'start'
 
 export type ExecutionStatus = 'running' | 'completed' | 'failed' | 'paused' | 'cancelled'
 
