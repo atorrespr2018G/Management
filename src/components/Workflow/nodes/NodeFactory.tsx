@@ -11,6 +11,7 @@ import LoopNode from './LoopNode'
 import LoopBodyNode from './LoopBodyNode'
 import ExitLoopNode from './ExitLoopNode'
 import MergeNode from './MergeNode'
+import StartNode from './StartNode'
 import type { NodeType } from '@/types/workflow'
 
 export const nodeTypes: NodeTypes = {
@@ -21,6 +22,7 @@ export const nodeTypes: NodeTypes = {
   loop_body: LoopBodyNode,
   loop_exit: ExitLoopNode,
   merge: MergeNode,
+  start: StartNode,
 }
 
 export function getNodeComponent(type: NodeType) {

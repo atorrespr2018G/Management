@@ -306,6 +306,15 @@ export default function WorkflowGraphEditor({
 
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
+      // Hide property panel for helper nodes and start node
+      if (node.data.type === 'start' || node.data.type === 'loop_body' || node.data.type === 'loop_exit') {
+        // Clear selection by calling with null
+        if (onNodeClick) {
+          onNodeClick(null as any)
+        }
+        return
+      }
+
       if (onNodeClick) {
         onNodeClick(node.id)
       }
@@ -355,6 +364,12 @@ export default function WorkflowGraphEditor({
         onConnect={onConnect}
         onNodeClick={handleNodeClick}
         onEdgeClick={onEdgeClick}
+        onPaneClick={() => {
+          // Clear selection when clicking on background
+          if (onNodeClick) {
+            onNodeClick(null as any)
+          }
+        }}
         nodeTypes={nodeTypes as NodeTypes}
         edgeTypes={edgeTypes}
         fitView
