@@ -67,6 +67,8 @@ export async function getExecutionHistory(limit = 50): Promise<WorkflowExecution
   if (Array.isArray(data)) {
     return data.map((exec: any) => ({
       run_id: exec.run_id || exec.execution_id,
+      workflow_id: exec.workflow_id,
+      execution_id: exec.execution_id || exec.run_id,
       goal: exec.goal || '',
       status: exec.status?.value || exec.status || 'completed',
       result: exec.result,

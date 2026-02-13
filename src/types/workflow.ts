@@ -95,6 +95,15 @@ export interface ExecutionStatusResponse {
 
 export interface WorkflowExecution {
   run_id: string
+  /**
+   * Optional workflow identifier associated with this execution.
+   * Populated from backend ExecutionRecord.workflow_id when available.
+   */
+  workflow_id?: string
+  /**
+   * Optional execution record identifier (separate from run_id).
+   */
+  execution_id?: string
   goal: string
   status: ExecutionStatus
   result?: string
