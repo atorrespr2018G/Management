@@ -72,11 +72,12 @@ import {
   getAIRecommendations,
 } from '@/services/workflowApi'
 import { getAgents } from '@/services/agentApi'
-import type { WorkflowDefinition, NodeType } from '@/types/workflow'
+import type { WorkflowDefinition, NodeType, WorkflowNode } from '@/types/workflow'
 import type { Agent } from '@/services/agentApi'
 import { validateWorkflow as validateWorkflowClient } from '@/utils/workflowValidation'
 import { createLoopCluster } from '@/utils/loopClusterUtils'
 import { serializeWorkflowForBackend, deserializeWorkflowFromBackend } from '@/utils/workflowSerialization'
+import { createEmptyWorkflow } from '@/utils/workflowGraph'
 import { v4 as uuidv4 } from 'uuid'
 
 export default function WorkflowBuilderPage() {
@@ -122,6 +123,8 @@ export default function WorkflowBuilderPage() {
   const selectedNode = currentWorkflow?.nodes.find((n) => n.id === selectedNodeId) || null
   const searchParams = useSearchParams()
   const router = useRouter()
+  const propertyPanelRef = useRef<HTMLDivElement>(null)
+  const workflowBuilderRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     loadAgents()
@@ -143,6 +146,36 @@ export default function WorkflowBuilderPage() {
     }
   }, [currentWorkflow?.workflow_id]) // Re-run when workflow ID changes
 
+  // Click-outside detection for property panel
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      // Only close if there's a selected node
+      if (!selectedNodeId) return
+
+      const target = event.target as Node
+
+      // Only handle clicks within the workflow builder container
+      if (workflowBuilderRef.current && !workflowBuilderRef.current.contains(target)) {
+        // Click is outside workflow builder (e.g., on Header, Sidebar, Footer) - ignore
+        return
+      }
+
+      // Check if click is outside the property panel but inside the workflow builder
+      if (propertyPanelRef.current && !propertyPanelRef.current.contains(target)) {
+        // Clear selection
+        dispatch(setSelectedNode(null))
+      }
+    }
+
+    // Add event listener
+    document.addEventListener('mousedown', handleClickOutside)
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [selectedNodeId, dispatch])
+
   // Auto-load workflow from URL - URL is the single source of truth
   useEffect(() => {
     // URL with the workflow ID for shareable links and browser navigation
@@ -151,13 +184,7 @@ export default function WorkflowBuilderPage() {
     // Initialize new workflow if no ID in URL
     if (!workflowIdFromUrl) {
       if (!currentWorkflow || currentWorkflow.workflow_id) {
-        const newWorkflow: WorkflowDefinition = {
-          name: '',
-          description: '',
-          nodes: [],
-          edges: [],
-          is_active: false,
-        }
+        const newWorkflow = createEmptyWorkflow()
         dispatch(setWorkflow(newWorkflow))
         setOriginalWorkflow(null)
         setHasUnsavedChanges(false)
@@ -178,12 +205,51 @@ export default function WorkflowBuilderPage() {
           // Deserialize backend format to UI format (reconstitute loop clusters)
           const { nodes: uiNodes, edges: uiEdges } = deserializeWorkflowFromBackend(workflow)
 
+          // MIGRATION: Auto-insert Start node if it doesn't exist
+          let migratedNodes = uiNodes
+          let migratedEdges = uiEdges
+          let migratedEntryNodeId = workflow.entry_node_id
+
+          const hasStartNode = uiNodes.some(node => node.type === 'start')
+
+          if (!hasStartNode) {
+            // Find current entry node (first node or node with no incoming edges)
+            const nodesWithIncoming = new Set(uiEdges.map(e => e.to_node))
+            const entryNode = uiNodes.find(n => !nodesWithIncoming.has(n.id)) || uiNodes[0]
+
+            if (entryNode) {
+              // Calculate position for Start node (200px to the left of entry node)
+              const entryPosition = entryNode.params?.position || { x: 300, y: 100 }
+              const startPosition = { x: entryPosition.x - 200, y: entryPosition.y }
+
+              // Create Start node
+              const startNode: WorkflowNode = {
+                id: 'start',
+                type: 'start',
+                params: {
+                  position: startPosition
+                }
+              }
+
+              // Add Start node and edge Start -> Entry
+              migratedNodes = [startNode, ...uiNodes]
+              migratedEdges = [
+                { from_node: 'start', to_node: entryNode.id },
+                ...uiEdges
+              ]
+              migratedEntryNodeId = 'start'
+
+              console.log(`[Migration] Added Start node to workflow "${workflow.name}", connected to ${entryNode.id}`)
+            }
+          }
+
           // Ensure workflow_id is preserved
           const workflowWithId = {
             ...workflow,
-            nodes: uiNodes,
-            edges: uiEdges,
-            workflow_id: workflow.workflow_id || workflowIdFromUrl
+            nodes: migratedNodes,
+            edges: migratedEdges,
+            workflow_id: workflow.workflow_id || workflowIdFromUrl,
+            entry_node_id: migratedEntryNodeId
           }
 
           dispatch(setWorkflow(workflowWithId))
@@ -702,7 +768,10 @@ export default function WorkflowBuilderPage() {
   }
 
   const handleClear = () => {
-    dispatch(clearWorkflow())
+    // Create a new workflow with only the Start node
+    const newWorkflow = createEmptyWorkflow()
+
+    dispatch(setWorkflow(newWorkflow))
     setWorkflowName('')
     setWorkflowDescription('')
     setIsActiveWorkflow(false)
@@ -1183,7 +1252,7 @@ export default function WorkflowBuilderPage() {
       </Paper>
 
       {/* Main Content */}
-      <Box sx={{ display: 'flex', flex: 1, gap: 1, overflow: 'hidden' }}>
+      <Box ref={workflowBuilderRef} sx={{ display: 'flex', flex: 1, gap: 1, overflow: 'hidden' }}>
         {/* Node Palette */}
         <Box sx={{ width: 200, borderRight: 1, borderColor: 'divider' }}>
           <NodePalette onNodeTypeSelect={handleNodeTypeSelect} />
@@ -1200,43 +1269,56 @@ export default function WorkflowBuilderPage() {
             readOnly={false}
           />
         </Box>
-        {/* Property Panel */}
-        <Box sx={{ width: 350, borderLeft: 1, borderColor: 'divider' }}>
-          <NodePropertyPanel
-            node={selectedNode}
-            workflow={currentWorkflow}
-            availableAgents={availableAgents}
-            onUpdate={(nodeId, updates) => {
-              // Update node in workflow
-              if (currentWorkflow) {
-                const updatedNodes = currentWorkflow.nodes.map((n) => {
-                  if (n.id === nodeId) {
-                    const updated = { ...n, ...updates }
-                    // If agent_id was updated, we need to refresh the node data in ReactFlow
-                    // The WorkflowGraphEditor will handle this via the workflow prop change
-                    return updated
-                  }
-                  return n
-                })
-                dispatch(setWorkflow({ ...currentWorkflow, nodes: updatedNodes }))
-              }
-            }}
-            onAgentsUpdated={handleAgentsUpdated}
-            onShowMessage={(msg, sev) => setSnackbar({ open: true, message: msg, severity: sev })}
-            onDelete={(nodeId) => {
-              // if (currentWorkflow) {
-              //   const updatedNodes = currentWorkflow.nodes.filter((n) => n.id !== nodeId)
-              //   const updatedEdges = currentWorkflow.edges.filter(
-              //     (e) => e.from_node !== nodeId && e.to_node !== nodeId
-              //   )
-              //   dispatch(setWorkflow({ ...currentWorkflow, nodes: updatedNodes, edges: updatedEdges }))
-              //   dispatch(setSelectedNode(null))
-              // }
-              // Use Redux deleteNode for splice delete support
-              dispatch(deleteNode(nodeId))
-            }}
-          />
-        </Box>
+        {/* Property Panel - Only show when a node is selected */}
+        {selectedNode && (
+          <Box ref={propertyPanelRef} sx={{ width: 350, borderLeft: 1, borderColor: 'divider' }}>
+            <NodePropertyPanel
+              node={selectedNode}
+              workflow={currentWorkflow}
+              availableAgents={availableAgents}
+              onUpdate={(nodeId, updates) => {
+                // Update node in workflow
+                if (currentWorkflow) {
+                  const updatedNodes = currentWorkflow.nodes.map((n) => {
+                    if (n.id === nodeId) {
+                      const updated = { ...n, ...updates }
+                      // If agent_id was updated, we need to refresh the node data in ReactFlow
+                      // The WorkflowGraphEditor will handle this via the workflow prop change
+                      return updated
+                    }
+                    return n
+                  })
+                  dispatch(setWorkflow({ ...currentWorkflow, nodes: updatedNodes }))
+                }
+              }}
+              onAgentsUpdated={handleAgentsUpdated}
+              onShowMessage={(msg, sev) => setSnackbar({ open: true, message: msg, severity: sev })}
+              onDelete={(nodeId) => {
+                // Prevent deletion of Start node
+                // const nodeToDelete = currentWorkflow?.nodes.find(n => n.id === nodeId)
+                // if (nodeToDelete?.type === 'start') {
+                //   setSnackbar({
+                //     open: true,
+                //     message: 'Start node cannot be deleted. Every workflow must have a single entry point.',
+                //     severity: 'error'
+                //   })
+                //   return
+                // }
+
+                // if (currentWorkflow) {
+                //   const updatedNodes = currentWorkflow.nodes.filter((n) => n.id !== nodeId)
+                //   const updatedEdges = currentWorkflow.edges.filter(
+                //     (e) => e.from_node !== nodeId && e.to_node !== nodeId
+                //   )
+                //   dispatch(setWorkflow({ ...currentWorkflow, nodes: updatedNodes, edges: updatedEdges }))
+                //   dispatch(setSelectedNode(null))
+                // }
+                // Use Redux deleteNode for splice delete support
+                dispatch(deleteNode(nodeId))
+              }}
+            />
+          </Box>
+        )}
       </Box>
 
       {/* Execute Dialog */}
