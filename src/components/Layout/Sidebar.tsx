@@ -145,6 +145,7 @@ export default function Sidebar({ onClose, onToggle, isOpen = true }: SidebarPro
           ],
         },
         { text: 'Content Understanding', icon: <DescriptionIcon />, href: '/content-understanding', badge: 'PREVIEW' },
+        { text: 'Settings', icon: <TuneIcon />, href: '/orchestration' },
       ],
       defaultOpen: true,
     },

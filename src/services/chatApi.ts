@@ -1,4 +1,6 @@
 import { ChatResponse } from "@/types/chat"
+import { RootState } from "@/store/store"
+import { store } from "@/store/store"
 
 // Use direct backend URL for long-running chat requests (bypasses Next.js 30-60s proxy timeout)
 const AGENT_BACKEND_URL = process.env.NEXT_PUBLIC_AGENT_URL || 'http://localhost:8787'
@@ -8,6 +10,10 @@ export async function sendMessage(
   sessionId: string
 ): Promise<ChatResponse> {
   try {
+    // Get RLM enabled state from Redux store
+    const state: RootState = store.getState()
+    const rlmEnabled = state.orchestration?.rlmEnabled || false
+
     // Call Agent backend directly - run_sequential_goal can take several minutes
     const response = await fetch(`${AGENT_BACKEND_URL}/api/chat/sessions/${sessionId}/messages`, {
       method: 'POST',
@@ -15,7 +21,10 @@ export async function sendMessage(
         'Content-Type': 'application/json',
       },
       credentials: 'include',
-      body: JSON.stringify({ content: query }),
+      body: JSON.stringify({ 
+        content: query,
+        rlm_enabled: rlmEnabled 
+      }),
     })
 
     console.log('Response status:', response.status, response.statusText)
