@@ -63,7 +63,10 @@ export interface WorkflowRequest {
   workflow_id?: string
   use_graph?: boolean
   checkpoint_dir?: string
+  /** Legacy: use rlm_mode instead */
   rlm_enabled?: boolean
+  /** One of: standard | disabled | enabled */
+  rlm_mode?: 'standard' | 'disabled' | 'enabled'
 }
 
 export interface WorkflowResponse {
