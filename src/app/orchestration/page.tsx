@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Box,
   Paper,
@@ -27,7 +27,7 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material'
 import { useDispatch, useSelector } from 'react-redux'
-import { setRlmEnabled } from '@/store/slices/orchestrationSlice'
+import { setRlmMode, type RlmMode } from '@/store/slices/orchestrationSlice'
 import type { RootState } from '@/store/store'
 
 const TABS = [
@@ -36,20 +36,21 @@ const TABS = [
 
 export default function OrchestrationPage() {
   const dispatch = useDispatch()
-  const rlmEnabled = useSelector((state: RootState) => state.orchestration.rlmEnabled)
+  const rlmMode = useSelector((state: RootState) => state.orchestration.rlmMode) ?? 'standard'
   const [activeTab, setActiveTab] = useState('rlm-setup')
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [tempRlmValue, setTempRlmValue] = useState(rlmEnabled)
+  const [tempRlmMode, setTempRlmMode] = useState<RlmMode>(rlmMode)
+  useEffect(() => { setTempRlmMode(rlmMode) }, [rlmMode])
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
 
   const handleSave = () => {
-    dispatch(setRlmEnabled(tempRlmValue))
+    dispatch(setRlmMode(tempRlmMode))
     setSidebarOpen(false)
   }
 
   const handleCancel = () => {
-    setTempRlmValue(rlmEnabled)
+    setTempRlmMode(rlmMode)
     setSidebarOpen(false)
   }
 
@@ -173,30 +174,43 @@ export default function OrchestrationPage() {
 
               {/* Description */}
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                Enable or disable Recursive Language Model (RLM) mode for workflow execution. When enabled, the system
-                performs file-level expansion and recursive summarization for more comprehensive answers with
-                chunk-level citations.
+                Choose RLM mode: Standard (semantic + graph only), Disabled (no RLM but expand files for person queries),
+                or Enabled (full RLM pipeline with recursive summarization and chunk citations).
               </Typography>
 
-              {/* Radio Group */}
+              {/* Radio Group: one selection only — Standard | Disabled | Enabled */}
               <Box sx={{ mb: 4, p: 2, backgroundColor: 'action.hover', borderRadius: 1 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
                   RLM Mode
                 </Typography>
                 <RadioGroup
-                  value={tempRlmValue ? 'enabled' : 'disabled'}
-                  onChange={(e) => setTempRlmValue(e.target.value === 'enabled')}
+                  value={tempRlmMode}
+                  onChange={(e) => setTempRlmMode(e.target.value as RlmMode)}
                 >
+                  <FormControlLabel
+                    value="standard"
+                    control={<Radio />}
+                    label={
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          Standard
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Semantic + graph only (no file expansion)
+                        </Typography>
+                      </Box>
+                    }
+                  />
                   <FormControlLabel
                     value="disabled"
                     control={<Radio />}
                     label={
                       <Box>
                         <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          Disabled (Default)
+                          Disabled
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Use standard sequential workflow
+                          No RLM but expand files for person queries (e.g. Skills)
                         </Typography>
                       </Box>
                     }
@@ -207,10 +221,10 @@ export default function OrchestrationPage() {
                     label={
                       <Box>
                         <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          Enabled (Experimental)
+                          Enabled
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Use RLM-based retrieval and answering
+                          Full RLM pipeline (recursive summarization, citations)
                         </Typography>
                       </Box>
                     }
@@ -242,7 +256,7 @@ export default function OrchestrationPage() {
                   Current Status
                 </Typography>
                 <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                  RLM: <strong>{rlmEnabled ? '🟢 Enabled' : '🔴 Disabled'}</strong>
+                  RLM: <strong>{rlmMode === 'enabled' ? '🟢 Enabled' : rlmMode === 'disabled' ? '🟡 Disabled' : '⚪ Standard'}</strong>
                 </Typography>
               </Box>
             </Paper>
