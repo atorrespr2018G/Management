@@ -121,7 +121,7 @@ export interface ConnectorConfig {
 export interface ConnectorConfigRequest {
   connector_type: string;
   name: string;
-  directory_path: string;
+  path: string;
   machine_id?: string;
   metadata?: Record<string, any>;
 }
