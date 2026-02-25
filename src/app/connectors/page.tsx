@@ -19,8 +19,6 @@ import {
   CircularProgress,
 } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
-import { createConnectorConfig } from '@/services/neo4jApi'
-import { useMachineId } from '@/hooks/useMachineId'
 import {
   Cloud as CloudIcon,
   Storage as StorageIcon,
@@ -31,8 +29,9 @@ import {
   CloudDownload as CloudDownloadIcon,
   Dns as DnsIcon,
   Description as DescriptionIcon,
-  Article as ArticleIcon,
 } from '@mui/icons-material'
+import { createConnectorConfig } from '@/services/neo4jApi'
+import { useMachineId } from '@/hooks/useMachineId'
 
 interface Connector {
   name: string
@@ -58,6 +57,7 @@ export default function ConnectorsPage() {
   const [selectedConnector, setSelectedConnector] = useState<Connector | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [directoryPath, setDirectoryPath] = useState('')
+  const [sharePointUrl, setSharePointUrl] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -67,6 +67,7 @@ export default function ConnectorsPage() {
     setSelectedConnector(connector)
     setDialogOpen(true)
     setDirectoryPath('')
+    setSharePointUrl('')
     setError(null)
     setSuccess(false)
   }
@@ -75,6 +76,7 @@ export default function ConnectorsPage() {
     setDialogOpen(false)
     setSelectedConnector(null)
     setDirectoryPath('')
+    setSharePointUrl('')
     setError(null)
     setSuccess(false)
   }
@@ -82,73 +84,72 @@ export default function ConnectorsPage() {
   const handleSave = async () => {
     if (!selectedConnector) return
 
-    // For File System / Local Directory, require directory path
     if (selectedConnector.name === 'File System / Local Directory') {
-      if (!directoryPath.trim()) {
-        setError('Directory path is required')
-        return
-      }
-      if (!machineId) {
-        setError('Machine ID not found. Please refresh the page.')
-        return
-      }
-
-      setSaving(true)
-      setError(null)
-      setSuccess(false)
-
+      if (!directoryPath.trim()) { setError('Directory path is required'); return }
+      if (!machineId) { setError('Machine ID not found. Please refresh the page.'); return }
+      setSaving(true); setError(null); setSuccess(false)
       try {
-        // Extract name from directory path (use the last folder name or the full path)
         const pathParts = directoryPath.trim().split(/[/\\]/).filter(Boolean)
         const configName = pathParts.length > 0 ? pathParts[pathParts.length - 1] : directoryPath.trim()
-
         await createConnectorConfig({
           connector_type: 'file_system',
           name: configName,
-          directory_path: directoryPath.trim(),
+          path: directoryPath.trim(),
           machine_id: machineId,
           metadata: {},
         })
         setSuccess(true)
-        setTimeout(() => {
-          handleClose()
-        }, 1500)
+        setTimeout(() => handleClose(), 1500)
       } catch (err: any) {
         setError(err.message || 'Failed to save connector configuration')
       } finally {
         setSaving(false)
       }
-    } else {
-      // For other connectors, just close (placeholder for future implementation)
+    }
+    else if (selectedConnector.name === 'Microsoft SharePoint') {
+      if (!sharePointUrl.trim()) { setError('SharePoint URL is required'); return }
+      if (!machineId) { setError('Machine ID not found. Please refresh the page.'); return }
+      setSaving(true); setError(null); setSuccess(false)
+      try {
+        await createConnectorConfig({
+          connector_type: 'sharepoint',
+          name: 'SharePoint',
+          path: sharePointUrl.trim(),
+          machine_id: machineId,
+          metadata: {},
+        })
+        setSuccess(true)
+        // Auto-close after short delay — scan runs in background on the server
+        setTimeout(() => handleClose(), 2000)
+      } catch (err: any) {
+        setError(err.message || 'Failed to save SharePoint connector')
+      } finally {
+        setSaving(false)
+      }
+    }
+    else {
       handleClose()
     }
   }
 
   const isFileSystem = selectedConnector?.name === 'File System / Local Directory'
+  const isSharePoint = selectedConnector?.name === 'Microsoft SharePoint'
+  const isConfigured = isFileSystem || isSharePoint
 
   return (
     <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', m: 0, p: 0 }}>
       <Box sx={{ flexGrow: 1, p: 1, m: 0 }}>
-        <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>
-          Connectors
-        </Typography>
+        <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>Connectors</Typography>
 
         <Grid container spacing={4}>
           {connectors.map((connector) => (
             <Grid item xs={12} sm={6} md={4} lg={3} key={connector.name}>
               <Card elevation={2} sx={{ height: '100%', maxWidth: 400, mx: 'auto' }}>
                 <CardActionArea sx={{ height: '100%', p: 3 }} onClick={() => handleCardClick(connector)}>
-                  <CardContent
-                    sx={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      textAlign: 'center',
-                      minHeight: 240,
-                      p: 3,
-                    }}
-                  >
+                  <CardContent sx={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    justifyContent: 'center', textAlign: 'center', minHeight: 240, p: 3,
+                  }}>
                     <Box sx={{ mb: 3 }}>{connector.icon}</Box>
                     <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '1.75rem' }}>
                       {connector.name}
@@ -161,74 +162,63 @@ export default function ConnectorsPage() {
         </Grid>
       </Box>
 
-      {/* Connector Modal */}
-      <Dialog
-        open={dialogOpen}
-        onClose={handleClose}
-        maxWidth={false}
-        PaperProps={{
-          sx: {
-            width: '40vw',
-            maxWidth: '800px',
-            height: '40vh',
-            maxHeight: '600px',
-            m: 2,
-          },
-        }}
-      >
+      {/* ── Connector config dialog ── */}
+      <Dialog open={dialogOpen} onClose={handleClose} maxWidth={false}
+        PaperProps={{ sx: { width: '40vw', maxWidth: '800px', height: '40vh', maxHeight: '600px', m: 2 } }}>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             {selectedConnector?.icon}
             <Typography variant="h5">{selectedConnector?.name}</Typography>
           </Box>
-          <IconButton onClick={handleClose}>
-            <CloseIcon />
-          </IconButton>
+          <IconButton onClick={handleClose}><CloseIcon /></IconButton>
         </DialogTitle>
+
         <DialogContent>
-          {isFileSystem ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-              <TextField
-                fullWidth
-                label="Directory Path"
-                value={directoryPath}
-                onChange={(e) => setDirectoryPath(e.target.value)}
-                placeholder="e.g., C:\\Users\\Documents or D:\\Projects"
-                required
-                helperText="Enter the full path to the directory you want to configure"
-              />
-              {error && (
-                <Alert severity="error" onClose={() => setError(null)}>
-                  {error}
-                </Alert>
+          {isConfigured && (
+            <>
+              {isFileSystem && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+                  <TextField fullWidth label="Directory Path" value={directoryPath}
+                    onChange={(e) => setDirectoryPath(e.target.value)}
+                    placeholder="e.g., C:\\Users\\Documents or D:\\Projects"
+                    required helperText="Enter the full path to the directory you want to configure" />
+                  {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
+                  {success && <Alert severity="success">Connector saved! This directory will now appear in Data Source.</Alert>}
+                </Box>
               )}
-              {success && (
-                <Alert severity="success">
-                  Connector configuration saved successfully! This directory will now appear in Data Source.
-                </Alert>
+              {isSharePoint && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+                  <TextField fullWidth label="SharePoint URL" value={sharePointUrl}
+                    onChange={(e) => setSharePointUrl(e.target.value)}
+                    placeholder="e.g., https://yourcompany-my.sharepoint.com/personal/your_name"
+                    required
+                    helperText="Paste any SharePoint URL (supports the full ?id=… view URL). Make sure you are signed into SharePoint in Edge or Chrome." />
+                  {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
+                  {success && (
+                    <Alert severity="success">
+                      Connector saved! Files are being scanned in the background — check Data Source in a few seconds.
+                    </Alert>
+                  )}
+                </Box>
               )}
-            </Box>
-          ) : (
+            </>
+          )}
+          {!isConfigured && (
             <Typography variant="body1">
               Configure your {selectedConnector?.name} connector settings here.
             </Typography>
           )}
         </DialogContent>
+
         <DialogActions>
-          <Button onClick={handleClose} disabled={saving}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleSave}
-            disabled={saving || (isFileSystem && !directoryPath.trim())}
-            startIcon={saving ? <CircularProgress size={20} /> : null}
-          >
-            {saving ? 'Saving...' : 'Save'}
+          <Button onClick={handleClose} disabled={saving}>Cancel</Button>
+          <Button variant="contained" onClick={handleSave}
+            disabled={saving || (isFileSystem && !directoryPath.trim()) || (isSharePoint && !sharePointUrl.trim())}
+            startIcon={saving ? <CircularProgress size={20} /> : null}>
+            {saving ? 'Saving…' : 'Save'}
           </Button>
         </DialogActions>
       </Dialog>
     </Box>
   )
 }
-

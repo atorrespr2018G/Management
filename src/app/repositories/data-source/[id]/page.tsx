@@ -67,6 +67,22 @@ export default function ConnectorDetailPage() {
     }
   }, [configId])
 
+  /** Route scan requests to the correct endpoint based on connector type. */
+  const scanPath = async (pathStr: string): Promise<Response> => {
+    if (config?.connector_type === 'sharepoint') {
+      return fetch('http://localhost:8000/api/sharepoint/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sharepointUrl: pathStr }),
+      })
+    }
+    return fetch('/api/local/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ directoryPath: pathStr }),
+    })
+  }
+
   // Auto-scan all paths when switching to "All Results" tab
   useEffect(() => {
     if (currentTab === 1 && paths.length > 0) {
@@ -117,11 +133,7 @@ export default function ConnectorDetailPage() {
     // Scan all unscanned paths
     for (const path of unscannedPaths) {
       try {
-        const response = await fetch('/api/local/scan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ directoryPath: path.path }),
-        })
+        const response = await scanPath(path.path)
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ error: 'Failed to scan directory' }))
@@ -209,11 +221,7 @@ export default function ConnectorDetailPage() {
       // Then scan the directory
       setScanning(true)
       try {
-        const response = await fetch('/api/local/scan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ directoryPath: pathToScan }),
-        })
+        const response = await scanPath(pathToScan)
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ error: 'Failed to scan directory' }))
@@ -295,11 +303,7 @@ export default function ConnectorDetailPage() {
     setScanResults(null)
 
     try {
-      const response = await fetch('/api/local/scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ directoryPath: path.path }),
-      })
+      const response = await scanPath(path.path)
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Failed to scan directory' }))
@@ -360,6 +364,25 @@ export default function ConnectorDetailPage() {
     )
   }
 
+  console.log("\nconnector_type", config.connector_type)
+
+  // if (config.connector_type === 'sharepoint') {
+  //   return (
+  //     <ConnectorTabContent
+  //       currentTab={currentTab}
+  //       paths={paths}
+  //       selectedPathId={selectedPathId}
+  //       scanning={scanning}
+  //       scanningAll={scanningAll}
+  //       allPathResults={allPathResults}
+  //       scanData={scanData}
+  //       scanResults={scanResults}
+  //       onPathClick={handlePathClick}
+  //       onRequestDeletePath={handleRequestDeletePath}
+  //     />
+  //   )
+  // }
+
   return (
     <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', m: 0, p: 0 }}>
       <Box sx={{ flexGrow: 1, p: 3 }}>
@@ -392,7 +415,7 @@ export default function ConnectorDetailPage() {
             }}
           >
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              Add Directory Path
+              {config.connector_type === 'sharepoint' ? 'Add SharePoint URL' : 'Add Directory Path'}
             </Typography>
 
             {success && (
@@ -417,10 +440,14 @@ export default function ConnectorDetailPage() {
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'row' }}>
             <TextField
               fullWidth
-              label="Directory Path"
+              label={config.connector_type === 'sharepoint' ? 'SharePoint URL' : 'Directory Path'}
               value={newPath}
               onChange={(e) => setNewPath(e.target.value)}
-              placeholder="e.g., C:\\Users\\Documents\\Subfolder or D:\\Projects\\Folder"
+              placeholder={
+                config.connector_type === 'sharepoint'
+                  ? 'e.g., https://yourcompany-my.sharepoint.com/personal/...'
+                  : 'e.g., C:\\Users\\Documents\\Subfolder or D:\\Projects\\Folder'
+              }
               onKeyPress={(e) => {
                 if (e.key === 'Enter' && !saving && !scanning) {
                   handleAddPath();
@@ -445,7 +472,10 @@ export default function ConnectorDetailPage() {
             color="text.secondary"
             sx={{ mt: 0.5, pl: 1 }}
           >
-            Enter the full path to a directory you want to add
+            {config.connector_type === 'sharepoint'
+              ? 'Enter the full SharePoint URL (supports the ?id=… view URL format)'
+              : 'Enter the full path to a directory you want to add'
+            }
           </Typography>
 
         </Paper>

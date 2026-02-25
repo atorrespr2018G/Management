@@ -528,3 +528,34 @@ export const executeSQL = async (
   });
 };
 
+// ── SharePoint Device Code Flow helpers ──────────────────────────────────────
+
+export interface SharePointAuthStart {
+  user_code: string;
+  verification_url: string;
+  expires_in: number;
+  message: string;
+}
+
+export interface SharePointAuthStatus {
+  config_id: string;
+  status: 'pending' | 'scanning' | 'complete' | 'failed';
+  total_items?: number;
+  error?: string;
+}
+
+export const startSharePointAuth = async (
+  configId: string,
+  sharepointUrl: string
+): Promise<SharePointAuthStart> => {
+  return apiCall<SharePointAuthStart>('/api/sharepoint/auth/start', {
+    method: 'POST',
+    body: JSON.stringify({ config_id: configId, sharepoint_url: sharepointUrl }),
+  });
+};
+
+export const getSharePointAuthStatus = async (
+  configId: string
+): Promise<SharePointAuthStatus> => {
+  return apiCall<SharePointAuthStatus>(`/api/sharepoint/auth/status/${configId}`);
+};

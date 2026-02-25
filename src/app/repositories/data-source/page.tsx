@@ -15,6 +15,7 @@ import {
 } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import FolderIcon from '@mui/icons-material/Folder'
+import FolderSharedIcon from '@mui/icons-material/FolderShared'
 import { getConnectorConfigs, deleteConnectorConfig } from '@/services/neo4jApi'
 import type { ConnectorConfig } from '@/types/neo4j'
 
@@ -30,8 +31,11 @@ export default function RepositoriesDataSourcePage() {
   const loadConfiguredDirectories = async () => {
     try {
       setLoading(true)
-      const configs = await getConnectorConfigs('file_system')
-      setConfiguredDirectories(configs)
+      const [fsConfigs, spConfigs] = await Promise.all([
+        getConnectorConfigs('file_system'),
+        getConnectorConfigs('sharepoint'),
+      ])
+      setConfiguredDirectories([...fsConfigs, ...spConfigs])
     } catch (error) {
       console.error('Failed to load configured directories:', error)
     } finally {
@@ -40,7 +44,6 @@ export default function RepositoriesDataSourcePage() {
   }
 
   const handleCardClick = (config: ConnectorConfig) => {
-    // Navigate to detail page instead of showing modal
     router.push(`/repositories/data-source/${config.id}`)
   }
 
@@ -58,6 +61,8 @@ export default function RepositoriesDataSourcePage() {
     }
   }
 
+  const isSharePoint = (config: ConnectorConfig) => config.connector_type === 'sharepoint'
+
   return (
     <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', m: 0, p: 0 }}>
       <Box sx={{ flexGrow: 1, p: 1, m: 0 }}>
@@ -73,10 +78,10 @@ export default function RepositoriesDataSourcePage() {
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 8 }}>
             <FolderIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
             <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-              No configured directories
+              No configured data sources
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Configure a directory in Setup &gt; Connectors &gt; File System / Local Directory
+              Configure a connector in Setup &gt; Connectors
             </Typography>
           </Box>
         ) : (
@@ -97,15 +102,18 @@ export default function RepositoriesDataSourcePage() {
                       }}
                     >
                       <Box sx={{ mb: 3 }}>
-                        <FolderIcon sx={{ fontSize: 64, color: 'primary.main' }} />
+                        {isSharePoint(config)
+                          ? <FolderSharedIcon sx={{ fontSize: 64, color: 'info.main' }} />
+                          : <FolderIcon sx={{ fontSize: 64, color: 'primary.main' }} />
+                        }
                       </Box>
                       <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '1.75rem', mb: 1 }}>
                         {config.name}
                       </Typography>
                       <Chip
-                        label="File System"
+                        label={isSharePoint(config) ? 'SharePoint' : 'File System'}
                         size="small"
-                        color="primary"
+                        color={isSharePoint(config) ? 'info' : 'primary'}
                         variant="outlined"
                         sx={{ mb: 1 }}
                       />
@@ -137,4 +145,3 @@ export default function RepositoriesDataSourcePage() {
     </Box>
   )
 }
-
