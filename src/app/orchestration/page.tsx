@@ -27,7 +27,7 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material'
 import { useDispatch, useSelector } from 'react-redux'
-import { setRlmMode, type RlmMode } from '@/store/slices/orchestrationSlice'
+import { setRlmMode, setSequentialFlow, type RlmMode, type SequentialFlow } from '@/store/slices/orchestrationSlice'
 import type { RootState } from '@/store/store'
 
 const TABS = [
@@ -37,20 +37,25 @@ const TABS = [
 export default function OrchestrationPage() {
   const dispatch = useDispatch()
   const rlmMode = useSelector((state: RootState) => state.orchestration.rlmMode) ?? 'standard'
+  const sequentialFlow = useSelector((state: RootState) => state.orchestration.sequentialFlow) ?? 'SEQUENTIAL'
   const [activeTab, setActiveTab] = useState('rlm-setup')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [tempRlmMode, setTempRlmMode] = useState<RlmMode>(rlmMode)
+  const [tempSequentialFlow, setTempSequentialFlow] = useState<SequentialFlow>(sequentialFlow)
   useEffect(() => { setTempRlmMode(rlmMode) }, [rlmMode])
+  useEffect(() => { setTempSequentialFlow(sequentialFlow) }, [sequentialFlow])
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
 
   const handleSave = () => {
     dispatch(setRlmMode(tempRlmMode))
+    dispatch(setSequentialFlow(tempSequentialFlow))
     setSidebarOpen(false)
   }
 
   const handleCancel = () => {
     setTempRlmMode(rlmMode)
+    setTempSequentialFlow(sequentialFlow)
     setSidebarOpen(false)
   }
 
@@ -232,7 +237,46 @@ export default function OrchestrationPage() {
                 </RadioGroup>
               </Box>
 
-              {/* Info Alert */}
+              {/* Flow: Sequential (existing RAG) vs HPE (Phase 1 Discover·Check·Reserve) */}
+              <Box sx={{ mb: 4, p: 2, backgroundColor: 'action.hover', borderRadius: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+                  Flow
+                </Typography>
+                <RadioGroup
+                  value={tempSequentialFlow}
+                  onChange={(e) => setTempSequentialFlow(e.target.value as SequentialFlow)}
+                >
+                  <FormControlLabel
+                    value="SEQUENTIAL"
+                    control={<Radio />}
+                    label={
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          Sequential
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Existing RAG / news reporter workflow
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                  <FormControlLabel
+                    value="HPE"
+                    control={<Radio />}
+                    label={
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          HPe (Phase 1)
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Discover·Check·Reserve (budget, vendors, reservation)
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                </RadioGroup>
+              </Box>
+
               <Alert severity="info" sx={{ mb: 3 }}>
                 <Typography variant="caption" color="inherit">
                   Changes apply per-execution and do not modify global defaults.
@@ -257,6 +301,9 @@ export default function OrchestrationPage() {
                 </Typography>
                 <Typography variant="body2" sx={{ fontWeight: 500 }}>
                   RLM: <strong>{rlmMode === 'enabled' ? '🟢 Enabled' : rlmMode === 'disabled' ? '🟡 Disabled' : '⚪ Standard'}</strong>
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500, mt: 1 }}>
+                  Flow: <strong>{sequentialFlow === 'HPE' ? '🟢 HPe (Phase 1)' : '⚪ Sequential'}</strong>
                 </Typography>
               </Box>
             </Paper>

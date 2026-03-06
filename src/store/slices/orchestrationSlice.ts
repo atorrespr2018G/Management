@@ -1,15 +1,19 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 
 export type RlmMode = 'standard' | 'disabled' | 'enabled'
+export type SequentialFlow = 'SEQUENTIAL' | 'HPE'
 
 interface OrchestrationState {
   rlmMode: RlmMode
   rlmEnabled: boolean
+  /** SEQUENTIAL = existing RAG workflow; HPE = Phase 1 Discover·Check·Reserve */
+  sequentialFlow: SequentialFlow
 }
 
 const initialState: OrchestrationState = {
   rlmMode: 'standard',
   rlmEnabled: false,
+  sequentialFlow: 'SEQUENTIAL',
 }
 
 const orchestrationSlice = createSlice({
@@ -28,8 +32,11 @@ const orchestrationSlice = createSlice({
       state.rlmEnabled = !state.rlmEnabled
       state.rlmMode = state.rlmEnabled ? 'enabled' : 'standard'
     },
+    setSequentialFlow: (state, action: PayloadAction<SequentialFlow>) => {
+      state.sequentialFlow = action.payload
+    },
   },
 })
 
-export const { setRlmMode, setRlmEnabled, toggleRlmEnabled } = orchestrationSlice.actions
+export const { setRlmMode, setRlmEnabled, toggleRlmEnabled, setSequentialFlow } = orchestrationSlice.actions
 export default orchestrationSlice.reducer

@@ -10,20 +10,20 @@ export async function sendMessage(
   sessionId: string
 ): Promise<ChatResponse> {
   try {
-    // Get RLM mode from Redux store (standard | disabled | enabled)
     const state: RootState = store.getState()
     const rlmMode = state.orchestration?.rlmMode || 'standard'
+    const sequentialFlow = state.orchestration?.sequentialFlow || 'SEQUENTIAL'
 
-    // Call Agent backend directly - run_sequential_goal can take several minutes
     const response = await fetch(`${AGENT_BACKEND_URL}/api/chat/sessions/${sessionId}/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       credentials: 'include',
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         content: query,
         rlm_mode: rlmMode,
+        sequential_flow: sequentialFlow,
       }),
     })
 
