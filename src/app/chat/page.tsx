@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import {
   Box,
+  Button,
   Container,
   Paper,
   TextField,
@@ -83,6 +84,56 @@ export default function ChatPage() {
     }
   }, [latestAssistantMessage])
 
+  /** Send a message with the given text (e.g. when user clicks a Phase 1 market option). */
+  const handleSendWithText = async (query: string) => {
+    if (!query?.trim() || !currentUser || !isAuthenticated || isSending) return
+    let currentSessionId = activeSessionId
+    if (!currentSessionId) {
+      try {
+        const newSession = await dispatch(createSession()).unwrap()
+        currentSessionId = newSession.id
+      } catch (error) {
+        setSnackbar({
+          open: true,
+          message: error instanceof Error ? error.message : 'Failed to create chat session',
+          severity: 'error',
+        })
+        return
+      }
+    }
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: query.trim(),
+      createdAt: new Date().toISOString(),
+    }
+    dispatch(addMessage(userMessage))
+    setIsSending(true)
+    try {
+      const response = await sendMessage(query.trim(), currentSessionId)
+      const assistantMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: response.response,
+        sources: response.sources,
+        createdAt: new Date().toISOString(),
+        phase1_required_selection: response.phase1_required_selection,
+      }
+      dispatch(addMessage(assistantMessage))
+      dispatch(fetchSessions())
+    } catch (error) {
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: `Error: ${error instanceof Error ? error.message : 'Failed to get response'}`,
+        createdAt: new Date().toISOString(),
+      }
+      dispatch(addMessage(errorMessage))
+    } finally {
+      setIsSending(false)
+    }
+  }
+
   const handleSend = async () => {
     const query = inputValue.trim()
     
@@ -137,13 +188,14 @@ export default function ChatPage() {
     try {
       const response: ChatResponse = await sendMessage(query, currentSessionId!)
 
-      // Add assistant message
+      // Add assistant message (may include phase1_required_selection for market click)
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: response.response,
         sources: response.sources,
         createdAt: new Date().toISOString(),
+        phase1_required_selection: response.phase1_required_selection,
       }
       dispatch(addMessage(assistantMessage))
 
@@ -378,6 +430,30 @@ export default function ChatPage() {
                     >
                       {message.content}
                     </Typography>
+                    {message.role === 'assistant' && (() => {
+                      const selection = message.phase1_required_selection
+                      const options = selection?.options?.length ? selection.options : (
+                        (message.content && /select a.*market|Click one of the options/i.test(message.content))
+                          ? ['WW', 'NA', 'EMEA']
+                          : []
+                      )
+                      return options.length > 0 ? (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>
+                          {options.map((opt) => (
+                            <Button
+                              key={String(opt)}
+                              variant="outlined"
+                              size="small"
+                              onClick={() => handleSendWithText(String(opt))}
+                              disabled={isSending}
+                              sx={{ textTransform: 'none' }}
+                            >
+                              {opt}
+                            </Button>
+                          ))}
+                        </Box>
+                      ) : null
+                    })()}
                     {message.sources && message.sources.length > 0 && (
                       <Box sx={{ mt: 2 }}>
                         <Accordion

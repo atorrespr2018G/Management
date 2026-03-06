@@ -17,10 +17,17 @@ export interface Source {
     } | null
 }
 
+/** Phase 1 (HPe) required selection: campaign or market options for user to click. */
+export interface Phase1RequiredSelection {
+    type: 'market' | 'campaign'
+    options: string[]
+}
+
 export interface ChatResponse {
     response: string
     sources: Source[]
     conversation_id: string
+    phase1_required_selection?: Phase1RequiredSelection
 }
 
 // A simulated user identifier
@@ -32,6 +39,8 @@ export interface ChatMessage {
     content: string;
     createdAt: string; // ISO string for serialization
     sources?: Source[];
+    /** When present, UI shows clickable options (e.g. market) for the user to select. */
+    phase1_required_selection?: Phase1RequiredSelection;
 }
 
 export interface ChatSession {
