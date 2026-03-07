@@ -448,7 +448,7 @@ export default function ChatPage() {
                             mt: 2,
                             borderRadius: 2,
                             overflow: 'hidden',
-                            bgcolor: '#5b9bd5',
+                            bgcolor: '#001f3f',
                             color: 'white',
                             boxShadow: 3,
                           }}
@@ -480,11 +480,11 @@ export default function ChatPage() {
                                   px: 2,
                                   py: 1.5,
                                   borderRadius: 1,
-                                  bgcolor: '#7eb8e8',
+                                  bgcolor: '#003366',
                                   mb: 1,
                                   cursor: isSending ? 'default' : 'pointer',
                                   '&:hover': {
-                                    bgcolor: isSending ? '#7eb8e8' : '#a3d0f5',
+                                    bgcolor: isSending ? '#003366' : '#004080',
                                   },
                                   '&:last-of-type': { mb: 0 },
                                 }}
