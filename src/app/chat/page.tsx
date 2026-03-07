@@ -27,6 +27,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import PersonIcon from '@mui/icons-material/Person'
 import SmartToyIcon from '@mui/icons-material/SmartToy'
 import MenuIcon from '@mui/icons-material/Menu'
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import { sendMessage, updateSessionTitle } from '@/services/chatApi'
 import { ChatMessage, ChatResponse, Source } from '@/types/chat'
 import { useDispatch, useSelector } from 'react-redux'
@@ -432,25 +433,82 @@ export default function ChatPage() {
                     </Typography>
                     {message.role === 'assistant' && (() => {
                       const selection = message.phase1_required_selection
-                      const options = selection?.options?.length ? selection.options : (
-                        (message.content && /select a.*market|Click one of the options/i.test(message.content))
-                          ? ['WW', 'NA', 'EMEA']
-                          : []
+                      const hasMarketPrompt = message.content && /select a.*market|Click one of the options/i.test(message.content)
+                      const options = (selection?.options?.length ? selection.options : null) ?? (
+                        hasMarketPrompt ? ['North America', 'WW'] : []
                       )
+                      const type = selection?.type ?? (hasMarketPrompt ? 'market' : 'campaign')
+                      const title = type === 'market' ? 'SELECT A MARKET' : 'SELECT A CAMPAIGN'
+                      const subtitle = type === 'market'
+                        ? 'Please confirm the market for this campaign to see budget and eligible vendors.'
+                        : 'Please confirm the campaign context for this activity.'
                       return options.length > 0 ? (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>
-                          {options.map((opt) => (
-                            <Button
-                              key={String(opt)}
-                              variant="outlined"
-                              size="small"
-                              onClick={() => handleSendWithText(String(opt))}
-                              disabled={isSending}
-                              sx={{ textTransform: 'none' }}
+                        <Box
+                          sx={{
+                            mt: 2,
+                            borderRadius: 2,
+                            overflow: 'hidden',
+                            bgcolor: '#5b9bd5',
+                            color: 'white',
+                            boxShadow: 3,
+                          }}
+                        >
+                          <Box sx={{ px: 2, pt: 2, pb: 1 }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 700, letterSpacing: 0.5 }}>
+                              {title}
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.75)', mt: 0.5 }}>
+                              {subtitle}
+                            </Typography>
+                          </Box>
+                          <Box
+                            sx={{
+                              maxHeight: 280,
+                              overflowY: 'auto',
+                              px: 1.5,
+                              pb: 1,
+                            }}
+                          >
+                            {options.map((opt) => (
+                              <Box
+                                key={String(opt)}
+                                onClick={() => !isSending && handleSendWithText(String(opt))}
+                                sx={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  px: 2,
+                                  py: 1.5,
+                                  borderRadius: 1,
+                                  bgcolor: '#7eb8e8',
+                                  mb: 1,
+                                  cursor: isSending ? 'default' : 'pointer',
+                                  '&:hover': {
+                                    bgcolor: isSending ? '#7eb8e8' : '#a3d0f5',
+                                  },
+                                  '&:last-of-type': { mb: 0 },
+                                }}
+                              >
+                                <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                                  {opt}
+                                </Typography>
+                                <CheckCircleOutlineIcon sx={{ color: 'success.main', fontSize: 22 }} />
+                              </Box>
+                            ))}
+                          </Box>
+                          <Box sx={{ px: 2, pb: 2, pt: 1, textAlign: 'right' }}>
+                            <Typography
+                              component="span"
+                              variant="caption"
+                              sx={{
+                                color: 'error.light',
+                                cursor: 'pointer',
+                                '&:hover': { textDecoration: 'underline' },
+                              }}
                             >
-                              {opt}
-                            </Button>
-                          ))}
+                              Cancel selection
+                            </Typography>
+                          </Box>
                         </Box>
                       ) : null
                     })()}
