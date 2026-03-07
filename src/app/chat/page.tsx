@@ -55,6 +55,7 @@ export default function ChatPage() {
   })
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const chatScrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const agentDataRef = useRef<HTMLDivElement>(null)
 
@@ -78,6 +79,27 @@ export default function ChatPage() {
   }, [])
 
   const latestAssistantMessage = activeSessionMessages.filter(m => m.role === 'assistant').slice(-1)[0]
+
+  // Keep chat scrolled to the end when messages update (run after DOM has new content)
+  useEffect(() => {
+    if (activeSessionMessages.length === 0) return
+    const scrollToEnd = () => {
+      const el = chatScrollRef.current
+      if (el) {
+        el.scrollTop = el.scrollHeight
+      }
+      // If the window is what scrolls (e.g. on mobile), bring end into view
+      messagesEndRef.current?.scrollIntoView({ block: 'nearest', behavior: 'auto' })
+    }
+    const t1 = setTimeout(scrollToEnd, 0)
+    const t2 = setTimeout(scrollToEnd, 100)
+    const t3 = setTimeout(scrollToEnd, 400)
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+      clearTimeout(t3)
+    }
+  }, [activeSessionMessages.length, activeSessionMessages])
 
   useEffect(() => {
     if (agentDataRef.current && latestAssistantMessage) {
@@ -352,6 +374,7 @@ export default function ChatPage() {
           >
             {/* Messages Area */}
             <Box
+              ref={chatScrollRef}
               sx={{
                 flexGrow: 1,
                 overflowY: 'auto',

@@ -90,17 +90,11 @@ const chatSlice = createSlice({
         },
     },
     extraReducers: (builder) => {
-        // Fetch Sessions
-        builder.addCase(fetchSessions.pending, (state) => {
-            state.isLoading = true;
-            state.error = null;
-        });
+        // Fetch Sessions (sidebar only — never set isLoading so chat messages stay visible)
         builder.addCase(fetchSessions.fulfilled, (state, action) => {
-            state.isLoading = false;
             state.sessions = action.payload;
         });
         builder.addCase(fetchSessions.rejected, (state, action) => {
-            state.isLoading = false;
             state.error = action.error.message || 'Failed to fetch sessions';
         });
 
